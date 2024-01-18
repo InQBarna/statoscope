@@ -5,19 +5,34 @@ import PackageDescription
 
 let package = Package(
     name: "Statoscope",
+    platforms: [
+      .iOS(.v13),
+      .macOS(.v10_15),
+      .tvOS(.v13),
+      .watchOS(.v6),
+    ],
     products: [
-        // Products define the executables and libraries a package produces, making them visible to other packages.
         .library(
             name: "Statoscope",
-            targets: ["Statoscope"]),
+            targets: ["Statoscope"]
+        ),
+        .library(
+            name: "StatoscopeTesting",
+            targets: ["StatoscopeTesting"]
+        ),
     ],
     targets: [
-        // Targets are the basic building blocks of a package, defining a module or a test suite.
-        // Targets can depend on other targets in this package and products from dependencies.
         .target(
-            name: "Statoscope"),
+            name: "Statoscope",
+            path: "Sources/Statoscope"
+        ),
+        .target(
+            name: "StatoscopeTesting",
+            dependencies: ["Statoscope"],
+            path: "Sources/StatoscopeTesting"
+        ),
         .testTarget(
             name: "StatoscopeTests",
-            dependencies: ["Statoscope"]),
+            dependencies: ["Statoscope", "StatoscopeTesting"]),
     ]
 )
