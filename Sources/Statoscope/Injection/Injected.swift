@@ -14,7 +14,7 @@ public struct Injected<Value: Injectable> {
         self.overwrittingValue = overwrittingValue
     }
 #if false
-    // Need some mechanism to invalidate this cached value, to be created
+    // Need some mechanism to invalidate this cached value, to be created and then we can recover caches
     private var cachedValue: Value?
 #endif
     public static subscript<T: ChainLink>(

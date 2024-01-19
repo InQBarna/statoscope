@@ -7,13 +7,11 @@
 
 import Foundation
 
-// TODO: private ChainLinkProtocol
-public protocol ChainLinkProtocol {
+public protocol ChainLinkProtocol { 
     var parentAssigned: Bool { get }
     var exprParent: AnyWeakChainLink? { get }
     func assignChild<Value: ChainLinkProtocol>(_: Value?)
 }
-
 public protocol ChainLink: ChainLinkProtocol, AnyObject { }
 
 public class AnyWeakChainLink {
@@ -56,9 +54,11 @@ final class WeakChainLink<D: ChainLink>: AnyWeakChainLink {
     }
 }
 
-fileprivate var injectionStoreKey: UInt8 = 43
-fileprivate var parentStoreKey: UInt8 = 43
-fileprivate var childrenStoreKey: UInt8 = 43
+// Objc runtime associated object keys
+fileprivate var injectionStoreKey: UInt8 = 0
+fileprivate var parentStoreKey: UInt8 = 0
+fileprivate var childrenStoreKey: UInt8 = 0
+
 extension ChainLink {
     fileprivate var children: NSMutableArray { // [AnyWeakTreeNode] {
         get {
@@ -75,22 +75,26 @@ extension ChainLink {
             return associatedObject(base: self, key: &injectionStoreKey, initialiser: { InjectionStore() })
         }
     }
-    @discardableResult
-    public func injectSuperscope<T: AnyObject>(_ obj: T) -> Self {
-        injectionStore.registerValue(obj)
-        return self
-    }
-    @discardableResult
-    public func injectObject<T>(_ obj: T) -> Self {
-        injectionStore.registerValue(obj)
-        return self
-    }
-    // remote fileprivate and expose for easier rootable implementation
+    
     fileprivate func resolve<T>() throws -> T {
         try injectionStore.resolve()
     }
+}
 
-    // Implementing ChainLinkProtocol
+public extension ChainLink {
+    
+    @discardableResult
+    func injectSuperscope<T: AnyObject>(_ obj: T) -> Self {
+        injectionStore.registerValue(obj)
+        return self
+    }
+    
+    @discardableResult
+    func injectObject<T>(_ obj: T) -> Self {
+        injectionStore.registerValue(obj)
+        return self
+    }
+
     var exprParent: AnyWeakChainLink? { parent }
     var parentAssigned: Bool { parent?.anyLink != nil }
     func assignChild<Value>(_ child: Value?) where Value : ChainLinkProtocol {
@@ -105,6 +109,7 @@ extension ChainLink {
 
 // ChainLink Maintenance and log
 extension ChainLink {
+
     func cleanupChildren() {
         let allChildren = children
             .map { $0 as! AnyWeakChainLink }
@@ -115,6 +120,7 @@ extension ChainLink {
             .filter { $0.anyLink == nil }
         children.removeObjects(in: discardable)
     }
+
     fileprivate var treeDescription: [String] {
         [
             [
@@ -125,6 +131,7 @@ extension ChainLink {
         ]
             .flatMap { $0 }
     }
+
     var root: ChainLink {
         var node: ChainLink = self
         while let parent = node.parent?.anyLink {
@@ -132,19 +139,23 @@ extension ChainLink {
         }
         return node
     }
+
     func printRootTree(whitespaces: Int = 0) {
         getPrintRootTree().forEach {
             print($0)
         }
     }
+
     func getPrintRootTree(whitespaces: Int = 0) -> [String] {
         root.getPrintTree(whitespaces: whitespaces)
     }
+
     func printTree(whitespaces: Int = 0) {
         getPrintTree().forEach {
             print($0)
         }
     }
+
     func getPrintTree(whitespaces: Int = 0) -> [String] {
         let whitespacesString = (0...whitespaces).map { _ in " " }.joined()
         let selfAndDepsDescription = treeDescription
@@ -199,15 +210,15 @@ extension ChainLink {
 
 public extension ChainLinkProtocol {
     var exprParent: AnyWeakChainLink? {
-        fatalError("Don't try implementing ExpressibleAsInjectionTreeNode, " +
+        fatalError("Don't try implementing ChainLinkProtocol, " +
                    " this is an internal helper for optional-nonoptional property wrapping")
     }
     func assignChild<Value: ChainLinkProtocol>(_: Value?) {
-        fatalError("Don't try implementing ExpressibleAsInjectionTreeNode, " +
+        fatalError("Don't try implementing ChainLinkProtocol, " +
                    " this is an internal helper for optional-nonoptional property wrapping")
     }
     var parentAssigned: Bool {
-        fatalError("Don't try implementing ExpressibleAsInjectionTreeNode, " +
+        fatalError("Don't try implementing ChainLinkProtocol, " +
                    " this is an internal helper for optional-nonoptional property wrapping")
     }
 }

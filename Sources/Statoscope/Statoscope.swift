@@ -8,7 +8,7 @@
 import Foundation
 
 public protocol ScopeProtocol: AnyObject {
-    var erasedEffects: [any Effect] { get }
+    var effects: [any Effect] { get }
     func clearEffects()
 }
 
@@ -26,21 +26,6 @@ public protocol EffectError {
 }
 
 public protocol Scope: Statoscope & ScopeProtocol & ChainLink { }
-
-// Default Implementations
-public struct StatoscopeLogger {
-    public static var logEnabled: Bool = false
-    static func LOG(_ string: String) {
-        if Self.logEnabled {
-            print("[SCOPE]: \(string)")
-        }
-    }
-    fileprivate static func LOG(prefix: String, _ string: String) {
-        if Self.logEnabled {
-            print("[SCOPE]: \(prefix) \(string)")
-        }
-    }
-}
 
 extension Statoscope {
     func LOG(_ string: String) {
@@ -64,8 +49,6 @@ extension Statoscope {
         "\(type(of: self))"
     }
 }
-
-extension String: Error {}
 
 public var scopeEffectsDisabledInUnitTests: Bool = nil != NSClassFromString("XCTest")
 fileprivate let scopeEffectsDisabledInPreviews: Bool = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
@@ -92,7 +75,7 @@ extension Scope {
             return
         }
         guard !scopeEffectsDisabledInPreviews else {
-            throw "Effects disabled for previews"
+            throw StatoscopeErrors.effectsDisabledForPreviews
         }
         assert(Thread.current.isMainThread, "For pending/ongoingEffects thread safety")
         let logPrefix = "\(type(of: self)) (\(Unmanaged.passUnretained(self).toOpaque())): "
@@ -139,10 +122,7 @@ extension Scope {
             }
         }
     }
-    public var effects: [AnyEffect<When>] {
-        return effectsHandler.pendingEffects + effectsHandler.ongoingEffects.map { $0.1 }
-    }
-    public var erasedEffects: [any Effect] {
+    public var effects: [any Effect] {
         return (effectsHandler.pendingEffects + effectsHandler.ongoingEffects.map { $0.1 })
             .map { $0.wrappedEffect }
     }
@@ -175,16 +155,16 @@ extension Statoscope {
     }
 }
 
-fileprivate var effectsHanlderStoreKey: UInt8 = 44
+fileprivate var effectsHandlerStoreKey: UInt8 = 0
 private extension Scope {
     var effectsHandler: EffectsHandler<When> {
         get {
-            return associatedObject(base: self, key: &effectsHanlderStoreKey, initialiser: { EffectsHandler<When>() })
+            return associatedObject(base: self, key: &effectsHandlerStoreKey, initialiser: { EffectsHandler<When>() })
         }
     }
 }
 
-public final class EffectsHandler<When: Sendable> {
+final class EffectsHandler<When: Sendable> {
     fileprivate var pendingEffects: [AnyEffect<When>] = []
     fileprivate var ongoingEffects: [(UUID, AnyEffect<When>)] = []
     #if false
@@ -287,12 +267,8 @@ public final class EffectsHandler<When: Sendable> {
     }
 }
 
-public struct InvalidStateError: Error {
-    public init() {}
-}
-
 // Helper so we detect Scope release and cancel effects on deinit
-fileprivate var deinitObserverStoreKey: UInt8 = 45
+fileprivate var deinitObserverStoreKey: UInt8 = 0
 fileprivate class DeinitObserver {
     let execute: () -> ()
     init(execute: @escaping () -> ()) {
@@ -302,6 +278,7 @@ fileprivate class DeinitObserver {
         execute()
     }
 }
+
 fileprivate extension Scope {
     var deinitObserver: DeinitObserver? {
         get {
@@ -318,58 +295,5 @@ fileprivate extension Scope {
                 handler?.cancellAllTasks()
             }
         }
-    }
-}
-
-//
-// A property wrapper that triggers an objectwillChange on containing ObserverObject
-//  when an objectWillChange in triggered in contained object
-// The parent object is weakly retained so it must be used on
-//  parent -> child --HERE--> parent pointers
-//
-import Combine
-@propertyWrapper
-struct ParentObservedObject<NestedType: ObservableObject & ScopeProtocol & Injectable> {
-    private weak var parentObject: NestedType?
-    private var cancellable: AnyCancellable?
-    
-    init(_ parentObject: NestedType) {
-        self.parentObject = parentObject
-    }
-    
-    @available(*, unavailable,
-        message: "This property wrapper can only be applied to classes"
-    )
-    var wrappedValue: NestedType {
-        get { fatalError() }
-        set { fatalError() }
-    }
-    static subscript<EnclosingType: ObservableObject & ScopeProtocol>(
-        _enclosingInstance childInstance: EnclosingType,
-        wrapped wrappedKeyPath: ReferenceWritableKeyPath<EnclosingType, NestedType>,
-        storage storageKeyPath: ReferenceWritableKeyPath<EnclosingType, Self>
-    ) -> NestedType {
-        get {
-            let parentInstance = childInstance[keyPath: storageKeyPath].parentObject ?? NestedType.defaultValue
-            if nil == childInstance[keyPath: storageKeyPath].cancellable {
-                childInstance[keyPath: storageKeyPath].cancellable = parentInstance.objectWillChange.sink(receiveValue: { [weak childInstance] _ in
-                    // no compila lo de debajo ??
-                    // instance?.objectWillChange.send()
-                    if let publisher = childInstance?.objectWillChange {
-                        (publisher as! ObservableObjectPublisher).send()
-                    }
-                })
-            }
-            return parentInstance
-        }
-        set {
-            fatalError()
-        }
-    }
-}
-
-extension ObservableObject where Self: ScopeProtocol & Injectable {
-    func toParentObservable() -> ParentObservedObject<Self> {
-        ParentObservedObject(self)
     }
 }

@@ -61,7 +61,7 @@ class ScopeOngoingEffectsPropertyTests: XCTestCase {
         sut.send(.sendWaitEffect(Self.firstEffectMilliseconds))
         XCTAssertEffectsInclude(sut, WaitMillisecondsEffect(milliseconds: Self.firstEffectMilliseconds))
         await fulfillment(of: [effectCompletionExpectation], timeout: 5)
-        XCTAssertEqual(sut.erasedEffects.count, 0)
+        XCTAssertEqual(sut.effects.count, 0)
     }
     
     @MainActor
@@ -89,7 +89,7 @@ class ScopeOngoingEffectsPropertyTests: XCTestCase {
         XCTAssertEqual(sut.effects.count, 1)
         XCTAssertEffectsInclude(sut, WaitMillisecondsEffect(milliseconds: Self.secondEffectMilliseconds))
         await fulfillment(of: [effect2CompletionExpectation], timeout: 5)
-        XCTAssertEqual(sut.erasedEffects.count, 0)
+        XCTAssertEqual(sut.effects.count, 0)
     }
 }
 
@@ -112,6 +112,7 @@ class ScopeEffectsCancellationTests: XCTestCase {
         func runEffect() async throws -> Bool {
             do {
                 try await Task.sleep(nanoseconds: milliseconds * 1000_000)
+                try Task.checkCancellation()
                 XCTFail("This effect is meant to be cancelled")
                 return false
             } catch is CancellationError {
@@ -224,6 +225,10 @@ class ScopeEffectsCancellationTests: XCTestCase {
 }
 
 class ScopeEffectsThrowingTests: XCTestCase {
+    
+    enum ScopeEffectsThrowingTestsError: Error {
+        case forcedError
+    }
     
     override func setUp() async throws {
         StatoscopeLogger.logEnabled = true
@@ -368,7 +373,7 @@ class ScopeEffectsThrowingTests: XCTestCase {
         let throwError: Bool
         func runEffect() async throws -> Void {
             if throwError {
-                throw "Unexpected unknown-type error"
+                throw ScopeEffectsThrowingTestsError.forcedError
             } else {
                 try await Task.sleep(nanoseconds: milliseconds * 1000_000)
             }

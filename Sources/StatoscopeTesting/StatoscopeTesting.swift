@@ -330,7 +330,7 @@ public func XCTAssertEffectsInclude<Scope, T2>(
     do {
         let sut = try expression1()
         let expected = try expression2()
-        guard let effs = sut?.erasedEffects else {
+        guard let effs = sut?.effects else {
             XCTFail("Effects on NIL sut \(type(of: sut)) do not include \(expected)", file: file, line: line)
             return
         }
@@ -353,7 +353,7 @@ extension StatoscopeTestPlan {
         _ enquedEffect: EffectType
     ) throws -> Self {
         addStep { sut in
-            let correctYypeEffects = sut.erasedEffects.filter { $0 is EffectType }
+            let correctYypeEffects = sut.effects.filter { $0 is EffectType }
             guard correctYypeEffects.count > 0 else {
                 XCTFail("No effect of type \(EffectType.self) on sut \(type(of: sut)): \(correctYypeEffects)", file: file, line: line)
                 return
@@ -377,7 +377,7 @@ extension StatoscopeTestPlan {
                 XCTFail("No subscope found on \(type(of: supersut)) of type \(Subscope.self): when looking for effects", file: file, line: line)
                 return
             }
-            let correctYypeEffects = sut.erasedEffects.filter { $0 is EffectType }
+            let correctYypeEffects = sut.effects.filter { $0 is EffectType }
             guard correctYypeEffects.count > 0 else {
                 XCTFail("No effect of type \(EffectType.self) on sut \(type(of: sut)): \(correctYypeEffects)", file: file, line: line)
                 return
@@ -398,7 +398,7 @@ extension StatoscopeTestPlan {
     ) throws -> Self {
         addStep { supersut in
             let sut = supersut[keyPath: keyPath]
-            let correctYypeEffects = sut.erasedEffects.filter { $0 is EffectType }
+            let correctYypeEffects = sut.effects.filter { $0 is EffectType }
             guard correctYypeEffects.count > 0 else {
                 XCTFail("No effect of type \(EffectType.self) on sut \(type(of: sut)): \(correctYypeEffects)", file: file, line: line)
                 return
@@ -418,7 +418,7 @@ extension StatoscopeTestPlan {
         equals expectedValue: AcceptableKP
     ) throws -> Self {
         addStep { sut in
-            let correctYypeEffects = sut.erasedEffects.filter { $0 is EffectType }
+            let correctYypeEffects = sut.effects.filter { $0 is EffectType }
             guard correctYypeEffects.count > 0 else {
                 XCTFail("No effect of type \(EffectType.self) on sut \(type(of: sut)): \(correctYypeEffects)", file: file, line: line)
                 return

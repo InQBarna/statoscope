@@ -45,7 +45,7 @@ extension ScopeProtocol {
             ifChildScope(child, except: except) { child, _, newExcept in
                 let scopeName = "\(child)"
                 var existing = foundEffects[scopeName] ?? [Any]()
-                existing.append(contentsOf: child.erasedEffects)
+                existing.append(contentsOf: child.effects)
                 foundEffects[scopeName] = existing
                 child.pendingEffectsIterative(except: newExcept, foundEffects: &foundEffects)
             }

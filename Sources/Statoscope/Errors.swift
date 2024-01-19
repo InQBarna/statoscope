@@ -6,3 +6,20 @@
 //
 
 import Foundation
+
+public struct InvalidStateError: Error {
+    public init() {}
+}
+
+public struct NoInjectedValueFound: Error {
+    let type: String
+    init<T>(_ type: T) {
+        self.type = String(describing: type).removeOptionalDescription
+    }
+}
+
+public struct ReadOnlyInjectionProperty: Error { }
+
+public enum StatoscopeErrors: Error {
+    case effectsDisabledForPreviews
+}

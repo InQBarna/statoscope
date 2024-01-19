@@ -17,6 +17,12 @@ import Combine
 //
 @propertyWrapper
 public struct Subscope<Value: ChainLinkProtocol> {
+
+    private var storage: Value
+
+    public init(wrappedValue: Value) {
+        storage = wrappedValue
+    }
     
     static private func assignChildChain<T: ChainLink & ObservableObject>(
         _ enclosingInstance: T,
@@ -64,11 +70,5 @@ public struct Subscope<Value: ChainLinkProtocol> {
     public var wrappedValue: Value {
         get { fatalError() }
         set { fatalError() }
-    }
-
-    private var storage: Value
-
-    public init(wrappedValue: Value) {
-        storage = wrappedValue
     }
 }
