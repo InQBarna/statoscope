@@ -7,7 +7,7 @@
 
 import Foundation
 
-protocol Injectable {
+public protocol Injectable {
     static var defaultValue: Self { get }
 }
 

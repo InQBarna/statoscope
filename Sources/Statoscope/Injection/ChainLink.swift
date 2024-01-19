@@ -7,6 +7,7 @@
 
 import Foundation
 
+// TODO: private ChainLinkProtocol
 public protocol ChainLinkProtocol {
     var parentAssigned: Bool { get }
     var exprParent: AnyWeakChainLink? { get }
@@ -75,12 +76,12 @@ extension ChainLink {
         }
     }
     @discardableResult
-    func injectSuperscope<T: AnyObject>(_ obj: T) -> Self {
+    public func injectSuperscope<T: AnyObject>(_ obj: T) -> Self {
         injectionStore.registerValue(obj)
         return self
     }
     @discardableResult
-    func injectObject<T>(_ obj: T) -> Self {
+    public func injectObject<T>(_ obj: T) -> Self {
         injectionStore.registerValue(obj)
         return self
     }
@@ -196,7 +197,7 @@ extension ChainLink {
     }
 }
 
-extension ChainLinkProtocol {
+public extension ChainLinkProtocol {
     var exprParent: AnyWeakChainLink? {
         fatalError("Don't try implementing ExpressibleAsInjectionTreeNode, " +
                    " this is an internal helper for optional-nonoptional property wrapping")

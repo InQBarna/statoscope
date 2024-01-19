@@ -2,7 +2,7 @@
 //  Statetoscope.swift
 //  familymealplan
 //
-//  Created by Sergi Hernanz on 9/6/22.
+//  Created by Sergi Hernanz on 18/1/24.
 //
 
 import Foundation
@@ -28,8 +28,8 @@ public protocol EffectError {
 public protocol Scope: Statoscope & ScopeProtocol & ChainLink { }
 
 // Default Implementations
-struct StatoscopeLogger {
-    static var logEnabled: Bool = false
+public struct StatoscopeLogger {
+    public static var logEnabled: Bool = false
     static func LOG(_ string: String) {
         if Self.logEnabled {
             print("[SCOPE]: \(string)")
@@ -82,7 +82,7 @@ extension Scope {
         try? runEffectAndSendResult()
     }
     #endif
-    func enqueue<E: Effect>(_ effect: E) where E.ResType == When {
+    public func enqueue<E: Effect>(_ effect: E) where E.ResType == When {
         effectsHandler.enqueue(effect)
         try? runEffectAndSendResult()
     }
@@ -139,14 +139,14 @@ extension Scope {
             }
         }
     }
-    var effects: [AnyEffect<When>] {
+    public var effects: [AnyEffect<When>] {
         return effectsHandler.pendingEffects + effectsHandler.ongoingEffects.map { $0.1 }
     }
-    var erasedEffects: [any Effect] {
+    public var erasedEffects: [any Effect] {
         return (effectsHandler.pendingEffects + effectsHandler.ongoingEffects.map { $0.1 })
-            .map { $0.effectType }
+            .map { $0.wrappedEffect }
     }
-    func clearEffects() {
+    public func clearEffects() {
         effectsHandler.clearPending()
     }
 
@@ -168,7 +168,7 @@ extension Scope {
 }
 
 extension Statoscope {
-    func set<T>(_ keyPath: WritableKeyPath<Self, T>, _ value: T) -> Self {
+    public func set<T>(_ keyPath: WritableKeyPath<Self, T>, _ value: T) -> Self {
         var copy = self
         copy[keyPath: keyPath] = value
         return copy
@@ -250,7 +250,7 @@ public final class EffectsHandler<When: Sendable> {
     @discardableResult
     fileprivate func cancelEffect(logPrefix: String, where whereBlock: (any Effect) -> Bool) -> [(UUID, any Effect)] {
         let cancellables = ongoingEffects
-            .map { ($0.0, $0.1.effectType) }
+            .map { ($0.0, $0.1.wrappedEffect) }
             .filter { whereBlock($0.1) }
         cancellables.forEach { effect in
             StatoscopeLogger.LOG(prefix: logPrefix, "🪃 ✋ CANCELLING \(effect)")

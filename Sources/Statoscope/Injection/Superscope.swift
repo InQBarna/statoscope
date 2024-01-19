@@ -9,11 +9,11 @@ import Foundation
 import Combine
 
 @propertyWrapper
-struct Superscope<Value: Injectable & ObservableObject> {
+public struct Superscope<Value: Injectable & ObservableObject> {
     private var observed: Bool = false
     private var cancellable: AnyCancellable?
     private var overwrittingValue: Value?
-    static subscript<T: ChainLink & ObservableObject>(
+    public static subscript<T: ChainLink & ObservableObject>(
         _enclosingInstance enclosingInstance: T,
         wrapped wrappedKeyPath: ReferenceWritableKeyPath<T, Value>,
         storage storageKeyPath: ReferenceWritableKeyPath<T, Self>
@@ -56,12 +56,12 @@ struct Superscope<Value: Injectable & ObservableObject> {
     @available(*, unavailable,
         message: "@Superscope can only be applied to Injectable"
     )
-    var wrappedValue: Value {
+    public var wrappedValue: Value {
         get { fatalError() }
         set { fatalError() }
     }
     
-    init(observed: Bool = false) {
+    public init(observed: Bool = false) {
         self.observed = observed
     }
 }

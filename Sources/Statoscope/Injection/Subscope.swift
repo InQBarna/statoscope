@@ -16,7 +16,7 @@ import Combine
 //  so it can navigate thru all model->submodel-> hierarchy for injection and debug
 //
 @propertyWrapper
-struct Subscope<Value: ChainLinkProtocol> {
+public struct Subscope<Value: ChainLinkProtocol> {
     
     static private func assignChildChain<T: ChainLink & ObservableObject>(
         _ enclosingInstance: T,
@@ -33,7 +33,7 @@ struct Subscope<Value: ChainLinkProtocol> {
         }
     }
     
-    static subscript<T: ChainLink & ObservableObject>(
+    public static subscript<T: ChainLink & ObservableObject>(
         _enclosingInstance enclosingInstance: T,
         wrapped wrappedKeyPath: ReferenceWritableKeyPath<T, Value>,
         storage storageKeyPath: ReferenceWritableKeyPath<T, Self>
@@ -61,14 +61,14 @@ struct Subscope<Value: ChainLinkProtocol> {
     @available(*, unavailable,
         message: "@Published can only be applied to classes"
     )
-    var wrappedValue: Value {
+    public var wrappedValue: Value {
         get { fatalError() }
         set { fatalError() }
     }
 
     private var storage: Value
 
-    init(wrappedValue: Value) {
+    public init(wrappedValue: Value) {
         storage = wrappedValue
     }
 }

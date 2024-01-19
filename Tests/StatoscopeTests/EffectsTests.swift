@@ -2,7 +2,7 @@
 //  EffectsTests.swift
 //  familymealplanTests
 //
-//  Created by Sergi Hernanz on 20/11/23.
+//  Created by Sergi Hernanz on 18/1/24.
 //
 
 import Foundation
@@ -128,7 +128,8 @@ class ScopeEffectsCancellationTests: XCTestCase {
         enum When {
             case sendWaitEffect(UInt64)
             case anyEffectCompleted(Bool)
-            case cancellAllEffects
+            case cancelAllEffects
+            case cancelSingleEffectWithEqual(UInt64)
         }
         func update(_ when: When) throws {
             switch when {
@@ -141,9 +142,18 @@ class ScopeEffectsCancellationTests: XCTestCase {
                 Task {
                     await completeAnyEffect(cancelled)
                 }
-            case .cancellAllEffects:
+            case .cancelAllEffects:
                 cancelEffect { effect in
                     effect is WaitMillisecondsEffectReturnCancelled
+                }
+            case .cancelSingleEffectWithEqual(let milliseconds):
+                cancelEffect { anyEffect in
+                    if let effect = anyEffect as? WaitMillisecondsEffectReturnCancelled,
+                       effect == WaitMillisecondsEffectReturnCancelled(milliseconds: milliseconds) {
+                        return true
+                    } else {
+                        return false
+                    }
                 }
             }
         }
@@ -179,6 +189,23 @@ class ScopeEffectsCancellationTests: XCTestCase {
     }
     
     @MainActor
+    func testCancelAllEffectsProgrammatically() async throws {
+        let effectCompletionExpectation = expectation(description: #function)
+        effectCompletionExpectation.isInverted = true
+        let sut = SimpleScopeWithEffect()
+        let cancelledActor: CancelledActor = CancelledActor()
+        sut.completeAnyEffect = { cancelled in
+            await cancelledActor.setCancelled(cancelled)
+            effectCompletionExpectation.fulfill()
+        }
+        sut.send(.sendWaitEffect(Self.effectMilliseconds))
+        sut.send(.cancelAllEffects)
+        let cancelled = await cancelledActor.cancelled
+        XCTAssertNil(cancelled, "completion should never be called")
+        await fulfillment(of: [effectCompletionExpectation], timeout: 3)
+    }
+    
+    @MainActor
     func testCancelEffectProgrammatically() async throws {
         let effectCompletionExpectation = expectation(description: #function)
         effectCompletionExpectation.isInverted = true
@@ -189,7 +216,7 @@ class ScopeEffectsCancellationTests: XCTestCase {
             effectCompletionExpectation.fulfill()
         }
         sut.send(.sendWaitEffect(Self.effectMilliseconds))
-        sut.send(.cancellAllEffects)
+        sut.send(.cancelSingleEffectWithEqual(Self.effectMilliseconds))
         let cancelled = await cancelledActor.cancelled
         XCTAssertNil(cancelled, "completion should never be called")
         await fulfillment(of: [effectCompletionExpectation], timeout: 3)

@@ -12,21 +12,8 @@ public protocol Effect: Equatable {
     func runEffect() async throws -> ResType
 }
 
-fileprivate struct EffectBox<ResType>: Effect, CustomDebugStringConvertible {
-    let runner: () async throws -> ResType
-    func runEffect() async throws -> ResType {
-        try await runner()
-    }
-    static func == (lhs: EffectBox<ResType>, rhs: EffectBox<ResType>) -> Bool {
-        return false
-    }
-    public var debugDescription: String {
-        "AnonymousEffect(closure: \(String(describing: runner)))"
-    }
-}
-
 private extension Effect {
-    var resTypeDescription: String {
+    var resultTypeDescription: String {
         "\(type(of: ResType.self))"
             .replacingOccurrences(of: ".Type", with: "")
     }
@@ -34,20 +21,34 @@ private extension Effect {
 
 public struct AnyEffect<ResType>: Effect, Equatable, CustomDebugStringConvertible, Sendable {
     
-    let effectType: any Effect & Sendable
+    // Helper struct EffectBox
+    private struct EffectBox<EBResType>: Effect, CustomDebugStringConvertible {
+        let runner: () async throws -> EBResType
+        func runEffect() async throws -> EBResType {
+            try await runner()
+        }
+        static func == (lhs: EffectBox<EBResType>, rhs: EffectBox<EBResType>) -> Bool {
+            return false
+        }
+        public var debugDescription: String {
+            "AnonymousEffect(closure: \(String(describing: runner)))"
+        }
+    }
+    
+    let wrappedEffect: any Effect & Sendable
     let runner: @Sendable () async throws -> ResType
     
     // Init with block
-    init(_ runner: @escaping () async throws -> ResType) {
+    public init(_ runner: @escaping () async throws -> ResType) {
         self.init(effect: EffectBox(runner: runner))
     }
     
     // Init when effect returns When
-    init<E: Effect>(effect: E) where E.ResType == ResType {
+    public init<E: Effect>(effect: E) where E.ResType == ResType {
         if let anyEffect = effect as? AnyEffect<E.ResType> {
-            effectType = anyEffect.effectType
+            wrappedEffect = anyEffect.wrappedEffect
         } else {
-            effectType = effect
+            wrappedEffect = effect
         }
         runner = {
             try await effect.runEffect()
@@ -55,28 +56,29 @@ public struct AnyEffect<ResType>: Effect, Equatable, CustomDebugStringConvertibl
     }
     
     // Init with mapper for effect -> When
-    fileprivate init<E: Effect>(
+    init<E: Effect>(
         _ effect: E,
         mapper: @escaping (E.ResType) -> ResType
     ) {
         if let anyEffect = effect as? AnyEffect<E.ResType> {
-            effectType = anyEffect.effectType
+            wrappedEffect = anyEffect.wrappedEffect
         } else {
-            effectType = effect
+            wrappedEffect = effect
         }
         runner = {
             mapper(try await effect.runEffect())
         }
     }
     
-    fileprivate init<E: Effect, ErrorType: Error>(
+    // Init with error mapper for throwing effect
+    init<E: Effect, ErrorType: Error>(
         _ effect: E,
         errorMapper: @escaping (Error) -> ErrorType
     ) where ResType == Result<E.ResType, ErrorType> {
         if let anyEffect = effect as? AnyEffect<E.ResType> {
-            effectType = anyEffect.effectType
+            wrappedEffect = anyEffect.wrappedEffect
         } else {
-            effectType = effect
+            wrappedEffect = effect
         }
         runner = {
             do {
@@ -92,17 +94,18 @@ public struct AnyEffect<ResType>: Effect, Equatable, CustomDebugStringConvertibl
     }
     
     public static func == (lhs: AnyEffect<ResType>, rhs: AnyEffect<ResType>) -> Bool {
-        return "\(lhs.effectType)" == "\(rhs.effectType)"
+        assertionFailure("We can assume effect description is unique, but better don't rely on this equatable implementation")
+        return "\(lhs.wrappedEffect)" == "\(rhs.wrappedEffect)"
     }
     
     public var debugDescription: String {
-        return "\(effectType): \(effectType.resTypeDescription)"
+        return "\(wrappedEffect): \(wrappedEffect.resultTypeDescription)"
     }
 }
 
 extension Effect {
 
-    func eraseToAnyEffect() -> AnyEffect<ResType> {
+    public func eraseToAnyEffect() -> AnyEffect<ResType> {
         AnyEffect(effect: self)
     }
 
