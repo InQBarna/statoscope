@@ -21,10 +21,6 @@ public protocol Statoscope: AnyObject {
     func unsafeSend(_ when: When) throws -> Self
 }
 
-public protocol EffectError {
-    static var unknownError: Self { get }
-}
-
 public protocol Scope: Statoscope & ScopeProtocol & ChainLink { }
 
 extension Statoscope {

@@ -67,6 +67,7 @@ public struct Subscope<Value: ChainLinkProtocol> {
     @available(*, unavailable,
         message: "@Published can only be applied to classes"
     )
+
     public var wrappedValue: Value {
         get { fatalError() }
         set { fatalError() }

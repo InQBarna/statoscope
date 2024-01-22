@@ -220,6 +220,30 @@ extension StatoscopeTestPlan {
     }
     
     @discardableResult
+    public func THEN_NotNil<AcceptableKP>(
+        file: StaticString = #file, line: UInt = #line,
+        _ keyPath: KeyPath<T, AcceptableKP>
+    ) throws -> Self {
+        addStep { sut in
+            XCTAssertNotNil(sut[keyPath: keyPath], file: file, line: line)
+            // assertNoDeepEffects(file: file, line: line)
+            // sut.clearEffects() // only cleared on next WHEN
+        }
+    }
+    
+    @discardableResult
+    public func THEN_Nil<AcceptableKP>(
+        file: StaticString = #file, line: UInt = #line,
+        _ keyPath: KeyPath<T, AcceptableKP>
+    ) throws -> Self {
+        addStep { sut in
+            XCTAssertNil(sut[keyPath: keyPath], file: file, line: line)
+            // assertNoDeepEffects(file: file, line: line)
+            // sut.clearEffects() // only cleared on next WHEN
+        }
+    }
+    
+    @discardableResult
     public func ThrowsWHEN(file: StaticString = #file, line: UInt = #line, _ when: T.When) -> Self {
         addStep { sut in
             // assertNoDeepEffects(file: file, line: line)

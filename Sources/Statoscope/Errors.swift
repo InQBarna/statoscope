@@ -23,3 +23,8 @@ public struct ReadOnlyInjectionProperty: Error { }
 public enum StatoscopeErrors: Error {
     case effectsDisabledForPreviews
 }
+
+public protocol EffectError {
+    static var unknownError: Self { get }
+}
+

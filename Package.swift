@@ -21,6 +21,9 @@ let package = Package(
             targets: ["StatoscopeTesting"]
         ),
     ],
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-docc-plugin", branch: "main"),
+    ],
     targets: [
         .target(
             name: "Statoscope",

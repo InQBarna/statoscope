@@ -9,14 +9,17 @@ import Foundation
 
 @propertyWrapper
 public struct Injected<Value: Injectable> {
+
     private var overwrittingValue: Value?
-    public init(overwrittingValue: Value? = nil) {
-        self.overwrittingValue = overwrittingValue
-    }
 #if false
     // Need some mechanism to invalidate this cached value, to be created and then we can recover caches
     private var cachedValue: Value?
 #endif
+
+    public init(overwrittingValue: Value? = nil) {
+        self.overwrittingValue = overwrittingValue
+    }
+
     public static subscript<T: ChainLink>(
         _enclosingInstance enclosingInstance: T,
         wrapped wrappedKeyPath: ReferenceWritableKeyPath<T, Value>,
@@ -50,9 +53,11 @@ public struct Injected<Value: Injectable> {
             }
         }
     }
+
     @available(*, unavailable,
         message: "@Injected can only be applied to classes"
     )
+
     public var wrappedValue: Value {
         get { fatalError() }
         set { fatalError() }
