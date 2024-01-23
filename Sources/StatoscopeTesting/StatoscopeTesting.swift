@@ -234,7 +234,7 @@ extension StatoscopeTestPlan {
     @discardableResult
     public func THEN_Nil<AcceptableKP>(
         file: StaticString = #file, line: UInt = #line,
-        _ keyPath: KeyPath<T, AcceptableKP>
+        _ keyPath: KeyPath<T, AcceptableKP?>
     ) throws -> Self {
         addStep { sut in
             XCTAssertNil(sut[keyPath: keyPath], file: file, line: line)
