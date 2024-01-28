@@ -51,84 +51,65 @@ fileprivate let scopeEffectsDisabledInPreviews: Bool = ProcessInfo.processInfo.e
 
 extension Scope {
     public func unsafeSend(_ when: When) throws -> Self {
-        try update(when)
-        try runEffectAndSendResult()
+        if let middleware = middleWare {
+            guard let mappedWhen = try middleware.middleWare(self, when) else {
+                return self
+            }
+            try update(mappedWhen)
+        } else {
+            try update(when)
+        }
+        try runEnqueuedEffectAndGetWhenResults()
         return self
     }
     #if false
     func enqueueAnonymous(_ effect: AnyEffect<When>) {
         effectsHandler.enqueueAnonymous(effect)
-        try? runEffectAndSendResult()
+        try? runEnqueuedEffectAndGetWhenResults()
     }
     #endif
     public func enqueue<E: Effect>(_ effect: E) where E.ResType == When {
         effectsHandler.enqueue(effect)
-        try? runEffectAndSendResult()
+        try? runEnqueuedEffectAndGetWhenResults()
     }
     
-    private func runEffectAndSendResult() throws {
+    public func addMiddleWare(_ update: @escaping (Self, When) throws -> When?) -> Self {
+        if let existingMiddleware = middleWare {
+            middleWare = MiddleWareHandler(middleWare: { scope, when in
+                guard let mappedWhen = try update(scope, when) else {
+                    return nil
+                }
+                return try existingMiddleware.middleWare(scope, mappedWhen)
+            })
+        } else {
+            middleWare = MiddleWareHandler(middleWare: update)
+        }
+        return self
+    }
+    
+    private func runEnqueuedEffectAndGetWhenResults() throws {
         guard !scopeEffectsDisabledInUnitTests else {
             return
         }
         guard !scopeEffectsDisabledInPreviews else {
             throw StatoscopeErrors.effectsDisabledForPreviews
         }
-        assert(Thread.current.isMainThread, "For pending/ongoingEffects thread safety")
-        let logPrefix = "\(type(of: self)) (\(Unmanaged.passUnretained(self).toOpaque())): "
-        var copiedEffects: [(UUID, AnyEffect<When>)] = effectsHandler.pendingEffects.map { (UUID(), $0) }
-        effectsHandler.clearPending()
-        effectsHandler.ongoingEffects.append(contentsOf: copiedEffects)
         ensureSetupDeinitObserver()
-        let currentCount = effectsHandler.ongoingEffects.count
-        var enqueued = 0
-        while copiedEffects.count > 0 {
-            let effect = copiedEffects.removeFirst()
-            let handler = effectsHandler
-            let safeSend: ((AnyEffect<When>, When) async -> Void) = { [weak self] effect, when in
-                await self?.safeMainActorSend(effect, when)
-            }
-            let newCount = currentCount + enqueued
-            if newCount > 1 {
-                LOG("🪃 ↗ \(effect.1) (ongoing \(newCount)x🪃)")
-            } else {
-                LOG("🪃 ↗ \(effect.1)")
-            }
-            enqueued += 1
-            Task { [weak self, weak handler] in
-                
-                guard let result = try await handler?.runEffectOnHandler(effect.0, effect: effect.1, logPrefix: logPrefix) else {
-                    await handler?.removeOngoingEffect(effect.0)
-                    return
-                }
-                switch result {
-                case .success(let optionalWhen):
-                    if let when = optionalWhen {
-                        await handler?.removeOngoingEffect(effect.0)
-                        guard !Task.isCancelled else {
-                            assertionFailure("Creo que es imposible cancelar esta task,,, se puede borrar este isCancelled ??")
-                            self?.LOG("🪃 🚫 CANCELLED \(effect.1) (right before sending result)")
-                            throw CancellationError()
-                        }
-                        await safeSend(effect.1, when)
-                    }
-                case .failure(let error):
-                    self?.LOG("🪃 💥 Unhandled throw (use mapToResult to handle): \(effect): \(error).")
-                    await handler?.removeOngoingEffect(effect.0)
-                }
-            }
+        try effectsHandler.runEnqueuedEffectAndGetWhenResults() { [weak self] effect, when in
+            await self?.safeMainActorSend(effect, when)
         }
     }
+
     public var effects: [any Effect] {
-        return (effectsHandler.pendingEffects + effectsHandler.ongoingEffects.map { $0.1 })
-            .map { $0.wrappedEffect }
+        return effectsHandler.effects
     }
+
     public func clearEffects() {
         effectsHandler.clearPending()
     }
 
     public func cancelEffect(where whereBlock: (any Effect) -> Bool) {
-        let logPrefix = "\(type(of: self)) (\(Unmanaged.passUnretained(self).toOpaque())): "
-        effectsHandler.cancelEffect(logPrefix: logPrefix, where: whereBlock)
+        effectsHandler.cancelEffect(where: whereBlock)
     }
     
     @MainActor
@@ -143,125 +124,25 @@ extension Scope {
     }
 }
 
-extension Statoscope {
-    public func set<T>(_ keyPath: WritableKeyPath<Self, T>, _ value: T) -> Self {
-        var copy = self
-        copy[keyPath: keyPath] = value
-        return copy
+extension Scope {
+    public func set<T>(_ keyPath: ReferenceWritableKeyPath<Self, T>, _ value: T) -> Self {
+        self[keyPath: keyPath] = value
+        return self
     }
 }
 
 fileprivate var effectsHandlerStoreKey: UInt8 = 0
 private extension Scope {
-    var effectsHandler: EffectsHandler<When> {
+    var effectsHandler: EffectsHandlerImpl<When> {
         get {
-            return associatedObject(base: self, key: &effectsHandlerStoreKey, initialiser: { EffectsHandler<When>() })
+            return associatedObject(base: self, key: &effectsHandlerStoreKey, initialiser: {
+                let logPrefix = "\(type(of: self)) (\(Unmanaged.passUnretained(self).toOpaque())): "
+                return EffectsHandlerImpl<When>(logPrefix: logPrefix)
+            })
         }
     }
 }
 
-final class EffectsHandler<When: Sendable> {
-    fileprivate var pendingEffects: [AnyEffect<When>] = []
-    fileprivate var ongoingEffects: [(UUID, AnyEffect<When>)] = []
-    #if false
-    fileprivate func enqueueAnonymous(_ effect: AnyEffect<When>) {
-        pendingEffects.append(effect)
-    }
-    #endif
-    fileprivate func enqueue<E: Effect>(_ effect: E) where E.ResType == When {
-        pendingEffects.append(AnyEffect(effect: effect))
-    }
-    func clearPending() {
-        pendingEffects.removeAll()
-    }
-    
-    private actor RunnerTasks {
-        var runningTasks: [UUID: Task<When?, Error>] = [:]
-        func addTask(_ uuid: UUID, task: Task<When?, Error>) {
-            runningTasks[uuid] = task
-        }
-        func removeTask(_ uuid: UUID) {
-            runningTasks.removeValue(forKey: uuid)
-        }
-        func cancelAndRemoveAll() {
-            runningTasks.forEach { $0.value.cancel() }
-            runningTasks.removeAll()
-        }
-        func count() -> Int {
-            return runningTasks.count
-        }
-        func cancel(_ uuid: UUID) {
-            runningTasks.forEach { (taskUuid, task) in
-                if taskUuid == uuid {
-                    task.cancel()
-                }
-            }
-        }
-    }
-    private var tasks = RunnerTasks()
-    fileprivate func runEffectOnHandler(_ uuid: UUID, effect: AnyEffect<When>, logPrefix: String) async throws -> Result<When?, Error> {
-        let taskUUID = uuid // UUID()
-        let tasks = self.tasks
-        let newTask: Task<When?, Error> = Task { [weak tasks] in
-            guard nil != tasks else {
-                StatoscopeLogger.LOG(prefix: logPrefix, "🪃 🚫 CANCELLED \(effect) (not even started)")
-                throw CancellationError()
-            }
-            let result = try await effect.runEffect()
-            if Task.isCancelled {
-                StatoscopeLogger.LOG(prefix: logPrefix, "🪃 🚫 CANCELLED \(effect)")
-                return nil
-            }
-            await tasks?.removeTask(taskUUID)
-            if Task.isCancelled {
-                StatoscopeLogger.LOG(prefix: logPrefix, "🪃 🚫 CANCELLED \(effect) (complete executed though, cancelled right before sending result back to scope)")
-                return nil
-            }
-            return result
-        }
-        await tasks.addTask(taskUUID, task: newTask)
-        return await newTask.result
-    }
-    
-    @discardableResult
-    fileprivate func cancelEffect(logPrefix: String, where whereBlock: (any Effect) -> Bool) -> [(UUID, any Effect)] {
-        let cancellables = ongoingEffects
-            .map { ($0.0, $0.1.wrappedEffect) }
-            .filter { whereBlock($0.1) }
-        cancellables.forEach { effect in
-            StatoscopeLogger.LOG(prefix: logPrefix, "🪃 ✋ CANCELLING \(effect)")
-        }
-        Task(priority: .high, operation: {
-            for cancellable in cancellables {
-                await tasks.cancel(cancellable.0)
-            }
-        })
-        return cancellables
-    }
-    
-    fileprivate func cancellAllTasks() {
-        let retainedTasks = tasks
-        Task(priority: .high, operation: {
-            let count = await retainedTasks.count()
-            if count > 0 {
-                await retainedTasks.cancelAndRemoveAll()
-            }
-        })
-
-    }
-    
-    deinit {
-        cancellAllTasks()
-    }
-
-    @MainActor
-    fileprivate func removeOngoingEffect(_ uuid: UUID) {
-        assert(Thread.current.isMainThread, "For pending/ongoingEffects thread safety")
-        if let idx = ongoingEffects.firstIndex(where: { uuid == $0.0 }) {
-            ongoingEffects.remove(at: idx)
-        }
-    }
-}
 
 // Helper so we detect Scope release and cancel effects on deinit
 fileprivate var deinitObserverStoreKey: UInt8 = 0
@@ -293,3 +174,23 @@ fileprivate extension Scope {
         }
     }
 }
+
+fileprivate var middleWareHandlerStoreKey: UInt8 = 0
+fileprivate final class MiddleWareHandler<S: Scope> {
+    let middleWare: ((S, S.When) throws -> S.When?)
+    init(middleWare: @escaping (S, S.When) throws -> S.When?) {
+        self.middleWare = middleWare
+    }
+}
+
+fileprivate extension Scope {
+    var middleWare: MiddleWareHandler<Self>? {
+        get {
+            optionalAssociatedObject(base: self, key: &middleWareHandlerStoreKey, initialiser: { nil })
+        }
+        set {
+            associateOptionalObject(base: self, key: &middleWareHandlerStoreKey, value: newValue)
+        }
+    }
+}
+
