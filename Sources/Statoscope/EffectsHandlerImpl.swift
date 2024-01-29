@@ -7,10 +7,14 @@
 
 import Foundation
 
-public protocol EffectsHandler {
+public protocol EffectsContainer {
     associatedtype When
     var effects: [any Effect] { get }
+    func clearPending()
     func enqueue<E: Effect>(_ effect: E) where E.ResType == When
+}
+
+public protocol EffectsHandler: EffectsContainer {
     func runEnqueuedEffectAndGetWhenResults(safeSend: @escaping (AnyEffect<When>, When) async -> Void) throws
 }
 

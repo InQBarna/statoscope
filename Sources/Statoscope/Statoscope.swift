@@ -7,26 +7,27 @@
 
 import Foundation
 
-public protocol ScopeProtocol: AnyObject {
-    var effects: [any Effect] { get }
-    func clearEffects()
+public protocol StatoscopeImplementation {
+    associatedtype When: Sendable
+    func update(_ when: When) throws
 }
 
 public protocol Statoscope: AnyObject {
     associatedtype When: Sendable
-    func update(_ when: When) throws
     @discardableResult
     func send(_ when: When) -> Self
     @discardableResult
     func unsafeSend(_ when: When) throws -> Self
 }
 
-public protocol Scope: Statoscope & ScopeProtocol & ChainLink { }
+public protocol Scope: Statoscope & StatoscopeImplementation & EffectsContainer & ChainLink { }
 
 extension Statoscope {
+    var logPrefix: String {
+        "\(type(of: self)) (\(Unmanaged.passUnretained(self).toOpaque())): "
+    }
     func LOG(_ string: String) {
-        let prefix = "\(type(of: self)) (\(Unmanaged.passUnretained(self).toOpaque())): "
-        StatoscopeLogger.LOG(prefix: prefix, string)
+        StatoscopeLogger.LOG(prefix: logPrefix, string)
     }
 }
 
@@ -87,7 +88,7 @@ extension Scope {
         return self
     }
     
-    private func runEnqueuedEffectAndGetWhenResults() throws {
+    func runEnqueuedEffectAndGetWhenResults() throws {
         guard !scopeEffectsDisabledInUnitTests else {
             return
         }
@@ -104,7 +105,7 @@ extension Scope {
         return effectsHandler.effects
     }
 
-    public func clearEffects() {
+    public func clearPending() {
         effectsHandler.clearPending()
     }
 
@@ -136,8 +137,7 @@ private extension Scope {
     var effectsHandler: EffectsHandlerImpl<When> {
         get {
             return associatedObject(base: self, key: &effectsHandlerStoreKey, initialiser: {
-                let logPrefix = "\(type(of: self)) (\(Unmanaged.passUnretained(self).toOpaque())): "
-                return EffectsHandlerImpl<When>(logPrefix: logPrefix)
+                EffectsHandlerImpl<When>(logPrefix: logPrefix)
             })
         }
     }

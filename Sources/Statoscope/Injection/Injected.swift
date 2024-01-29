@@ -38,7 +38,8 @@ public struct Injected<Value: Injectable> {
                 enclosingInstance[keyPath: storageKeyPath].cachedValue  = result
                 return result
 #else
-                return try enclosingInstance.resolveObject()
+                let keyPathDescription = ("\(wrappedKeyPath)" as NSString).lastPathComponent
+                return try enclosingInstance.resolveObject(keyPath: keyPathDescription)
 #endif
             } catch {
                 return Value.defaultValue

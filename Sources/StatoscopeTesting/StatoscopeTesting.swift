@@ -36,21 +36,21 @@ public final class StatoscopeTestPlan<T: Scope> {
         addStep { sut in
             // assertNoDeepEffects(file: file, line: line)
             try whens.forEach {
-                sut.clearEffects()
+                sut.clearPending()
                 try sut.unsafeSend($0)
             }
         }
     }
     @discardableResult
-    public func WHEN<Subscope: Statoscope>(_ keyPath: KeyPath<T, Subscope>,
-                                    file: StaticString = #file, line: UInt = #line,
-                                    _ whens: Subscope.When...) throws -> Self {
+    public func WHEN<Subscope: Scope>(_ keyPath: KeyPath<T, Subscope>,
+                                      file: StaticString = #file, line: UInt = #line,
+                                      _ whens: Subscope.When...) throws -> Self {
         addStep { sut in
             try sut.when(childScope: sut[keyPath: keyPath], file: file, line: line, whens)
         }
     }
     @discardableResult
-    public func WHEN<Subscope: Statoscope>(_ keyPath: KeyPath<T, Subscope?>,
+    public func WHEN<Subscope: Scope>(_ keyPath: KeyPath<T, Subscope?>,
                                     file: StaticString = #file, line: UInt = #line,
                                     _ whens: Subscope.When...) throws -> Self {
         addStep { sut in
@@ -74,7 +74,7 @@ public final class StatoscopeTestPlan<T: Scope> {
         }
     }
     @discardableResult
-    public func AND<Subscope: Statoscope>(_ keyPath: KeyPath<T, Subscope>,
+    public func AND<Subscope: Scope>(_ keyPath: KeyPath<T, Subscope>,
                                    file: StaticString = #file, line: UInt = #line,
                                    _ whens: Subscope.When...) throws -> Self {
         addStep { sut in
@@ -82,7 +82,7 @@ public final class StatoscopeTestPlan<T: Scope> {
         }
     }
     @discardableResult
-    public func AND<Subscope: Statoscope>(_ keyPath: KeyPath<T, Subscope?>,
+    public func AND<Subscope: Scope>(_ keyPath: KeyPath<T, Subscope?>,
                                    file: StaticString = #file, line: UInt = #line,
                                    _ whens: Subscope.When...) throws -> Self {
         addStep { sut in
@@ -105,12 +105,12 @@ public final class StatoscopeTestPlan<T: Scope> {
         addStep { sut in
             try checker(sut)
             // assertNoDeepEffects(file: file, line: line)
-            sut.clearEffects()
+            sut.clearPending()
         }
     }
     
     @discardableResult
-    public func THEN<Subscope: Statoscope & ScopeProtocol>(
+    public func THEN<Subscope: Scope>(
         _ keyPath: KeyPath<T, Subscope>,
         file: StaticString = #file, line: UInt = #line,
         checker: @escaping (_ sut: Subscope) throws -> Void
@@ -119,11 +119,11 @@ public final class StatoscopeTestPlan<T: Scope> {
             let childScope = sut[keyPath: keyPath]
             try checker(childScope)
             // childScope.assertNoDeepEffects(file: file, line: line)
-            // childScope.clearEffects() // only cleared on next WHEN
+            // childScope.clearPending() // only cleared on next WHEN
         }
     }
     @discardableResult
-    public func THEN<Subscope: Statoscope & ScopeProtocol>(
+    public func THEN<Subscope: Scope>(
         _ keyPath: KeyPath<T, Subscope?>,
         file: StaticString = #file, line: UInt = #line,
         checker: @escaping (_ sut: Subscope) throws -> Void
@@ -137,7 +137,7 @@ public final class StatoscopeTestPlan<T: Scope> {
             }
             try checker(childScope)
             // childScope.assertNoDeepEffects(file: file, line: line)
-            // childScope.clearEffects() // only cleared on next WHEN
+            // childScope.clearPending() // only cleared on next WHEN
         }
     }
     
@@ -215,7 +215,7 @@ extension StatoscopeTestPlan {
         addStep { sut in
             XCTAssertEqual(sut[keyPath: keyPath], expectedValue, file: file, line: line)
             // assertNoDeepEffects(file: file, line: line)
-            // sut.clearEffects() // only cleared on next WHEN
+            // sut.clearPending() // only cleared on next WHEN
         }
     }
     
@@ -227,7 +227,7 @@ extension StatoscopeTestPlan {
         addStep { sut in
             XCTAssertNotNil(sut[keyPath: keyPath], file: file, line: line)
             // assertNoDeepEffects(file: file, line: line)
-            // sut.clearEffects() // only cleared on next WHEN
+            // sut.clearPending() // only cleared on next WHEN
         }
     }
     
@@ -239,7 +239,7 @@ extension StatoscopeTestPlan {
         addStep { sut in
             XCTAssertNotNil(sut[keyPath: keyPath], file: file, line: line)
             // assertNoDeepEffects(file: file, line: line)
-            // sut.clearEffects() // only cleared on next WHEN
+            // sut.clearPending() // only cleared on next WHEN
         }
     }
     
@@ -251,7 +251,7 @@ extension StatoscopeTestPlan {
         addStep { sut in
             XCTAssertNil(sut[keyPath: keyPath], file: file, line: line)
             // assertNoDeepEffects(file: file, line: line)
-            // sut.clearEffects() // only cleared on next WHEN
+            // sut.clearPending() // only cleared on next WHEN
         }
     }
     
@@ -259,7 +259,7 @@ extension StatoscopeTestPlan {
     public func ThrowsWHEN(file: StaticString = #file, line: UInt = #line, _ when: T.When) -> Self {
         addStep { sut in
             // assertNoDeepEffects(file: file, line: line)
-            sut.clearEffects()
+            sut.clearPending()
             XCTAssertThrowsError(try sut.unsafeSend(when), file: file, line: line)
         }
     }
@@ -268,7 +268,7 @@ extension StatoscopeTestPlan {
                                           file: StaticString = #file, line: UInt = #line,
                                           _ when: Subscope.When) throws -> Self {
         addStep { sut in
-            sut.clearEffects()
+            sut.clearPending()
             XCTAssertThrowsError(try sut[keyPath: keyPath].unsafeSend(when), file: file, line: line)
         }
     }
@@ -288,16 +288,14 @@ extension StatoscopeTestPlan {
     }
 }
 
-extension Statoscope where Self: ScopeProtocol {
+extension Statoscope {
     @discardableResult
-    fileprivate func when<Subscope: Statoscope>(childScope: Subscope,
-                                                file: StaticString = #file, line: UInt = #line,
-                                                _ whens: [Subscope.When]) throws -> Self {
+    fileprivate func when<Subscope: Scope>(childScope: Subscope,
+                                           file: StaticString = #file, line: UInt = #line,
+                                           _ whens: [Subscope.When]) throws -> Self {
         // assertNoDeepEffects(file: file, line: line)
         try whens.forEach {
-            if let scope = childScope as? ScopeProtocol {
-                scope.clearEffects()
-            }
+            childScope.clearPending()
             try childScope.unsafeSend($0)
         }
         return self
@@ -336,33 +334,13 @@ extension Statoscope {
 }
  */
 
-extension Sequence where Element == WeakScopeBox {
-    func assertAllReleased(file: StaticString = #file, line: UInt = #line) {
-        // Some UIHostingController need runloop steps to be released...
-        RunLoop.current.run(until: Date().addingTimeInterval(0.001))
-        RunLoop.current.run(until: Date().addingTimeInterval(0.001))
-        let unreleased = compactMap { $0.scope }
-        if unreleased.count > 0 {
-            XCTFail("Some scopes have not been released: \(unreleased)", file: file, line: line)
-        }
-    }
-}
-
-func assertChildScopesReleased(file: StaticString = #file, line: UInt = #line, _ rootScope: () throws -> ScopeProtocol) rethrows {
-    try autoreleasepool {
-        try rootScope()
-            .allChildScopesChecker()
-    }
-    .assertAllReleased(file: file, line: line)
-}
-
-public func XCTAssertEffectsInclude<Scope, T2>(
-    _ expression1: @autoclosure () throws -> Scope?,
+public func XCTAssertEffectsInclude<S, T2>(
+    _ expression1: @autoclosure () throws -> S?,
     _ expression2: @autoclosure () throws -> T2,
     _ message: @autoclosure () -> String = "",
     file: StaticString = #filePath,
     line: UInt = #line
-) where Scope: ScopeProtocol, T2: Effect {
+) where S: Scope, T2: Effect {
     do {
         let sut = try expression1()
         let expected = try expression2()
@@ -375,7 +353,7 @@ public func XCTAssertEffectsInclude<Scope, T2>(
             XCTFail("Effects on sut \(type(of: sut)): \(effs) do not include \(expected)", file: file, line: line)
             return
         }
-        // sut?.clearEffects()
+        // sut?.clearPending()
     } catch {
         XCTFail("Thrown \(error)", file: file, line: line)
     }

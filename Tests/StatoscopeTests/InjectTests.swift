@@ -13,12 +13,14 @@ class SubscopeSuperscodeWrapperTests: XCTestCase {
     
     enum SimpleParentChild {
         final class Parent: Scope, Injectable, ObservableObject {
+            typealias When = Void
             @Subscope var child: Child? = Child()
             let uuid: UUID = UUID()
             static var defaultValue: Parent = Parent()
             func update(_ when: Void) throws { }
         }
         final class Child: Scope, ObservableObject {
+            typealias When = Void
             @Superscope var parent: Parent
             func update(_ when: Void) throws { }
         }
@@ -94,11 +96,13 @@ class ForcedInjectSuperscopeTests: XCTestCase {
     
     enum UnrelatedScopes {
         final class First: Scope, Injectable, ObservableObject {
+            typealias When = Void
             let uuid: UUID = UUID()
             static var defaultValue: First = First()
             func update(_ when: Void) throws { }
         }
         final class Second: Scope, ObservableObject {
+            typealias When = Void
             @Superscope var parent: First
             func update(_ when: Void) throws { }
         }
@@ -154,6 +158,7 @@ class InjectObjectTests: XCTestCase {
         static var defaultValue: InjectableStruct = InjectableStruct()
     }
     final class ScopeWihInjectables: Scope, ObservableObject {
+        typealias When = Void
         @Injected var injectedStruct: InjectableStruct
         @Injected var injectedClass: InjectableClass
         func update(_ when: Void) throws { }

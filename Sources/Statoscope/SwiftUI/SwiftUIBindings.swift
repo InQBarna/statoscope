@@ -9,7 +9,10 @@ import Foundation
 import SwiftUI
 
 extension Statoscope {
-    public func bindNotNilBool<T>(_ kp: KeyPath<Self, Optional<T>>, _ when: ((Bool) -> When)? = nil) -> Binding<Bool> {
+    public func bindNotNilBool<T>(
+        _ kp: KeyPath<Self, Optional<T>>,
+        _ when: ((Bool) -> When)? = nil
+    ) -> Binding<Bool> {
         guard let when = when else {
             return Binding(
                 get: { [weak self] in self?[keyPath: kp] != nil },
@@ -30,14 +33,21 @@ extension Statoscope {
 }
 
 extension Statoscope {
-    public func bind<T>(_ kp: KeyPath<Self, T>, _ when: @escaping (T) -> Self.When) -> Binding<T> {
+    public func bind<T>(
+        _ kp: KeyPath<Self, T>,
+        _ when: @escaping (T) -> Self.When
+    ) -> Binding<T> {
         Binding(
             get: { self[keyPath: kp] },
             set: { [weak self] in self?.send(when($0)) }
         )
     }
     
-    public func weakBind<T>(_ kp: KeyPath<Self, T>, _ when: @escaping (T) -> Self.When, defaultValue: T) -> Binding<T> {
+    public func weakBind<T>(
+        _ kp: KeyPath<Self, T>,
+        _ when: @escaping (T) -> Self.When,
+        defaultValue: T
+    ) -> Binding<T> {
         Binding(
             get: { [weak self] in self?[keyPath: kp] ?? defaultValue },
             set: { [weak self] in self?.send(when($0)) }

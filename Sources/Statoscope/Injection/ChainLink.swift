@@ -9,9 +9,10 @@ import Foundation
 
 public protocol ChainLinkProtocol { 
     var parentAssigned: Bool { get }
-    var exprParent: AnyWeakChainLink? { get }
+    var chainParent: AnyWeakChainLink? { get }
     func assignChild<Value: ChainLinkProtocol>(_: Value?)
 }
+
 public protocol ChainLink: ChainLinkProtocol, AnyObject { }
 
 public class AnyWeakChainLink {
@@ -65,7 +66,7 @@ extension ChainLink {
             return associatedObject(base: self, key: &childrenStoreKey, initialiser: { [] })
         }
     }
-    fileprivate var parent: AnyWeakChainLink? {
+    fileprivate var weakParent: AnyWeakChainLink? {
         get {
             return optionalAssociatedObject(base: self, key: &parentStoreKey, initialiser: { AnyWeakChainLink(nil) })
         }
@@ -95,14 +96,14 @@ public extension ChainLink {
         return self
     }
 
-    var exprParent: AnyWeakChainLink? { parent }
-    var parentAssigned: Bool { parent?.anyLink != nil }
+    var chainParent: AnyWeakChainLink? { weakParent }
+    var parentAssigned: Bool { weakParent?.anyLink != nil }
     func assignChild<Value>(_ child: Value?) where Value : ChainLinkProtocol {
         if let newInjTreeNode = child {
             if !children.contains(newInjTreeNode) {
                 children.add(AnyWeakChainLink(expr: newInjTreeNode))
             }
-            newInjTreeNode.exprParent?.anyLink = self
+            newInjTreeNode.chainParent?.anyLink = self
         }
     }
 }
@@ -134,8 +135,8 @@ extension ChainLink {
 
     var root: ChainLink {
         var node: ChainLink = self
-        while let parent = node.parent?.anyLink {
-            node = parent
+        while let weakParentLink = node.weakParent?.anyLink {
+            node = weakParentLink
         }
         return node
     }
@@ -161,8 +162,7 @@ extension ChainLink {
         let selfAndDepsDescription = treeDescription
             .map { whitespacesString + $0 }
             .joined(separator: "\n")
-        print("\(selfAndDepsDescription)")
-        return children
+        let childTree = children
             .map { child -> [String] in
                 guard let treeNode = child as? AnyWeakChainLink  else {
                     return []
@@ -172,6 +172,7 @@ extension ChainLink {
             .flatMap {
                 $0
             }
+        return [[selfAndDepsDescription], childTree].flatMap { $0 }
     }
 }
 
@@ -179,7 +180,7 @@ extension ChainLink {
     func resolveSuperscope<T: Injectable>(searchInStore: Bool = false) throws -> T {
         var node: ChainLink? = self
         while let nonNilNode = node {
-            node = nonNilNode.parent?.anyLink
+            node = nonNilNode.weakParent?.anyLink
             if let found = nonNilNode as? T {
                 return found
             }
@@ -194,22 +195,24 @@ extension ChainLink {
         // return T.defaultValue
     }
     
-    func resolveObject<T: Injectable>() throws -> T {
+    func resolveObject<T: Injectable>(keyPath: String?) throws -> T {
         var node: ChainLink? = self
         while let iterator = node {
-            node = iterator.parent?.anyLink
+            node = iterator.weakParent?.anyLink
             if let inStoreFound: T = iterator.injectionStore.optResolve() {
                 return inStoreFound
             }
         }
-        print("No injected value found \(String(describing: T.self).removeOptionalDescription)")
-        print("\(self.getPrintRootTree())")
+        print("No injected value found: \"\(String(describing: T.self).removeOptionalDescription)\" at: \"\(keyPath ?? String(describing: type(of: self)))\"")
+        self.getPrintRootTree().forEach {
+            print("\($0)")
+        }
         throw NoInjectedValueFound(T.self)
     }
 }
 
 public extension ChainLinkProtocol {
-    var exprParent: AnyWeakChainLink? {
+    var chainParent: AnyWeakChainLink? {
         fatalError("Don't try implementing ChainLinkProtocol, " +
                    " this is an internal helper for optional-nonoptional property wrapping")
     }
@@ -230,16 +233,16 @@ extension Optional: ChainLinkProtocol where Wrapped: ChainLink {
                 // self?.children.add(WeakTreeNode(newInjTreeNode))
                 self?.children.add(AnyWeakChainLink(expr: newInjTreeNode))
             }
-            newInjTreeNode.exprParent?.anyLink = self
+            newInjTreeNode.chainParent?.anyLink = self
         }
     }
-    public var exprParent: AnyWeakChainLink? {
-        return self?.parent
+    public var chainParent: AnyWeakChainLink? {
+        return self?.weakParent
     }
     public var parentAssigned: Bool {
         switch self {
         case .none: return true
-        case .some(let chainLink): return chainLink.exprParent?.anyLink != nil
+        case .some(let chainLink): return chainLink.chainParent?.anyLink != nil
         }
     }
 }
