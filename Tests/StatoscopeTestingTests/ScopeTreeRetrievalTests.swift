@@ -7,7 +7,7 @@
 
 import Foundation
 import Statoscope
-import StatoscopeTesting
+@testable import StatoscopeTesting
 import XCTest
 
 class ScopeTreeRetrievalTests: XCTestCase {

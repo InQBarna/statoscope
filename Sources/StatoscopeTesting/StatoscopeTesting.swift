@@ -264,18 +264,18 @@ extension StatoscopeTestPlan {
         }
     }
     @discardableResult
-    public func ThrowsWHEN<Subscope: Statoscope>(_ keyPath: KeyPath<T, Subscope>,
-                                          file: StaticString = #file, line: UInt = #line,
-                                          _ when: Subscope.When) throws -> Self {
+    public func ThrowsWHEN<Subscope: Scope>(_ keyPath: KeyPath<T, Subscope>,
+                                            file: StaticString = #file, line: UInt = #line,
+                                            _ when: Subscope.When) throws -> Self {
         addStep { sut in
             sut.clearPending()
             XCTAssertThrowsError(try sut[keyPath: keyPath].unsafeSend(when), file: file, line: line)
         }
     }
     @discardableResult
-    public func ThrowsWHEN<Subscope: Statoscope>(_ keyPath: KeyPath<T, Subscope?>,
-                                          file: StaticString = #file, line: UInt = #line,
-                                          _ when: Subscope.When) throws -> Self {
+    public func ThrowsWHEN<Subscope: Scope>(_ keyPath: KeyPath<T, Subscope?>,
+                                            file: StaticString = #file, line: UInt = #line,
+                                            _ when: Subscope.When) throws -> Self {
         addStep { sut in
             guard let childScope = sut[keyPath: keyPath] else {
                 XCTFail("WHEN: Non existing model in first parameter: error unwrapping expecte non-nil subscope" +
@@ -288,7 +288,7 @@ extension StatoscopeTestPlan {
     }
 }
 
-extension Statoscope {
+extension Scope {
     @discardableResult
     fileprivate func when<Subscope: Scope>(childScope: Subscope,
                                            file: StaticString = #file, line: UInt = #line,
@@ -317,11 +317,11 @@ extension ScopeProtocol {
     }
 }
 
-extension Statoscope {
+extension Scope {
     @discardableResult
-    func WITH<Subscope: Statoscope>(_ keyPath: KeyPath<Self, Subscope?>,
-                                    file: StaticString = #file, line: UInt = #line,
-                                    with: (Subscope) throws -> Void) rethrows -> Self {
+    func WITH<Subscope: Scope>(_ keyPath: KeyPath<Self, Subscope?>,
+                               file: StaticString = #file, line: UInt = #line,
+                               with: (Subscope) throws -> Void) rethrows -> Self {
         guard let childScope = self[keyPath: keyPath] else {
             XCTFail("WITH: Non existing model in first parameter: error unwrapping expecte non-nil subscope" +
                     " \(type(of: Self.self)) : \(type(of: Subscope.self))",

@@ -12,7 +12,7 @@ public protocol StatoscopeImplementation {
     func update(_ when: When) throws
 }
 
-public protocol Statoscope: AnyObject {
+public protocol Store: AnyObject {
     associatedtype When: Sendable
     @discardableResult
     func send(_ when: When) -> Self
@@ -20,9 +20,9 @@ public protocol Statoscope: AnyObject {
     func unsafeSend(_ when: When) throws -> Self
 }
 
-public protocol Scope: Statoscope & StatoscopeImplementation & EffectsContainer & ChainLink { }
+public protocol Scope: Store & StatoscopeImplementation & EffectsContainer & ChainLink { }
 
-extension Statoscope {
+extension Scope {
     var logPrefix: String {
         "\(type(of: self)) (\(Unmanaged.passUnretained(self).toOpaque())): "
     }
@@ -31,7 +31,7 @@ extension Statoscope {
     }
 }
 
-extension Statoscope {
+extension Scope {
     @discardableResult
     public func send(_ when: When) -> Self {
         LOG("\(when)")
