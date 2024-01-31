@@ -196,3 +196,33 @@ fileprivate extension Scope {
     }
 }
 
+// <LIBRARY>
+public protocol StatoscopeProtocol {
+    associatedtype State
+    func state() -> State
+}
+
+public protocol StatoscopeImplementation: Scope {
+    associatedtype MutableState
+    func mutableState() -> MutableState
+    static func update(state: MutableState, when: When, effects: EffectsHandler<Self.When>) throws
+}
+
+protocol Statoscope: StatoscopeProtocol, StatoscopeImplementation { }
+
+extension StatoscopeImplementation {
+    func update(_ when: When) throws {
+        try Self.update(state: mutableState(), when: when, effects: effectsHandler)
+    }
+}
+
+@propertyWrapper
+public class StateVar<Value> {
+    public init(wrappedValue: Value) {
+        self.wrappedValue = wrappedValue
+    }
+    public var wrappedValue: Value
+}
+
+// <LIBRARY>
+
