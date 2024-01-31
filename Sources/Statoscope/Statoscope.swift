@@ -7,7 +7,7 @@
 
 import Foundation
 
-public protocol StatoscopeImplementation {
+public protocol StoreImplementation {
     associatedtype When: Sendable
     func update(_ when: When) throws
 }
@@ -20,7 +20,7 @@ public protocol Store: AnyObject {
     func unsafeSend(_ when: When) throws -> Self
 }
 
-public protocol Scope: Store & StatoscopeImplementation & EffectsContainer & ChainLink { }
+public protocol Scope: Store & StoreImplementation & EffectsContainer & ChainLink { }
 
 extension Scope {
     var logPrefix: String {
@@ -51,6 +51,7 @@ public var scopeEffectsDisabledInUnitTests: Bool = nil != NSClassFromString("XCT
 fileprivate let scopeEffectsDisabledInPreviews: Bool = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
 
 extension Scope {
+
     public func unsafeSend(_ when: When) throws -> Self {
         if let middleware = middleWare {
             guard let mappedWhen = try middleware.middleWare(self, when) else {
@@ -63,12 +64,14 @@ extension Scope {
         try runEnqueuedEffectAndGetWhenResults()
         return self
     }
+
     #if false
     func enqueueAnonymous(_ effect: AnyEffect<When>) {
         effectsHandler.enqueueAnonymous(effect)
         try? runEnqueuedEffectAndGetWhenResults()
     }
     #endif
+
     public func enqueue<E: Effect>(_ effect: E) where E.ResType == When {
         effectsHandler.enqueue(effect)
         try? runEnqueuedEffectAndGetWhenResults()
@@ -142,7 +145,6 @@ private extension Scope {
         }
     }
 }
-
 
 // Helper so we detect Scope release and cancel effects on deinit
 fileprivate var deinitObserverStoreKey: UInt8 = 0

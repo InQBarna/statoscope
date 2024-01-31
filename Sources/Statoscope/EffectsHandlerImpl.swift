@@ -8,14 +8,10 @@
 import Foundation
 
 public protocol EffectsContainer {
-    associatedtype When
+    associatedtype When: Sendable
     var effects: [any Effect] { get }
     func clearPending()
     func enqueue<E: Effect>(_ effect: E) where E.ResType == When
-}
-
-public protocol EffectsHandler: EffectsContainer {
-    func runEnqueuedEffectAndGetWhenResults(safeSend: @escaping (AnyEffect<When>, When) async -> Void) throws
 }
 
 private actor RunnerTasks<When: Sendable> {
@@ -42,7 +38,18 @@ private actor RunnerTasks<When: Sendable> {
     }
 }
 
-internal final class EffectsHandlerImpl<When: Sendable>: EffectsHandler {
+public protocol EffectsHandlerImplementation: EffectsContainer {
+    func runEnqueuedEffectAndGetWhenResults(safeSend: @escaping (AnyEffect<When>, When) async -> Void) throws
+}
+
+public class EffectsHandler<When: Sendable>: EffectsContainer {
+    public var effects: [any Effect] { fatalError() }
+    public func clearPending() { fatalError() }
+    public func enqueue<E: Effect>(_ effect: E) where E.ResType == When { fatalError() }
+    internal init() { }
+}
+
+internal final class EffectsHandlerImpl<When: Sendable>: EffectsHandler<When> {
     
     // Status
     private var pendingEffects: [AnyEffect<When>] = []
@@ -67,12 +74,12 @@ internal final class EffectsHandlerImpl<When: Sendable>: EffectsHandler {
     }
      */
     
-    public var effects: [any Effect] {
+    public override var effects: [any Effect] {
         return (pendingEffects + ongoingEffects.map { $0.1 })
             .map { $0.wrappedEffect }
     }
     
-    func enqueue<E: Effect>(
+    override func enqueue<E: Effect>(
         _ effect: E
     ) where E.ResType == When {
         pendingEffects.append(AnyEffect(effect: effect))
@@ -148,7 +155,7 @@ internal final class EffectsHandlerImpl<When: Sendable>: EffectsHandler {
         return returnResult
     }
     
-    func clearPending() {
+    override func clearPending() {
         pendingEffects.removeAll()
     }
     
@@ -189,5 +196,20 @@ internal final class EffectsHandlerImpl<When: Sendable>: EffectsHandler {
         if let idx = ongoingEffects.firstIndex(where: { uuid == $0.0 }) {
             ongoingEffects.remove(at: idx)
         }
+    }
+}
+
+public final class EffectsHandlerSpy<When: Sendable>: EffectsHandler<When> {
+    private var privateEffects: [AnyEffect<When>] = []
+    override public var effects: [any Effect] {
+        privateEffects.map { $0.wrappedEffect }
+    }
+    override public func clearPending() {
+        privateEffects.removeAll()
+    }
+    override public func enqueue<E: Effect>(
+        _ effect: E
+    ) where E.ResType == When {
+        privateEffects.append(AnyEffect(effect: effect))
     }
 }
