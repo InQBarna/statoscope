@@ -18,8 +18,6 @@ public struct NoInjectedValueFound: Error {
     }
 }
 
-public struct ReadOnlyInjectionProperty: Error { }
-
 public enum StatoscopeErrors: Error {
     case effectsDisabledForPreviews
 }
