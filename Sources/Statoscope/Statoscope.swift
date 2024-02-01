@@ -12,7 +12,7 @@ public protocol StoreImplementation {
     func update(_ when: When) throws
 }
 
-public protocol Store: AnyObject {
+public protocol Store {
     associatedtype When: Sendable
     @discardableResult
     func send(_ when: When) -> Self
@@ -20,7 +20,13 @@ public protocol Store: AnyObject {
     func unsafeSend(_ when: When) throws -> Self
 }
 
-public protocol Scope: Store & StoreImplementation & EffectsContainer & ChainLink { }
+public protocol Scope:
+    Store                   // Public interface receiving When events + default dispatch implementation
+    & StoreImplementation   // Forces inheriting class to implement the update business logic
+    & EffectsContainer      // Public interface to dispatch effect + default forwarding and implementation
+    & ChainLink             // Public interface for dependency injection and retrieval
+    & AnyObject
+{ }
 
 extension Scope {
     var logPrefix: String {

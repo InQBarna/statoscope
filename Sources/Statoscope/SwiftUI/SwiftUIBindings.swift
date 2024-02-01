@@ -8,7 +8,7 @@
 import Foundation
 import SwiftUI
 
-extension Store {
+extension Store where Self: AnyObject {
     public func bindNotNilBool<T>(
         _ kp: KeyPath<Self, Optional<T>>,
         _ when: ((Bool) -> When)? = nil
@@ -32,7 +32,7 @@ extension Store {
     }
 }
 
-extension Store {
+extension Store where Self: AnyObject    {
     public func bind<T>(
         _ kp: KeyPath<Self, T>,
         _ when: @escaping (T) -> Self.When
