@@ -105,7 +105,7 @@ public final class StatoscopeTestPlan<T: Scope> {
         addStep { sut in
             try checker(sut)
             // assertNoDeepEffects(file: file, line: line)
-            sut.clearPending()
+            // sut.clearPending()
         }
     }
     
