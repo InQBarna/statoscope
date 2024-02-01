@@ -24,21 +24,6 @@ public struct Subscope<Value: ChainLinkProtocol> {
         storage = wrappedValue
     }
     
-    static private func assignChildChain<T: ChainLink & ObservableObject>(
-        _ enclosingInstance: T,
-        _ newValue: Value
-    ) {
-        enclosingInstance.assignChild(newValue)
-        enclosingInstance.cleanupChildren()
-        
-        // Debug
-        // enclosingInstance.root.printRootTree()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak root = enclosingInstance.root] in
-            root?.cleanupChildren()
-            // root?.printRootTree()
-        }
-    }
-    
     public static subscript<T: ChainLink & ObservableObject>(
         _enclosingInstance enclosingInstance: T,
         wrapped wrappedKeyPath: ReferenceWritableKeyPath<T, Value>,
@@ -46,9 +31,7 @@ public struct Subscope<Value: ChainLinkProtocol> {
     ) -> Value {
         get {
             let val: Value = enclosingInstance[keyPath: storageKeyPath].storage
-            if !val.parentAssigned {
-                Self.assignChildChain(enclosingInstance, val)
-            }
+            enclosingInstance.assignChildOnPropertyWrapperGet(val)
             return val
         }
         set {
@@ -60,7 +43,7 @@ public struct Subscope<Value: ChainLinkProtocol> {
             enclosingInstance[keyPath: storageKeyPath].storage = newValue
             
             // Children maintenance (for injection retrieval)
-            Self.assignChildChain(enclosingInstance, newValue)
+            enclosingInstance.assignChildOnPropertyWrapperSet(newValue)
         }
     }
 
