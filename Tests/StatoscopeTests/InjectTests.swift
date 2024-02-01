@@ -9,7 +9,7 @@ import Foundation
 import XCTest
 @testable import Statoscope
 
-class SubscopeSuperscodeWrapperTests: XCTestCase {
+class SubscopeSuperscodePropertyWrapperTests: XCTestCase {
     
     enum SimpleParentChild {
         final class Parent: Scope, Injectable, ObservableObject {
@@ -111,8 +111,18 @@ class ForcedInjectSuperscopeTests: XCTestCase {
     func testForcedInjectionSingleScope() {
         let parent = UnrelatedScopes.First()
         let child = UnrelatedScopes.Second()
+        // Before injection call, injected value is the defaultValue
         XCTAssertEqual(child.parent.uuid, UnrelatedScopes.First.defaultValue.uuid)
         child.injectSuperscope(parent)
+        // After injection, correct value
+        XCTAssertEqual(child.parent.uuid, parent.uuid)
+    }
+    
+    func testOverwriteInjectionSingleScope() {
+        let parent = UnrelatedScopes.First()
+        let child = UnrelatedScopes.Second()
+        child.parent = parent
+        // After injection, correct value
         XCTAssertEqual(child.parent.uuid, parent.uuid)
     }
     
@@ -136,8 +146,10 @@ class ForcedInjectSuperscopeTests: XCTestCase {
     func testForcedInjectionInGrandSonHierarchy() {
         let injected = UnrelatedScopes.First()
         let parent = ParentChildGrandSon.Parent()
+        // Before injection call, injected value is the defaultValue
         XCTAssertEqual(parent.child?.grandson?.injected.uuid, UnrelatedScopes.First.defaultValue.uuid)
         parent.injectSuperscope(injected)
+        // After injection, correct value
         XCTAssertEqual(parent.child?.grandson?.injected.uuid, injected.uuid)
     }
     
@@ -165,9 +177,14 @@ class InjectObjectTests: XCTestCase {
     }
     
     func testInjectClass() {
-        let injectableClass = InjectableClass()
         let sut = ScopeWihInjectables()
+        
+        // Returns default value before injection
+        //  an internally catched exception is thrown, debugger will stop if excp. breakpoint enabled
         XCTAssertEqual(sut.injectedClass.uuid, InjectableClass.defaultValue.uuid)
+        
+        // Returns injected class after injection
+        let injectableClass = InjectableClass()
         sut.injectObject(injectableClass)
         XCTAssertEqual(sut.injectedClass.uuid, injectableClass.uuid)
     }
@@ -178,6 +195,10 @@ class InjectObjectTests: XCTestCase {
         XCTAssertEqual(sut.injectedStruct.uuid, InjectableStruct.defaultValue.uuid)
         sut.injectObject(injectableStruct)
         XCTAssertEqual(sut.injectedStruct.uuid, injectableStruct.uuid)
+    }
+    
+    func testInjectPtotocol() {
+        // TODO: Protocols can't be injected, create protocolwitness macro
     }
     
     enum ParentChildGrandSon {

@@ -19,6 +19,7 @@ public protocol ChainLinkProtocol {
 ///
 /// Helper to achieve dependency injection and retrieval by holding a list of children nodes and a link to the parent
 /// when a dependency is requested to a node, it can be searched up to the root of the tree
+/// similar to what environmentObject achieves in swiftUI, and chaining app states using wrapper trees intead view trees
 public protocol ChainLink: ChainLinkProtocol, AnyObject {
 }
 
