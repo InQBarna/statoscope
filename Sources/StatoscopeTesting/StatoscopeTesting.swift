@@ -37,7 +37,7 @@ public final class StatoscopeTestPlan<T: Scope> {
             // assertNoDeepEffects(file: file, line: line)
             try whens.forEach {
                 sut.clearPending()
-                try sut.unsafeSend($0)
+                try sut.sendUnsafe($0)
             }
         }
     }
@@ -69,7 +69,7 @@ public final class StatoscopeTestPlan<T: Scope> {
     public func AND(file: StaticString = #file, line: UInt = #line, _ whens: T.When...) throws -> Self {
         addStep { sut in
             try whens.forEach {
-                try sut.unsafeSend($0)
+                try sut.sendUnsafe($0)
             }
         }
     }
@@ -260,7 +260,7 @@ extension StatoscopeTestPlan {
         addStep { sut in
             // assertNoDeepEffects(file: file, line: line)
             sut.clearPending()
-            XCTAssertThrowsError(try sut.unsafeSend(when), file: file, line: line)
+            XCTAssertThrowsError(try sut.sendUnsafe(when), file: file, line: line)
         }
     }
     @discardableResult
@@ -269,7 +269,7 @@ extension StatoscopeTestPlan {
                                             _ when: Subscope.When) throws -> Self {
         addStep { sut in
             sut.clearPending()
-            XCTAssertThrowsError(try sut[keyPath: keyPath].unsafeSend(when), file: file, line: line)
+            XCTAssertThrowsError(try sut[keyPath: keyPath].sendUnsafe(when), file: file, line: line)
         }
     }
     @discardableResult
@@ -283,7 +283,7 @@ extension StatoscopeTestPlan {
                         file: file, line: line)
                 return
             }
-            XCTAssertThrowsError(try childScope.unsafeSend(when), file: file, line: line)
+            XCTAssertThrowsError(try childScope.sendUnsafe(when), file: file, line: line)
         }
     }
 }
@@ -296,7 +296,7 @@ extension Scope {
         // assertNoDeepEffects(file: file, line: line)
         try whens.forEach {
             childScope.clearPending()
-            try childScope.unsafeSend($0)
+            try childScope.sendUnsafe($0)
         }
         return self
     }

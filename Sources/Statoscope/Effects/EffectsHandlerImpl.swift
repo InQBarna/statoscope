@@ -1,74 +1,11 @@
 //
-//  File.swift
+//  EffectsHandlerImpl.swift
 //  
 //
 //  Created by Sergi Hernanz on 28/1/24.
 //
 
 import Foundation
-
-public protocol EffectsContainer {
-    associatedtype When: Sendable
-    /// Read ongoing effects
-    var effects: [any Effect] { get }
-    /// Clear the effects that have not yet been triggered. Useful for testing purposes
-    func clearPending()
-    /// Enqueue an effect. It must complete with a new When case
-    ///
-    ///  - Parameter effect: a container of an async operation to be executed. It must complete with an appropriate When case
-    ///
-    ///  Use it with an anonymous Effect
-    ///  ```swift
-    ///  .enqueue(
-    ///    AnyEffect {
-    ///      let resultDTO = try JSONDecoder().decode(DTO.self, from: try await URLSession.shared.data(for: request).0)
-    ///      return When.networkPostCompleted(resultDTO)
-    ///    }
-    ///  )
-    ///  ```
-    ///  Or type an Effect
-    ///  ```swift
-    ///  struct NetworkEffect<Response: Decodable>: Effect {
-    ///    let request: URLRequest
-    ///    func runEffect() async throws -> Response {
-    ///      try JSONDecoder().decode(Response.self, from: try await URLSession.shared.data(for: request).0)
-    ///    }
-    ///  }
-    ///  ```
-    ///  And use it mapping the result to your When case
-    ///  ```swift
-    ///  .enqueue(
-    ///    let url = URL(string: "http://statoscope.com")!
-    ///    var request = URLRequest(url: url)
-    ///    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-    ///    request.httpMethod = "POST"
-    ///    request.httpBody = try JSONEncoder().encode(dto)
-    ///    return NetworkEffect(request)
-    ///       .map(When.networkPostCompleted)
-    ///  )
-    ///  ```
-    func enqueue<E: Effect>(_ effect: E) where E.ResType == When
-    /// Cancels the effects that conform to the provided block.
-    ///
-    ///  - Parameter whereBlock: A closure that takes an ongoing effect as its argument and returns a Boolean value indicating whether the effect should be cancelle
-    ///
-    ///  You should have previously enqueued a typed effect like this one
-    ///  ```swift
-    ///  struct NetworkEffect<Response: Decodable>: Effect {
-    ///    let request: URLRequest
-    ///    func runEffect() async throws -> Response {
-    ///      try JSONDecoder().decode(Response.self, from: try await URLSession.shared.data(for: request).0)
-    ///    }
-    ///  }
-    ///  ```
-    ///  and layer you can cancel it by:
-    ///  ```swift
-    ///  .cancelEffect { ongoingEffect in
-    ///    networkEffect is NetworkEffect<DTO>
-    ///  )
-    ///  ```
-    func cancelEffect(where whereBlock: (any Effect) -> Bool)
-}
 
 private actor RunnerTasks<When: Sendable> {
     var runningTasks: [UUID: Task<When?, Error>] = [:]
@@ -94,10 +31,6 @@ private actor RunnerTasks<When: Sendable> {
     }
 }
 
-protocol EffectsHandlerImplementation: EffectsContainer {
-    func runEnqueuedEffectAndGetWhenResults(safeSend: @escaping (AnyEffect<When>, When) async -> Void) throws
-}
-
 /// A base class to handle Effects. Capable of launching an Effect and keep it working during all the lifespan
 ///  of the EffectsHandler. All ongoing effects can be cleared before triggered (good for testing purposes), read or cancelled
 public class EffectsHandler<When: Sendable>: EffectsContainer {
@@ -105,6 +38,10 @@ public class EffectsHandler<When: Sendable>: EffectsContainer {
     public func clearPending() { fatalError() }
     public func enqueue<E: Effect>(_ effect: E) where E.ResType == When { fatalError() }
     public func cancelEffect(where whereBlock: (any Effect) -> Bool) { fatalError() }
+    public func cancelAllEffects() { fatalError() }
+    public func runEnqueuedEffectAndGetWhenResults(
+        safeSend: @escaping (AnyEffect<When>, When) async -> Void
+    ) throws { fatalError() }
     internal init() { }
 }
 
@@ -120,19 +57,6 @@ internal final class EffectsHandlerImpl<When: Sendable>: EffectsHandler<When> {
         self.logPrefix = logPrefix
     }
     
-    #if false
-    fileprivate func enqueueAnonymous(_ effect: AnyEffect<When>) {
-        pendingEffects.append(effect)
-    }
-    #endif
-    
-    /*
-    public var ongoingEffects: [any Effect] {
-        return ongoingEffects.map { $0.1 }
-            .map { $0.wrappedEffect }
-    }
-     */
-    
     public override var effects: [any Effect] {
         return (pendingEffects + ongoingEffects.map { $0.1 })
             .map { $0.wrappedEffect }
@@ -144,7 +68,7 @@ internal final class EffectsHandlerImpl<When: Sendable>: EffectsHandler<When> {
         pendingEffects.append(AnyEffect(effect: effect))
     }
     
-    func runEnqueuedEffectAndGetWhenResults(
+    override func runEnqueuedEffectAndGetWhenResults(
         safeSend: @escaping (AnyEffect<When>, When) async -> Void
     ) throws {
         assert(Thread.current.isMainThread, "For pending/ongoingEffects thread safety")
@@ -232,7 +156,7 @@ internal final class EffectsHandlerImpl<When: Sendable>: EffectsHandler<When> {
         })
     }
     
-    func cancellAllTasks() {
+    override func cancelAllEffects() {
         let retainedTasks = tasks
         Task(priority: .high, operation: {
             let count = await retainedTasks.count()
@@ -244,7 +168,7 @@ internal final class EffectsHandlerImpl<When: Sendable>: EffectsHandler<When> {
     }
     
     deinit {
-        cancellAllTasks()
+        cancelAllEffects()
     }
 
     @MainActor
@@ -259,30 +183,49 @@ internal final class EffectsHandlerImpl<When: Sendable>: EffectsHandler<When> {
 /// A helper class to spy the effects launched by an Scope
 ///  TODO: To be used when we have Reducer-style Scopes
 public final class EffectsHandlerSpy<When: Sendable>: EffectsHandler<When> {
+    
     private var privateEffects: [AnyEffect<When>] = []
     private var privateCancelledEffects: [AnyEffect<When>] = []
+    
     /// returns the recently cancelled effects
     public var cancelledEffects: [any Effect] {
         privateCancelledEffects
     }
+    
     /// Returns enqueued effects
     public override var effects: [any Effect] {
         privateEffects.map { $0.wrappedEffect }
     }
+    
     /// Clears all enqueued effects
     public override func clearPending() {
         privateEffects.removeAll()
     }
+    
     /// Enqueues an effect, but it never runs it
     public override func enqueue<E: Effect>(
         _ effect: E
     ) where E.ResType == When {
         privateEffects.append(AnyEffect(effect: effect))
     }
+    
     /// Updates the cancelledEffects variable with the provided closure
     public override func cancelEffect(where whereBlock: (any Effect) -> Bool) {
         privateCancelledEffects.removeAll()
         let newCancelled = privateEffects.filter(whereBlock)
         privateCancelledEffects.append(contentsOf: newCancelled)
+    }
+    
+    /// Updates the cancelledEffects with all current effects
+    public override func cancelAllEffects() {
+        privateCancelledEffects.removeAll()
+        privateCancelledEffects.append(contentsOf: privateEffects)
+        privateEffects.removeAll()
+    }
+    
+    /// Does nothing as spy
+    public override func runEnqueuedEffectAndGetWhenResults(safeSend: @escaping (AnyEffect<When>, When) async -> Void) throws {
+        privateCancelledEffects.removeAll()
+        privateEffects.removeAll()
     }
 }
