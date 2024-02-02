@@ -22,7 +22,6 @@ let package = Package(
         ),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-docc-plugin", branch: "main"),
     ],
     targets: [
         .target(
