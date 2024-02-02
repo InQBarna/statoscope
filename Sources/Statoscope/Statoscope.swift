@@ -7,11 +7,13 @@
 
 import Foundation
 
+/// Part of the ``Scope`` protocol. When adopted forces the implementation of the update method to mutate the store state
 public protocol StoreImplementation {
     associatedtype When: Sendable
     func update(_ when: When) throws
 }
 
+/// Part of the ``Scope`` protocol. When conformed, an object automatcally synthesizes
 public protocol Store {
     associatedtype When: Sendable
     @discardableResult
@@ -24,7 +26,7 @@ public protocol Scope:
     Store                   // Public interface receiving When events + default dispatch implementation
     & StoreImplementation   // Forces inheriting class to implement the update business logic
     & EffectsContainer      // Public interface to dispatch effect + default forwarding and implementation
-    & ChainLink             // Public interface for dependency injection and retrieval
+    & InjectionTreeNode     // Public interface for dependency injection and retrieval
     & AnyObject
 { }
 

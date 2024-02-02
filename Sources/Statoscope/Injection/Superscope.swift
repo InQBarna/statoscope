@@ -19,36 +19,32 @@ public struct Superscope<Value: Injectable & ObservableObject> {
         self.observed = observed
     }
 
-    public static subscript<T: ChainLink & ObservableObject>(
+    public static subscript<T: InjectionTreeNode & ObservableObject>(
         _enclosingInstance enclosingInstance: T,
         wrapped wrappedKeyPath: ReferenceWritableKeyPath<T, Value>,
         storage storageKeyPath: ReferenceWritableKeyPath<T, Self>
     ) -> Value {
         get {
-            do {
-                // Debug value
-                if let overwrite = enclosingInstance[keyPath: storageKeyPath].overwrittingValue {
-                    return overwrite
-                }
-                
-                // return try enclosingInstance.resolve()
-                let foundSuper: Value = try enclosingInstance.resolveSuperscope(searchInStore: true)
-                
-                // Listen to parent
-                if enclosingInstance[keyPath: storageKeyPath].observed,
-                   nil == enclosingInstance[keyPath: storageKeyPath].cancellable {
-                    enclosingInstance[keyPath: storageKeyPath].cancellable = foundSuper.objectWillChange.sink(receiveValue: { [weak enclosingInstance] _ in
-                        // no compila lo de debajo ??
-                        // instance?.objectWillChange.send()
-                        if let publisher = enclosingInstance?.objectWillChange {
-                            (publisher as! ObservableObjectPublisher).send()
-                        }
-                    })
-                }
-                return foundSuper
-            } catch {
-                return Value.defaultValue
+            // Debug value
+            if let overwrite = enclosingInstance[keyPath: storageKeyPath].overwrittingValue {
+                return overwrite
             }
+            
+            // return try enclosingInstance.resolve()
+            let foundSuper: Value = enclosingInstance.resolve()
+            
+            // Listen to parent
+            if enclosingInstance[keyPath: storageKeyPath].observed,
+               nil == enclosingInstance[keyPath: storageKeyPath].cancellable {
+                enclosingInstance[keyPath: storageKeyPath].cancellable = foundSuper.objectWillChange.sink(receiveValue: { [weak enclosingInstance] _ in
+                    // no compila lo de debajo ??
+                    // instance?.objectWillChange.send()
+                    if let publisher = enclosingInstance?.objectWillChange {
+                        (publisher as! ObservableObjectPublisher).send()
+                    }
+                })
+            }
+            return foundSuper
         }
         set {
             if nil != NSClassFromString("XCTest") ||

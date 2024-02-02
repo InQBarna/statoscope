@@ -13,8 +13,17 @@ public struct InvalidStateError: Error {
 
 public struct NoInjectedValueFound: Error {
     let type: String
-    init<T>(_ type: T) {
+    let injectionTreeDescription: [String]?
+    init<T>(_ type: T, injectionTreeDescription: [String]? = nil) {
         self.type = String(describing: type).removeOptionalDescription
+        self.injectionTreeDescription = injectionTreeDescription
+    }
+    var debugDescription: String {
+        let msg = "No injected value found: \"\(type)\""
+        // Add keypath if possible ... at: \"\(keyPath ?? String(describing: type(of: self)))\"")
+        return [[msg], injectionTreeDescription ?? []]
+            .flatMap { $0 }
+            .joined(separator: "\n")
     }
 }
 

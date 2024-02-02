@@ -16,7 +16,7 @@ import Combine
 //  so it can navigate thru all model->submodel-> hierarchy for injection and debug
 //
 @propertyWrapper
-public struct Subscope<Value: ChainLinkProtocol> {
+public struct Subscope<Value: InjectionTreeNodeProtocol> {
 
     private var storage: Value
 
@@ -24,7 +24,7 @@ public struct Subscope<Value: ChainLinkProtocol> {
         storage = wrappedValue
     }
     
-    public static subscript<T: ChainLink & ObservableObject>(
+    public static subscript<T: InjectionTreeNode & ObservableObject>(
         _enclosingInstance enclosingInstance: T,
         wrapped wrappedKeyPath: ReferenceWritableKeyPath<T, Value>,
         storage storageKeyPath: ReferenceWritableKeyPath<T, Self>

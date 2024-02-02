@@ -20,30 +20,27 @@ public struct Injected<Value: Injectable> {
         self.overwrittingValue = overwrittingValue
     }
 
-    public static subscript<T: ChainLink>(
+    public static subscript<T: InjectionTreeNode>(
         _enclosingInstance enclosingInstance: T,
         wrapped wrappedKeyPath: ReferenceWritableKeyPath<T, Value>,
         storage storageKeyPath: ReferenceWritableKeyPath<T, Self>
     ) -> Value {
         get {
-            do {
-                if let overwrite = enclosingInstance[keyPath: storageKeyPath].overwrittingValue {
-                    return overwrite
-                }
-#if false
-                if let cached = enclosingInstance[keyPath: storageKeyPath].cachedValue {
-                    return cached
-                }
-                let result: Value = try enclosingInstance.resolveObject()
-                enclosingInstance[keyPath: storageKeyPath].cachedValue  = result
-                return result
-#else
-                let keyPathDescription = ("\(wrappedKeyPath)" as NSString).lastPathComponent
-                return try enclosingInstance.resolveObject(keyPath: keyPathDescription)
-#endif
-            } catch {
-                return Value.defaultValue
+            if let overwrite = enclosingInstance[keyPath: storageKeyPath].overwrittingValue {
+                return overwrite
             }
+#if false
+            if let cached = enclosingInstance[keyPath: storageKeyPath].cachedValue {
+                return cached
+            }
+            let result: Value = try enclosingInstance.resolveObject()
+            enclosingInstance[keyPath: storageKeyPath].cachedValue  = result
+            return result
+#else
+            // let keyPathDescription = ("\(wrappedKeyPath)" as NSString).lastPathComponent
+            // return try enclosingInstance.resolveObject(keyPath: keyPathDescription)
+            return enclosingInstance.resolve()
+#endif
         }
         set {
             if nil != NSClassFromString("XCTest") ||

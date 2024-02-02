@@ -32,16 +32,16 @@ class SubscopeSuperscodePropertyWrapperTests: XCTestCase {
     }
     
     enum ParentChildGrandSon {
-        final class Parent: ChainLink, Injectable, ObservableObject {
+        final class Parent: InjectionTreeNode, Injectable, ObservableObject {
             @Subscope var child: Child? = Child()
             static var defaultValue: Parent = Parent()
         }
-        final class Child: ChainLink, Injectable, ObservableObject {
+        final class Child: InjectionTreeNode, Injectable, ObservableObject {
             @Superscope var parent: Parent
             @Subscope var grandson: GrandSon? = GrandSon()
             static var defaultValue: Child = Child()
         }
-        final class GrandSon: ChainLink, ObservableObject {
+        final class GrandSon: InjectionTreeNode, ObservableObject {
             @Superscope var parent: Parent
             @Superscope var child: Child
         }
@@ -60,16 +60,16 @@ class SubscopeSuperscodePropertyWrapperTests: XCTestCase {
     }
     
     enum TwoSubhierarchies {
-        final class Parent: ChainLink, Injectable, ObservableObject {
+        final class Parent: InjectionTreeNode, Injectable, ObservableObject {
             @Subscope var child1: Child? = Child()
             @Subscope var child2: Child? = Child()
             static var defaultValue: Parent = Parent()
         }
-        final class Child: ChainLink, Injectable, ObservableObject {
+        final class Child: InjectionTreeNode, Injectable, ObservableObject {
             @Subscope var grandson: GrandSon? = GrandSon()
             static var defaultValue: Child = Child()
         }
-        final class GrandSon: ChainLink, ObservableObject {
+        final class GrandSon: InjectionTreeNode, ObservableObject {
             @Superscope var parent: Parent
             @Superscope var child: Child
         }
@@ -127,16 +127,16 @@ class ForcedInjectSuperscopeTests: XCTestCase {
     }
     
     enum ParentChildGrandSon {
-        final class Parent: ChainLink, Injectable, ObservableObject {
+        final class Parent: InjectionTreeNode, Injectable, ObservableObject {
             @Subscope var child: Child? = Child()
             static var defaultValue: Parent = Parent()
         }
-        final class Child: ChainLink, Injectable, ObservableObject {
+        final class Child: InjectionTreeNode, Injectable, ObservableObject {
             @Superscope var parent: Parent
             @Subscope var grandson: GrandSon? = GrandSon()
             static var defaultValue: Child = Child()
         }
-        final class GrandSon: ChainLink, ObservableObject {
+        final class GrandSon: InjectionTreeNode, ObservableObject {
             @Superscope var parent: Parent
             @Superscope var child: Child
             @Superscope var injected: UnrelatedScopes.First
@@ -202,16 +202,16 @@ class InjectObjectTests: XCTestCase {
     }
     
     enum ParentChildGrandSon {
-        final class Parent: ChainLink, Injectable, ObservableObject {
+        final class Parent: InjectionTreeNode, Injectable, ObservableObject {
             @Subscope var child: Child? = Child()
             static var defaultValue: Parent = Parent()
         }
-        final class Child: ChainLink, Injectable, ObservableObject {
+        final class Child: InjectionTreeNode, Injectable, ObservableObject {
             @Superscope var parent: Parent
             @Subscope var grandson: GrandSon? = GrandSon()
             static var defaultValue: Child = Child()
         }
-        final class GrandSon: ChainLink, ObservableObject {
+        final class GrandSon: InjectionTreeNode, ObservableObject {
             @Superscope var parent: Parent
             @Superscope var child: Child
             @Injected var injectedStruct: InjectableStruct
@@ -236,20 +236,20 @@ class InjectObjectTests: XCTestCase {
     }
     
     enum ParentChildGrandSonAccessAtAllLevels {
-        final class Parent: ChainLink, Injectable, ObservableObject {
+        final class Parent: InjectionTreeNode, Injectable, ObservableObject {
             @Subscope var child: Child? = Child()
             @Injected var injectedStruct: InjectableStruct
             @Injected var injectedClass: InjectableClass
             static var defaultValue: Parent = Parent()
         }
-        final class Child: ChainLink, Injectable, ObservableObject {
+        final class Child: InjectionTreeNode, Injectable, ObservableObject {
             @Superscope var parent: Parent
             @Subscope var grandson: GrandSon? = GrandSon()
             @Injected var injectedStruct: InjectableStruct
             @Injected var injectedClass: InjectableClass
             static var defaultValue: Child = Child()
         }
-        final class GrandSon: ChainLink, ObservableObject {
+        final class GrandSon: InjectionTreeNode, ObservableObject {
             @Superscope var parent: Parent
             @Superscope var child: Child
             @Injected var injectedStruct: InjectableStruct
