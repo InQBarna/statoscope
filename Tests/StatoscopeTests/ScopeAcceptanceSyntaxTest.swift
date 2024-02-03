@@ -44,7 +44,7 @@ private final class SampleScope: ObservableObject, Scope {
         switch when {
         case .systemLoadsSampleScope:
             loading = true
-            enqueue(PushPermissionsRequest().map(When.pushPermissionsResponse))
+            effectsHandler.enqueue(PushPermissionsRequest().map(When.pushPermissionsResponse))
         case .networkRespondsWithContent(let newContent):
             loading = false
             content = newContent

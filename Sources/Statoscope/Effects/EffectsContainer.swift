@@ -94,6 +94,17 @@ public protocol EffectsHandlerImplementation {
     ///
     associatedtype When: Sendable
 
+    /// EffectsContainer for all ongoing effects
+    var effectsHandler: EffectsHandler<When> { get }
+}
+
+/// When conformed, the object has a default implementation of runEnqueuedEffectAndGetWhenResults and conformance to EffectsContainer
+protocol InternalEffectsHandlerImplementation {
+
+    /// Shared type to be returned by all effects interacting with the current EffectsHandlerImplementation
+    ///
+    associatedtype When: Sendable
+
     /// Launches the enqueued effects
     ///  * Parameter safeSend a closure to be executed when enqueed effects complete
     ///  If any of the launched effects fail with an exception or is cancelled, completion closure won't be called, exception will be catched silently
@@ -101,5 +112,5 @@ public protocol EffectsHandlerImplementation {
     func runEnqueuedEffectAndGetWhenResults(safeSend: @escaping (AnyEffect<When>, When) async -> Void) throws
 }
 
-public typealias EffectsHandlerProtocol = EffectsContainer & EffectsHandlerImplementation
+public typealias EffectsContainerAndImplementation = EffectsContainer & EffectsHandlerImplementation
 

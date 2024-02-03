@@ -14,10 +14,10 @@ import Foundation
 /// * EffectsContainer: provides public interface to enqueue and handle Effects, and the default implementation
 /// * InjectionTreeNode: provides public interface to manage dependency injection, and the default implementation for injects and resolve methods
 public protocol Scope:
-    Store                   // Public interface receiving When events + default dispatch implementation
-    & StoreImplementation   // Forces inheriting class to implement the update business logic
-    & EffectsContainer      // Public interface to dispatch effect + default forwarding and implementation
-    & InjectionTreeNode     // Public interface for dependency injection and retrieval
+    Store                           // Public interface receiving When events + default dispatch implementation
+    & StoreImplementation           // Forces inheriting class to implement the update business logic
+    & EffectsContainer              // Public interface to dispatch effect + default forwarding and implementation
+    & InjectionTreeNode             // Public interface for dependency injection and retrieval
     & AnyObject
 { }
 
@@ -29,6 +29,7 @@ extension Scope {
 }
 
 // <LIBRARY>
+// Reducer: this is a baseline approach to separate state and store
 public protocol StatoscopeProtocol {
     associatedtype State
     func state() -> State
@@ -55,6 +56,5 @@ public class StateVar<Value> {
     }
     public var wrappedValue: Value
 }
-
 // <LIBRARY>
 

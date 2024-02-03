@@ -39,9 +39,6 @@ public class EffectsHandler<When: Sendable>: EffectsContainer {
     public func enqueue<E: Effect>(_ effect: E) where E.ResType == When { fatalError() }
     public func cancelEffect(where whereBlock: (any Effect) -> Bool) { fatalError() }
     public func cancelAllEffects() { fatalError() }
-    public func runEnqueuedEffectAndGetWhenResults(
-        safeSend: @escaping (AnyEffect<When>, When) async -> Void
-    ) throws { fatalError() }
     internal init() { }
 }
 
@@ -68,7 +65,7 @@ internal final class EffectsHandlerImpl<When: Sendable>: EffectsHandler<When> {
         pendingEffects.append(AnyEffect(effect: effect))
     }
     
-    override func runEnqueuedEffectAndGetWhenResults(
+    func runEnqueuedEffectAndGetWhenResults(
         safeSend: @escaping (AnyEffect<When>, When) async -> Void
     ) throws {
         assert(Thread.current.isMainThread, "For pending/ongoingEffects thread safety")
@@ -220,12 +217,6 @@ public final class EffectsHandlerSpy<When: Sendable>: EffectsHandler<When> {
     public override func cancelAllEffects() {
         privateCancelledEffects.removeAll()
         privateCancelledEffects.append(contentsOf: privateEffects)
-        privateEffects.removeAll()
-    }
-    
-    /// Does nothing as spy
-    public override func runEnqueuedEffectAndGetWhenResults(safeSend: @escaping (AnyEffect<When>, When) async -> Void) throws {
-        privateCancelledEffects.removeAll()
         privateEffects.removeAll()
     }
 }

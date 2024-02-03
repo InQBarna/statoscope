@@ -10,6 +10,7 @@ import SwiftUI
 @testable import Statoscope
 import StatoscopeTesting
 
+// Reducer: This is a baseline approach to separate state and store
 // <GENERATED>
 protocol CounterState {
     var viewDisplaysTotalCount: Int { get }

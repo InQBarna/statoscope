@@ -19,7 +19,11 @@ public protocol StoreImplementation {
 /// * public send method to forward When events to the store implementation
 /// * public addMiddleware and synthesized properties to enable interception of messages
 /// * conformance to EffectsHandlerImplementation to trigger effects with the 
-public protocol Store: EffectsHandlerImplementation, StoreImplementation {
+public protocol Store: 
+    EffectsHandlerImplementation,   // Capable of handle effects, TODO: should be private
+    EffectsContainer,               // Expose effects functionality, TODO: should use effectsHandler
+    StoreImplementation             // Forces conformed object to implement update()
+{
     @discardableResult
     func send(_ when: When) -> Self
     @discardableResult
@@ -63,6 +67,7 @@ fileprivate let scopeEffectsDisabledInPreviews: Bool = ProcessInfo.processInfo.e
 
 extension Store where Self: AnyObject {
 
+    @discardableResult
     public func sendUnsafe(_ when: When) throws -> Self {
         if let middleware = middleWare {
             guard let mappedWhen = try middleware.middleWare(self, when) else {
@@ -130,3 +135,29 @@ fileprivate extension Store where Self: AnyObject {
     }
 }
 
+/*
+ Reducer: No longer provide store as EffectsContainer, force usage of effectsHandler ??
+ */
+public extension Store where Self: AnyObject {
+    
+    func enqueue<E: Effect>(_ effect: E) where E.ResType == When {
+        effectsHandler.enqueue(effect)
+    }
+    
+    var effects: [any Effect] {
+        return effectsHandler.effects
+    }
+    
+    func clearPending() {
+        effectsHandler.clearPending()
+    }
+    
+    func cancelEffect(where whereBlock: (any Effect) -> Bool) {
+        effectsHandler.cancelEffect(where: whereBlock)
+    }
+    
+    func cancelAllEffects() {
+        effectsHandler.cancelAllEffects()
+    }
+    
+}

@@ -7,41 +7,17 @@
 
 import Foundation
 
-public extension EffectsHandlerImplementation where Self: AnyObject {
-    
-    func enqueue<E: Effect>(_ effect: E) where E.ResType == When {
-        effectsHandler.enqueue(effect)
-    }
-    
-    var effects: [any Effect] {
-        return effectsHandler.effects
-    }
-    
-    func clearPending() {
-        effectsHandler.clearPending()
-    }
-    
-    func cancelEffect(where whereBlock: (any Effect) -> Bool) {
-        effectsHandler.cancelEffect(where: whereBlock)
-    }
-    
-    func cancelAllEffects() {
-        effectsHandler.cancelAllEffects()
-    }
-    
-    func runEnqueuedEffectAndGetWhenResults(safeSend: @escaping (AnyEffect<When>, When) async -> Void) throws {
-        ensureSetupDeinitObserver()
-        try effectsHandler.runEnqueuedEffectAndGetWhenResults(safeSend: safeSend)
-    }
-}
-
+// AnyObject conforming to EffectsHandlerImplementation will
+//  1. synthesize an EffectsHandlerImpl member instance to handle effects
 fileprivate var effectsHandlerStoreKey: UInt8 = 0
 internal extension EffectsHandlerImplementation where Self: AnyObject {
     
     var logPrefix: String {
         "\(type(of: self)) (\(Unmanaged.passUnretained(self).toOpaque())): "
     }
+}
     
+public extension EffectsHandlerImplementation where Self: AnyObject {
     var effectsHandler: EffectsHandler<When> {
         get {
             return associatedObject(base: self, key: &effectsHandlerStoreKey, initialiser: {
@@ -51,7 +27,7 @@ internal extension EffectsHandlerImplementation where Self: AnyObject {
     }
 }
 
-// Helper so we detect Scope release and cancel effects on deinit
+//  2. synthesize a DeinitObserver member instance
 fileprivate var deinitObserverStoreKey: UInt8 = 0
 fileprivate class DeinitObserver {
     let execute: () -> ()
@@ -72,6 +48,11 @@ fileprivate extension EffectsHandlerImplementation where Self: AnyObject {
             associateOptionalObject(base: self, key: &deinitObserverStoreKey, value: newValue)
         }
     }
+}
+
+//  3. provide a method runEnqueuedEffectAndGetWhenResults to rule the effectsHandler
+internal extension EffectsHandlerImplementation where Self: AnyObject {
+    
     func ensureSetupDeinitObserver() {
         if deinitObserver == nil {
             let handler = effectsHandler
@@ -79,6 +60,18 @@ fileprivate extension EffectsHandlerImplementation where Self: AnyObject {
                 handler?.cancelAllEffects()
             }
         }
+    }
+}
+
+// ... and ... Conform to InternalEffectsHandlerImplementation implicitly
+extension EffectsHandlerImplementation where Self: AnyObject {
+    func runEnqueuedEffectAndGetWhenResults(safeSend: @escaping (AnyEffect<When>, When) async -> Void) throws {
+        ensureSetupDeinitObserver()
+        guard let impl = effectsHandler as? EffectsHandlerImpl<When> else {
+            // May have been overwritten to a spy for testing purposes ?
+            return
+        }
+        try impl.runEnqueuedEffectAndGetWhenResults(safeSend: safeSend)
     }
 }
 
