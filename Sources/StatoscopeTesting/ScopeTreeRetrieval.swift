@@ -10,13 +10,13 @@ import Statoscope
 
 internal func ifChildScope(
     _ mirrorChild: Mirror.Child,
-    except: [any Scope],
-    _ block: ((_ child: any Scope, _ name: String, _ newExcept: [any Scope]) -> Void)
+    except: [any Statoscope],
+    _ block: ((_ child: any Statoscope, _ name: String, _ newExcept: [any Statoscope]) -> Void)
 ) {
     guard let label = mirrorChild.label else {
         return
     }
-    if let scopeChild = mirrorChild.value as? any Scope {
+    if let scopeChild = mirrorChild.value as? any Statoscope {
         if nil == except.first(where: { $0 === scopeChild}) {
             var exceptWithChild = except
             exceptWithChild.append(scopeChild)
@@ -25,7 +25,7 @@ internal func ifChildScope(
         }
     }
     if String(describing: mirrorChild.value).contains("Subscope<") {
-        if let publishedScopeChild = Mirror(reflecting: mirrorChild.value).children.first as? (String, any Scope) {
+        if let publishedScopeChild = Mirror(reflecting: mirrorChild.value).children.first as? (String, any Statoscope) {
             if nil == except.first(where: { $0 === publishedScopeChild.1}) {
                 var exceptWithChild = except
                 exceptWithChild.append(publishedScopeChild.1)
@@ -35,15 +35,15 @@ internal func ifChildScope(
     }
 }
 
-extension Scope {
+extension Statoscope {
     
-    public func allChildScopes() -> [any Scope] {
-        var scopes: [any Scope] = [self]
+    public func allChildScopes() -> [any Statoscope] {
+        var scopes: [any Statoscope] = [self]
         allChildScopeIterative(except: &scopes)
         return scopes
     }
 
-    private func allChildScopeIterative(except: inout [any Scope]) {
+    private func allChildScopeIterative(except: inout [any Statoscope]) {
         let mirror = Mirror(reflecting: self)
         mirror.children.forEach { child in
             ifChildScope(child, except: except) { child, _, newExcept in

@@ -10,7 +10,7 @@ import XCTest
 import Statoscope
 
 // Sugar a tope
-public final class StatoscopeTestPlan<T: Scope> {
+public final class StatoscopeTestPlan<T: Statostore> {
     // let sut: T
     let given: () throws -> T
     private var steps: [(T) throws -> Void] = []
@@ -42,7 +42,7 @@ public final class StatoscopeTestPlan<T: Scope> {
         }
     }
     @discardableResult
-    public func WHEN<Subscope: Scope>(_ keyPath: KeyPath<T, Subscope>,
+    public func WHEN<Subscope: Statostore>(_ keyPath: KeyPath<T, Subscope>,
                                       file: StaticString = #file, line: UInt = #line,
                                       _ whens: Subscope.When...) throws -> Self {
         addStep { sut in
@@ -50,7 +50,7 @@ public final class StatoscopeTestPlan<T: Scope> {
         }
     }
     @discardableResult
-    public func WHEN<Subscope: Scope>(_ keyPath: KeyPath<T, Subscope?>,
+    public func WHEN<Subscope: Statostore>(_ keyPath: KeyPath<T, Subscope?>,
                                     file: StaticString = #file, line: UInt = #line,
                                     _ whens: Subscope.When...) throws -> Self {
         addStep { sut in
@@ -74,7 +74,7 @@ public final class StatoscopeTestPlan<T: Scope> {
         }
     }
     @discardableResult
-    public func AND<Subscope: Scope>(_ keyPath: KeyPath<T, Subscope>,
+    public func AND<Subscope: Statostore>(_ keyPath: KeyPath<T, Subscope>,
                                    file: StaticString = #file, line: UInt = #line,
                                    _ whens: Subscope.When...) throws -> Self {
         addStep { sut in
@@ -82,7 +82,7 @@ public final class StatoscopeTestPlan<T: Scope> {
         }
     }
     @discardableResult
-    public func AND<Subscope: Scope>(_ keyPath: KeyPath<T, Subscope?>,
+    public func AND<Subscope: Statostore>(_ keyPath: KeyPath<T, Subscope?>,
                                    file: StaticString = #file, line: UInt = #line,
                                    _ whens: Subscope.When...) throws -> Self {
         addStep { sut in
@@ -110,7 +110,7 @@ public final class StatoscopeTestPlan<T: Scope> {
     }
     
     @discardableResult
-    public func THEN<Subscope: Scope>(
+    public func THEN<Subscope: Statostore>(
         _ keyPath: KeyPath<T, Subscope>,
         file: StaticString = #file, line: UInt = #line,
         checker: @escaping (_ sut: Subscope) throws -> Void
@@ -123,7 +123,7 @@ public final class StatoscopeTestPlan<T: Scope> {
         }
     }
     @discardableResult
-    public func THEN<Subscope: Scope>(
+    public func THEN<Subscope: Statostore>(
         _ keyPath: KeyPath<T, Subscope?>,
         file: StaticString = #file, line: UInt = #line,
         checker: @escaping (_ sut: Subscope) throws -> Void
@@ -183,7 +183,7 @@ public final class StatoscopeTestPlan<T: Scope> {
     }
 }
 
-extension Scope {
+extension Statostore {
     public static func GIVEN(_ builder: @escaping () throws -> Self) rethrows -> StatoscopeTestPlan<Self> {
         StatoscopeTestPlan(given: builder)
     }
@@ -264,7 +264,7 @@ extension StatoscopeTestPlan {
         }
     }
     @discardableResult
-    public func ThrowsWHEN<Subscope: Scope>(_ keyPath: KeyPath<T, Subscope>,
+    public func ThrowsWHEN<Subscope: Statostore>(_ keyPath: KeyPath<T, Subscope>,
                                             file: StaticString = #file, line: UInt = #line,
                                             _ when: Subscope.When) throws -> Self {
         addStep { sut in
@@ -273,7 +273,7 @@ extension StatoscopeTestPlan {
         }
     }
     @discardableResult
-    public func ThrowsWHEN<Subscope: Scope>(_ keyPath: KeyPath<T, Subscope?>,
+    public func ThrowsWHEN<Subscope: Statostore>(_ keyPath: KeyPath<T, Subscope?>,
                                             file: StaticString = #file, line: UInt = #line,
                                             _ when: Subscope.When) throws -> Self {
         addStep { sut in
@@ -288,9 +288,9 @@ extension StatoscopeTestPlan {
     }
 }
 
-extension Scope {
+extension Statostore {
     @discardableResult
-    fileprivate func when<Subscope: Scope>(childScope: Subscope,
+    fileprivate func when<Subscope: Statostore>(childScope: Subscope,
                                            file: StaticString = #file, line: UInt = #line,
                                            _ whens: [Subscope.When]) throws -> Self {
         // assertNoDeepEffects(file: file, line: line)
@@ -317,9 +317,9 @@ extension ScopeProtocol {
     }
 }
 
-extension Scope {
+extension Statostore {
     @discardableResult
-    func WITH<Subscope: Scope>(_ keyPath: KeyPath<Self, Subscope?>,
+    func WITH<Subscope: Statostore>(_ keyPath: KeyPath<Self, Subscope?>,
                                file: StaticString = #file, line: UInt = #line,
                                with: (Subscope) throws -> Void) rethrows -> Self {
         guard let childScope = self[keyPath: keyPath] else {
@@ -340,7 +340,7 @@ public func XCTAssertEffectsInclude<S, T2>(
     _ message: @autoclosure () -> String = "",
     file: StaticString = #filePath,
     line: UInt = #line
-) where S: Scope, T2: Effect {
+) where S: Statostore, T2: Effect {
     do {
         let sut = try expression1()
         let expected = try expression2()
@@ -381,7 +381,7 @@ extension StatoscopeTestPlan {
     }
     
     @discardableResult
-    public func THEN_Enqued<EffectType: Effect, Subscope: Scope>(
+    public func THEN_Enqued<EffectType: Effect, Subscope: Statostore>(
         _ keyPath: KeyPath<T, Subscope?>,
         effect: EffectType,
         file: StaticString = #file, line: UInt = #line
@@ -405,7 +405,7 @@ extension StatoscopeTestPlan {
     }
     
     @discardableResult
-    public func THEN_Enqued<EffectType: Effect, Subscope: Scope>(
+    public func THEN_Enqued<EffectType: Effect, Subscope: Statostore>(
         _ keyPath: KeyPath<T, Subscope>,
         effect: EffectType,
         file: StaticString = #file, line: UInt = #line

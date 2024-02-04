@@ -4,7 +4,7 @@ Learn the main concepts in the Statoscope architecture, by examples
 
 ## Statoscope basics
 
-### The Scope Object
+### The Statoscope Object
 
 It holds your application state, or a piece (a scope) of your application state.
 
@@ -19,7 +19,7 @@ The mentioned When events are resolved synchronously, so right after sending a W
 
 #### Asynchronous tasks
 
-The Scope is a class object (designed intentionally), so the lifespan of the object is used to define the lifespan of the ongoing effects. When the statoscope object is released, all these Effects are also canceled and released. So the statoscope object also defines the transient states that occur when launching asynchronous tasks. This implicit transient state can be accessed privately by:
+The Statoscope is a class object (designed intentionally), so the lifespan of the object is used to define the lifespan of the ongoing effects. When the statoscope object is released, all these Effects are also canceled and released. So the statoscope object also defines the transient states that occur when launching asynchronous tasks. This implicit transient state can be accessed privately by:
 * An enqueue method to trigger an asynchronous task during the update process.
 * A list of Ongoing Effects. 
 * The ability to cancel all effects by simply releasing the scope. 
@@ -27,10 +27,10 @@ The Scope is a class object (designed intentionally), so the lifespan of the obj
 
 ## State + When
 
-Defining a scope means defining at least the State of your application and the When events that may affect it. Some scopes don’t have asynchronous effects, so we will discuss Effects later. See it all together in a simple Scope:
+Defining a scope means defining at least the State of your application and the When events that may affect it. Some scopes don’t have asynchronous effects, so we will discuss Effects later. See it all together in a simple Statoscope:
 
 ```swift
-fileprivate final class Counter: Scope {
+fileprivate final class Counter: Statostore {
     
     // Define state member variables
     var viewDisplaysTotalCount: Int = 0
@@ -42,17 +42,17 @@ fileprivate final class Counter: Scope {
         case userTappedDecrementButton
     }
     
-    // Scope conformance forces you to implement the update method:
+    // Statoscope conformance forces you to implement the update method:
     func update(_ when: When) throws { throw NotImplemented() }
 }
 ```
 
 Here we define a common simple application sample commonly used in unidirectional architectures: a counter. It displays the counter and a button to increase or decrease it. 
 
-Since we’re using it on SwiftUI, see the full Scope + View implementation:
+Since we’re using it on SwiftUI, see the full Statoscope + View implementation:
 
 ```swift
-fileprivate final class Counter: Scope, ObservableObject {
+fileprivate final class Counter: Statostore, ObservableObject {
     
     // Define state member variables, indicate which ones update the ui with Published
     @Published var viewDisplaysTotalCount: Int = 0
@@ -179,7 +179,7 @@ struct DTO: Codable {
     let count: Int
 }
 
-final class Counter: Scope, ObservableObject {
+final class Counter: Statostore, ObservableObject {
     
     @Published var viewDisplaysTotalCount: Int = 0
     @Published var viewShowsLoadingAndDisablesButtons: Bool = false
@@ -275,6 +275,6 @@ func update(_ when: When) throws {
 
 We’ve covered the basic of triggering, reading, canceling and testing Effects on Statoscope. In the following topics we’ll discuss some advanced usages and tricks for great Effects programming
 
-## App state as Scope composition: Superscope + Subscope
+## App state as Statoscope composition: Superscope + Subscope
 
 TODO ...

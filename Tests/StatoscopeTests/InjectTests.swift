@@ -12,14 +12,14 @@ import XCTest
 class SubscopeSuperscodePropertyWrapperTests: XCTestCase {
     
     enum SimpleParentChild {
-        final class Parent: Scope, Injectable, ObservableObject {
+        final class Parent: Statostore, Injectable, ObservableObject {
             typealias When = Void
             @Subscope var child: Child? = Child()
             let uuid: UUID = UUID()
             static var defaultValue: Parent = Parent()
             func update(_ when: Void) throws { }
         }
-        final class Child: Scope, ObservableObject {
+        final class Child: Statostore, ObservableObject {
             typealias When = Void
             @Superscope var parent: Parent
             func update(_ when: Void) throws { }
@@ -95,13 +95,13 @@ class SubscopeSuperscodePropertyWrapperTests: XCTestCase {
 class ForcedInjectSuperscopeTests: XCTestCase {
     
     enum UnrelatedScopes {
-        final class First: Scope, Injectable, ObservableObject {
+        final class First: Statostore, Injectable, ObservableObject {
             typealias When = Void
             let uuid: UUID = UUID()
             static var defaultValue: First = First()
             func update(_ when: Void) throws { }
         }
-        final class Second: Scope, ObservableObject {
+        final class Second: Statostore, ObservableObject {
             typealias When = Void
             @Superscope var parent: First
             func update(_ when: Void) throws { }
@@ -169,7 +169,7 @@ class InjectObjectTests: XCTestCase {
         let uuid: UUID = UUID()
         static var defaultValue: InjectableStruct = InjectableStruct()
     }
-    final class ScopeWihInjectables: Scope, ObservableObject {
+    final class ScopeWihInjectables: Statostore, ObservableObject {
         typealias When = Void
         @Injected var injectedStruct: InjectableStruct
         @Injected var injectedClass: InjectableClass

@@ -31,7 +31,7 @@ public protocol InjectionTreeNodeProtocol {
 /// ```
 /// Later you can resolve the object either by calling
 /// ```swift
-/// final class YourScope: Scope {
+/// final class YourScope: Statostore {
 ///   func update(_ when: When) throws {
 ///      let clock: InjectedClock = self.resolve()
 ///      print("current time: \(clock.currentTime)")
@@ -40,7 +40,7 @@ public protocol InjectionTreeNodeProtocol {
 /// ```
 /// or using the Injected property wrapper
 /// ```swift
-/// final class YourScope: Scope {
+/// final class YourScope: Statostore {
 ///   @Injected var clock: InjectedClock
 ///   func update(_ when: When) throws {
 ///      print("current time: \(clock.currentTime)")
@@ -50,16 +50,16 @@ public protocol InjectionTreeNodeProtocol {
 /// ### Superscope injections
 /// When another scope is inside your superscopes tree, an automatic injection occurs. Please see the example:
 /// ```swift
-/// final class YourScope: Scope {
+/// final class YourScope: Statostore {
 ///   let name: String
 ///   @Subscope var childScope: YourChildScope?
 /// }
-/// final class YourChildScope: Scope {
+/// final class YourChildScope: Statostore {
 /// }
 /// ```
 /// Superscope can be retrieved either by calling
 /// ```swift
-/// final class YourChildScope: Scope {
+/// final class YourChildScope: Statostore {
 ///   func update(_ when: When) throws {
 ///      let superscope: YourScope = self.resolve()
 ///      print("Name: \(superscope.name)")
@@ -68,7 +68,7 @@ public protocol InjectionTreeNodeProtocol {
 /// ```
 /// or using the Injected property wrapper
 /// ```swift
-/// final class YourChildScope: Scope {
+/// final class YourChildScope: Statostore {
 ///   @Superscope var superscope: YourScope
 ///   func update(_ when: When) throws {
 ///      print("Name: \(superscope.name)")
@@ -230,7 +230,7 @@ extension InjectionTreeNode {
 // Debugging
 extension InjectionTreeNode {
 
-    var treeDescription: [String] {
+    public var treeDescription: [String] {
         [
             [
                 "NODE: <\(Unmanaged.passUnretained(self).toOpaque()): \(self)>"

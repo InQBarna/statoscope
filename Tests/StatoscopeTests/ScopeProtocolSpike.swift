@@ -18,16 +18,19 @@ protocol CounterState {
 protocol MutableCounterState: CounterState {
     var viewDisplaysTotalCount: Int { get nonmutating set }
 }
+/*
 extension Counter: MutableCounterState {
     func state() -> CounterState { self }
     func mutableState() -> MutableCounterState { self }
 }
+ */
 struct CounterStateMock: CounterState {
     @StateVar var viewDisplaysTotalCount: Int
 }
 // </GENERATED>
 
-fileprivate final class Counter: Statoscope, ObservableObject {
+/*
+fileprivate final class Counter: Statostore, ObservableObject {
     
     // Define state member variables
     var viewDisplaysTotalCount: Int = 0
@@ -39,7 +42,7 @@ fileprivate final class Counter: Statoscope, ObservableObject {
         case userTappedDecrementButton
     }
     
-    // Scope conformance forces you to implement the update method:
+    // Statoscope conformance forces you to implement the update method:
     static func update(state: MutableCounterState, when: When, effects: EffectsHandler<When>) throws {
         switch when {
         case .userTappedIncrementButton:
@@ -49,10 +52,10 @@ fileprivate final class Counter: Statoscope, ObservableObject {
         }
     }
 }
+ */
 
 // <LIBRARY>
 /*
- */
 protocol PresentedViewProtocol: View {
     associatedtype R
     associatedtype D
@@ -169,7 +172,7 @@ fileprivate struct NetworkEffect<Response: Decodable>: Effect {
     }
 }
 
-fileprivate final class CounterWithEffects: Statoscope, ObservableObject {
+fileprivate final class CounterWithEffects: Statostore, ObservableObject {
     
     @Published var viewDisplaysTotalCount: Int = 0
     @Published var viewShowsLoadingAndDisablesButtons: Bool = false
@@ -256,3 +259,4 @@ extension ScopeProtocolSpike {
         XCTAssertEqual(stateMock.viewDisplaysTotalCount, 3)
     }
 }
+ */

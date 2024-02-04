@@ -10,7 +10,7 @@ import SwiftUI
 @testable import Statoscope
 
 
-private final class SampleScope: ObservableObject, Scope {
+private final class SampleScope: ObservableObject, Statostore {
     
     // Internal scope state has developer syntax, we have 2 variables which are
     //  represented in the view (loaded, content) and another internal var

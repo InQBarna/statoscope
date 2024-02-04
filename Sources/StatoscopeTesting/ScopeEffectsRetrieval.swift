@@ -8,7 +8,7 @@
 import Foundation
 import Statoscope
 
-extension Scope {
+extension Statoscope {
     
     func allDeepPendingEffects() -> [String: [any Effect]] {
         return Dictionary(

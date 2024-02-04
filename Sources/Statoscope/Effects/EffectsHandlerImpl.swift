@@ -31,6 +31,7 @@ private actor RunnerTasks<When: Sendable> {
     }
 }
 
+// TODO: rename to EffectsBouncer ?
 /// A base class to handle Effects. Capable of launching an Effect and keep it working during all the lifespan
 ///  of the EffectsHandler. All ongoing effects can be cleared before triggered (good for testing purposes), read or cancelled
 public class EffectsHandler<When: Sendable>: EffectsContainer {
@@ -155,13 +156,15 @@ internal final class EffectsHandlerImpl<When: Sendable>: EffectsHandler<When> {
     
     override func cancelAllEffects() {
         let retainedTasks = tasks
+            print("count \(retainedTasks)")
+        print("")
         Task(priority: .high, operation: {
             let count = await retainedTasks.count()
+            print("count \(retainedTasks)")
             if count > 0 {
                 await retainedTasks.cancelAndRemoveAll()
             }
         })
-
     }
     
     deinit {
@@ -177,7 +180,7 @@ internal final class EffectsHandlerImpl<When: Sendable>: EffectsHandler<When> {
     }
 }
 
-/// A helper class to spy the effects launched by an Scope
+/// A helper class to spy the effects launched by an Statoscope
 ///  TODO: To be used when we have Reducer-style Scopes
 public final class EffectsHandlerSpy<When: Sendable>: EffectsHandler<When> {
     

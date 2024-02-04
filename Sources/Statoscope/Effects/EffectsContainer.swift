@@ -9,6 +9,7 @@ import Foundation
 
 /// Helper to be conformed by objects capable of handling effects
 /// Responsible of managing a group of effects having a common return object type ``When``
+// TODO: Rename to effectsState ?
 public protocol EffectsContainer {
     
     /// Shared type to be returned by all effects interacting with the current EffectsContainer
@@ -27,7 +28,7 @@ public protocol EffectsContainer {
     /// Please note enqueueing an effect is just adding it to a list of pending effects..
     /// Later calling ``EffectsContainer.runEnqueuedEffectAndGetWhenResults`` will actually trigger all enqueued effects.
     ///
-    /// However, Scope handles calling runEnqueuedEffectAndGetWhenResults right after an update of the state,
+    /// However, Statoscope handles calling runEnqueuedEffectAndGetWhenResults right after an update of the state,
     /// so user may usually not need to worry about this.
     ///  ### Usage
     ///  Use it with an anonymous Effect
@@ -114,3 +115,29 @@ protocol InternalEffectsHandlerImplementation {
 
 public typealias EffectsContainerAndImplementation = EffectsContainer & EffectsHandlerImplementation
 
+/*
+ Reducer: No longer provide store as EffectsContainer, force usage of effectsHandler ??
+ */
+public extension EffectsHandlerImplementation where Self: AnyObject {
+    
+    func enqueue<E: Effect>(_ effect: E) where E.ResType == When {
+        effectsHandler.enqueue(effect)
+    }
+    
+    var effects: [any Effect] {
+        return effectsHandler.effects
+    }
+    
+    func clearPending() {
+        effectsHandler.clearPending()
+    }
+    
+    func cancelEffect(where whereBlock: (any Effect) -> Bool) {
+        effectsHandler.cancelEffect(where: whereBlock)
+    }
+    
+    func cancelAllEffects() {
+        effectsHandler.cancelAllEffects()
+    }
+    
+}

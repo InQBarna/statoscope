@@ -13,7 +13,7 @@ import XCTest
 class CheckDeallocationTests: XCTestCase {
     
     enum SimpleParentChild {
-        final class Parent: Scope, Injectable, ObservableObject {
+        final class Parent: Statostore, Injectable, ObservableObject {
             typealias When = Void
             @Subscope var child: Child?
             let uuid: UUID = UUID()
@@ -25,7 +25,7 @@ class CheckDeallocationTests: XCTestCase {
                 }
             }
         }
-        final class Child: Scope, ObservableObject {
+        final class Child: Statostore, ObservableObject {
             typealias When = Void
             let someDelegateToRetainParent: () -> Void
             init(someDelegateToRetainParent: @escaping () -> Void) {

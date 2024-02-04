@@ -16,7 +16,7 @@ Statoscope enables the app developer to focus on the overall design of the app's
 
 * **Scopes**
 
-    The Scope is the minimum implementation for a piece of state, handling State, mutation and Effects. Scopes can be linked together as a dependency tree using the provided Superscope and Subscope property wrappers
+    The Statoscope is the minimum implementation for a piece of state, handling State, mutation and Effects. Scopes can be linked together as a dependency tree using the provided Superscope and Subscope property wrappers
 
 * **Testing**
 

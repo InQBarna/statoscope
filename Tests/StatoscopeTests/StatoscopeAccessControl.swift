@@ -21,7 +21,8 @@ class StatoscopeAccessControl: XCTestCase {
     // Does not compile
     // let handler: EffectsHandler<When> = EffectsHandler<When>()
     
-    private final class DummyScope: Scope {
+    private final class DummyScope: Statostore {
+        
         enum When {
             case delayFinished
         }
@@ -41,10 +42,10 @@ class StatoscopeAccessControl: XCTestCase {
                 return When.delayFinished
             })
             
-            // TODO: it should better not compile does not make sense to send during update
+            // it should not compile does not make sense to send during update
             self.send(.delayFinished)
             
-            // TODO: it should better not compile does not make sense to send during update
+            // it should not compile does not make sense to send during update
             _ = try self.sendUnsafe(.delayFinished)
             
             // TODO: it should better not compile does not make sense to update during update

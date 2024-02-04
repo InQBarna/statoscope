@@ -17,7 +17,7 @@ class AllDeepPendingEffectsTest: XCTestCase {
             func runEffect() async throws -> Void { () }
             typealias ResType = Void
         }
-        final class Parent: Scope, Injectable, ObservableObject {
+        final class Parent: Statostore, Injectable, ObservableObject {
             typealias When = Void
             @Subscope var child: Child? = Child()
             let uuid: UUID = UUID()
@@ -31,7 +31,7 @@ class AllDeepPendingEffectsTest: XCTestCase {
             func runEffect() async throws -> Void { () }
             typealias ResType = Void
         }
-        final class Child: Scope, ObservableObject {
+        final class Child: Statostore, ObservableObject {
             typealias When = Void
             @Superscope var parent: Parent
             func update(_ when: Void) throws {
@@ -63,7 +63,7 @@ class AllDeepPendingEffectsTest: XCTestCase {
             func runEffect() async throws -> Void { () }
             typealias ResType = Void
         }
-        final class Parent: Scope, Injectable, ObservableObject {
+        final class Parent: Statostore, Injectable, ObservableObject {
             typealias When = Void
             func update(_ when: Void) throws {
                 enqueue(ParentEffect())
@@ -75,7 +75,7 @@ class AllDeepPendingEffectsTest: XCTestCase {
             func runEffect() async throws -> Void { () }
             typealias ResType = Void
         }
-        final class Child: Scope, Injectable, ObservableObject {
+        final class Child: Statostore, Injectable, ObservableObject {
             typealias When = Void
             func update(_ when: Void) throws {
                 enqueue(ChildEffect())
@@ -88,7 +88,7 @@ class AllDeepPendingEffectsTest: XCTestCase {
             func runEffect() async throws -> Void { () }
             typealias ResType = Void
         }
-        final class GrandSon: Scope, ObservableObject {
+        final class GrandSon: Statostore, ObservableObject {
             typealias When = Void
             func update(_ when: Void) throws {
                 enqueue(GrandSonEffect())

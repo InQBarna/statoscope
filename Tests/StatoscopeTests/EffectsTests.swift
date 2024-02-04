@@ -33,7 +33,7 @@ class ScopeOngoingEffectsPropertyTests: XCTestCase {
         }
     }
         
-    private final class SimpleScopeWithEffect: Scope {
+    private final class SimpleScopeWithEffect: Statostore {
         var completeAnyEffect: () -> Void = { }
         enum When {
             case sendWaitEffect(UInt64)
@@ -124,7 +124,7 @@ class ScopeEffectsCancellationTests: XCTestCase {
         }
     }
         
-    private final class SimpleScopeWithEffect: Scope {
+    private final class SimpleScopeWithEffect: Statostore {
         var completeAnyEffect: (Bool) async -> Void = { _ in }
         enum When {
             case sendWaitEffect(UInt64)
@@ -253,7 +253,7 @@ class ScopeEffectsThrowingTests: XCTestCase {
         }
     }
         
-    private final class SimpleScopeWithTypedThrowingEffect<EffectErrorType: Error & Equatable, ResultErrorType: Error & Equatable>: Scope {
+    private final class SimpleScopeWithTypedThrowingEffect<EffectErrorType: Error & Equatable, ResultErrorType: Error & Equatable>: Statostore {
         var effectCompleted: () -> Void = { }
         var effectThrowError: EffectErrorType?
         var mapToResultError: ((Error) -> ResultErrorType)?
@@ -380,7 +380,7 @@ class ScopeEffectsThrowingTests: XCTestCase {
         }
     }
     
-    private final class SimpleScopeWithUntypedThrowingEffect<ResultErrorType: Error & Equatable>: Scope {
+    private final class SimpleScopeWithUntypedThrowingEffect<ResultErrorType: Error & Equatable>: Statostore {
         var effectCompleted: () -> Void = { }
         var effectThrowError: Bool = false
         var mapToResultError: ((Error) -> ResultErrorType)?

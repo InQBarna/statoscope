@@ -8,10 +8,10 @@
 import Foundation
 import SwiftUI
 
-extension Store where Self: AnyObject {
+extension StoreProtocol where Self: AnyObject {
     public func bindNotNilBool<T>(
         _ kp: KeyPath<Self, Optional<T>>,
-        _ when: ((Bool) -> When)? = nil
+        _ when: ((Bool) -> ScopeType.When)? = nil
     ) -> Binding<Bool> {
         guard let when = when else {
             return Binding(
@@ -32,10 +32,10 @@ extension Store where Self: AnyObject {
     }
 }
 
-extension Store where Self: AnyObject    {
+extension StoreProtocol where Self: AnyObject {
     public func bind<T>(
         _ kp: KeyPath<Self, T>,
-        _ when: @escaping (T) -> Self.When
+        _ when: @escaping (T) -> ScopeType.When
     ) -> Binding<T> {
         Binding(
             get: { self[keyPath: kp] },
@@ -45,7 +45,7 @@ extension Store where Self: AnyObject    {
     
     public func weakBind<T>(
         _ kp: KeyPath<Self, T>,
-        _ when: @escaping (T) -> Self.When,
+        _ when: @escaping (T) -> ScopeType.When,
         defaultValue: T
     ) -> Binding<T> {
         Binding(
