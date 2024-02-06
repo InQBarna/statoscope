@@ -146,7 +146,7 @@ public extension InjectionTreeNode {
 extension InjectionTreeNode {
 
     @discardableResult
-    func injectSuperscope<T: AnyObject>(_ obj: T) -> Self {
+    public func injectSuperscopeForTesting<T: AnyObject>(_ obj: T) -> Self {
         injectionStore.registerValue(obj)
         return self
     }

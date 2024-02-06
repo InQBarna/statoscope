@@ -7,9 +7,9 @@ let package = Package(
     name: "Statoscope",
     platforms: [
       .iOS(.v13),
-      .macOS(.v10_15),
+      .macOS(.v12),
       .tvOS(.v13),
-      .watchOS(.v6),
+      .watchOS(.v6)
     ],
     products: [
         .library(
@@ -19,22 +19,25 @@ let package = Package(
         .library(
             name: "StatoscopeTesting",
             targets: ["StatoscopeTesting"]
-        ),
+        )
     ],
     dependencies: [
+        // .package(url: "https://github.com/realm/SwiftLint", from: "0.0.0")
     ],
     targets: [
         .target(
             name: "Statoscope",
             path: "Sources/Statoscope"
+            // plugins: [.plugin(name: "SwiftLintPlugin", package: "SwiftLint")]
         ),
         .target(
             name: "StatoscopeTesting",
             dependencies: ["Statoscope"],
             path: "Sources/StatoscopeTesting"
+            // plugins: [.plugin(name: "SwiftLintPlugin", package: "SwiftLint")]
         ),
         .testTarget(
             name: "StatoscopeTests",
-            dependencies: ["Statoscope", "StatoscopeTesting"]),
+            dependencies: ["Statoscope", "StatoscopeTesting"])
     ]
 )

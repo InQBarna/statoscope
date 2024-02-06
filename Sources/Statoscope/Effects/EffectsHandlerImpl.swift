@@ -163,11 +163,8 @@ internal final class EffectsHandlerImpl<When: Sendable>: EffectsHandler<When> {
 
     override func cancelAllEffects() {
         let retainedTasks = tasks
-            print("count \(retainedTasks)")
-        print("")
         Task(priority: .high, operation: {
             let count = await retainedTasks.count()
-            print("count \(retainedTasks)")
             if count > 0 {
                 await retainedTasks.cancelAndRemoveAll()
             }

@@ -13,14 +13,16 @@ public protocol StoreImplementation:
     associatedtype State: Scope where State.When == When
     var state: State { get }
     static func update(state: State, when: State.When, effectsHandler: EffectsHandler<State.When>) throws
-    func addMiddleWare(_ update: @escaping (State, State.When) throws -> State.When?)
+    func addMiddleWare(_ update: @escaping (State, State.When) throws -> State.When?) -> Self
 }
 
 public protocol StorePublicProtocol {
     associatedtype State: Scope
     var state: State { get }
-    func send(_ when: State.When)
-    func sendUnsafe(_ when: State.When) throws
+    @discardableResult
+    func send(_ when: State.When) -> Self
+    @discardableResult
+    func sendUnsafe(_ when: State.When) throws -> Self
 }
 
 /// The StoreProtocol defines the implementation of an scope of the app's state and business logic
@@ -36,20 +38,23 @@ public var scopeEffectsDisabledInUnitTests: Bool = nil != NSClassFromString("XCT
 let scopeEffectsDisabledInPreviews: Bool = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
 
 extension StoreProtocol {
-
-    public func send(_ when: State.When) {
+    
+    @discardableResult
+    public func send(_ when: State.When) -> Self {
         LOG("\(when)")
         do {
-            try sendUnsafe(when)
+            return try sendUnsafe(when)
         } catch {
             LOG("‼️ Exception on send method: \(error)")
+            return self
         }
     }
 
-    public func sendUnsafe(_ when: State.When) throws {
+    @discardableResult
+    public func sendUnsafe(_ when: State.When) throws -> Self {
         try updateUsingMiddlewares(when)
         guard !scopeEffectsDisabledInUnitTests else {
-            return
+            return self
         }
         guard !scopeEffectsDisabledInPreviews else {
             throw StatoscopeErrors.effectsDisabledForPreviews
@@ -57,7 +62,7 @@ extension StoreProtocol {
         try self.runEnqueuedEffectAndGetWhenResults { [weak self] effect, when in
             await self?.safeMainActorSend(effect, when)
         }
-        return
+        return self
     }
 
     private var logPrefix: String {
@@ -101,7 +106,7 @@ private final class MiddleWareHandler<S: StoreImplementation> {
 
 extension StoreImplementation {
 
-    public func addMiddleWare(_ update: @escaping (State, State.When) throws -> State.When?) {
+    public func addMiddleWare(_ update: @escaping (State, State.When) throws -> State.When?) -> Self {
         if let existingMiddleware = middleWare {
             middleWare = MiddleWareHandler(middleWare: { state, when in
                 guard let mappedWhen = try update(state, when) else {
@@ -112,6 +117,7 @@ extension StoreImplementation {
         } else {
             middleWare = MiddleWareHandler(middleWare: update)
         }
+        return self
     }
 
     fileprivate var middleWare: MiddleWareHandler<Self>? {
