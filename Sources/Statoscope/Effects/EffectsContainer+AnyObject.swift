@@ -18,12 +18,17 @@ internal extension EffectsHandlerImplementation where Self: AnyObject {
 }
     
 public extension EffectsHandlerImplementation where Self: AnyObject {
+
     var effectsHandler: EffectsHandler<When> {
         get {
             return associatedObject(base: self, key: &effectsHandlerStoreKey, initialiser: {
                 EffectsHandlerImpl<When>(logPrefix: logPrefix)
             })
         }
+    }
+    
+    var effectsState: EffectsState {
+        effectsHandler
     }
 }
 

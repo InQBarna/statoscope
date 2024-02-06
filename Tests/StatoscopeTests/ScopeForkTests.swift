@@ -16,9 +16,7 @@ fileprivate enum SampleError: String, Error, Equatable {
 }
 
 fileprivate final class SampleScopeState:
-    EffectsContainer,
-    EffectsHandlerImplementation,
-    InjectionTreeNode,
+    Scope,
     ObservableObject
 {
     @Published var viewShowsLoadingMessage: String?
@@ -32,11 +30,13 @@ fileprivate final class SampleScopeState:
     }
 }
 
-fileprivate final class SampleScope: Scope {
-    typealias State = SampleScopeState
-    typealias When = SampleScopeState.When
+// Prueba 1, scope es otro objeto
+fileprivate final class SampleScope: StoreProtocol {
     
-    var state = SampleScopeState()
+    typealias When = SampleScopeState.When
+    typealias State = SampleScopeState
+    
+    private(set) var state = SampleScopeState()
     static func update(state: SampleScopeState, when: SampleScopeState.When, effectsHandler: EffectsHandler<SampleScopeState.When>) throws {
         switch when {
         case .systemLoadsSampleScope, .retry:
@@ -67,9 +67,32 @@ fileprivate struct SampleView: View {
     }
 }
 
+fileprivate struct SamplePresentedView: View, StoreViewProtocol {
+    let model: SampleScopeState
+    let send: (SampleScopeState.When) -> Void
+    var body: some View {
+        // If view uses 'acceptance' explicitly it's not only used in tests, also in source code
+        if let loadingText = model.viewShowsLoadingMessage {
+            Text(LocalizedStringKey(loadingText))
+        }
+        switch model.viewShowsContent {
+        case .success(let content):
+            Text(content)
+        case .failure(let errorMsg):
+            Text(errorMsg.rawValue)
+                .foregroundColor(.red)
+        case .none:
+            EmptyView()
+        }
+    }
+}
+
+fileprivate let sampleView1 = SampleScope().buildStoreView() { SamplePresentedView(model: $0, send: $1) }
+fileprivate let sampleView2 = SampleScope().buildStoreView(view: SamplePresentedView.init)
+fileprivate let sampleView3 = SampleScope().buildStoreView(SamplePresentedView.self)
+
 final class ScopeForkTests: XCTestCase {
     
-    /*
     func testForkTestSyntax() throws {
         let forkCalled = expectation(description: "forkCalled")
         let mainCalled = expectation(description: "mainCalled")
@@ -142,5 +165,4 @@ final class ScopeForkTests: XCTestCase {
         
         wait(for: [mainCalled, forkCalled, fork2Called], timeout: 1)
     }
-     */
 }

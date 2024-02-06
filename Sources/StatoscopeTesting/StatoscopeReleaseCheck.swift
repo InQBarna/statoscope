@@ -10,12 +10,12 @@ import XCTest
 import Statoscope
 
 struct WeakScopeBox {
-    weak var scope: (any Statoscope)?
+    weak var scope: (any Scope)?
 }
 
-extension Statoscope {
+extension StoreProtocol {
     func allChildScopesChecker() -> [WeakScopeBox] {
-        allChildScopes().map { WeakScopeBox(scope: $0) }
+        allChildScopes().map { WeakScopeBox(scope: $0.state) }
     }
 }
 
@@ -31,7 +31,7 @@ extension Sequence where Element == WeakScopeBox {
     }
 }
 
-func assertChildScopesReleased(file: StaticString = #file, line: UInt = #line, _ rootScope: () throws -> any Statoscope) rethrows {
+func assertChildScopesReleased(file: StaticString = #file, line: UInt = #line, _ rootScope: () throws -> any StoreProtocol) rethrows {
     try autoreleasepool {
         try rootScope()
             .allChildScopesChecker()

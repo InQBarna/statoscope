@@ -10,14 +10,14 @@ import Statoscope
 
 internal func ifChildScope(
     _ mirrorChild: Mirror.Child,
-    except: [any Statoscope],
-    _ block: ((_ child: any Statoscope, _ name: String, _ newExcept: [any Statoscope]) -> Void)
+    except: [any StoreProtocol],
+    _ block: ((_ child: any StoreProtocol, _ name: String, _ newExcept: [any StoreProtocol]) -> Void)
 ) {
     guard let label = mirrorChild.label else {
         return
     }
-    if let scopeChild = mirrorChild.value as? any Statoscope {
-        if nil == except.first(where: { $0 === scopeChild}) {
+    if let scopeChild = mirrorChild.value as? any StoreProtocol {
+        if nil == except.first(where: { $0.state === scopeChild.state}) {
             var exceptWithChild = except
             exceptWithChild.append(scopeChild)
             block(scopeChild, label, exceptWithChild)
@@ -25,8 +25,8 @@ internal func ifChildScope(
         }
     }
     if String(describing: mirrorChild.value).contains("Subscope<") {
-        if let publishedScopeChild = Mirror(reflecting: mirrorChild.value).children.first as? (String, any Statoscope) {
-            if nil == except.first(where: { $0 === publishedScopeChild.1}) {
+        if let publishedScopeChild = Mirror(reflecting: mirrorChild.value).children.first as? (String, any StoreProtocol) {
+            if nil == except.first(where: { $0.state === publishedScopeChild.1.state}) {
                 var exceptWithChild = except
                 exceptWithChild.append(publishedScopeChild.1)
                 block(publishedScopeChild.1, label, exceptWithChild)
@@ -35,15 +35,15 @@ internal func ifChildScope(
     }
 }
 
-extension Statoscope {
+extension StoreProtocol {
     
-    public func allChildScopes() -> [any Statoscope] {
-        var scopes: [any Statoscope] = [self]
+    public func allChildScopes() -> [any StoreProtocol] {
+        var scopes: [any StoreProtocol] = [self]
         allChildScopeIterative(except: &scopes)
         return scopes
     }
 
-    private func allChildScopeIterative(except: inout [any Statoscope]) {
+    private func allChildScopeIterative(except: inout [any StoreProtocol]) {
         let mirror = Mirror(reflecting: self)
         mirror.children.forEach { child in
             ifChildScope(child, except: except) { child, _, newExcept in

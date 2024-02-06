@@ -7,16 +7,19 @@
 
 import Foundation
 
+public protocol EffectsState {
+    /// Returns currently pending or ongoing effects
+    var effects: [any Effect] { get }
+}
+
 /// Helper to be conformed by objects capable of handling effects
 /// Responsible of managing a group of effects having a common return object type ``When``
 // TODO: Rename to effectsState ?
-public protocol EffectsContainer {
+// TODO: Make implementation like a struct defining the future tasks to be enqued or cancelled
+public protocol EffectsContainer: EffectsState {
     
     /// Shared type to be returned by all effects interacting with the current EffectsContainer
     associatedtype When: Sendable
-    
-    /// Returns currently pending or ongoing effects
-    var effects: [any Effect] { get }
     
     /// Clears the effects that have not yet been triggered. Useful for testing purposes
     func clearPending()
@@ -89,31 +92,17 @@ public protocol EffectsContainer {
 }
     
 /// When conformed, the object has a default implementation of runEnqueuedEffectAndGetWhenResults and conformance to EffectsContainer
+// TODO: Remove EffectsHandlerImplementation, only Store implements this,
+//  so we should change extension on EffectsHandlerImplementation to Store
 public protocol EffectsHandlerImplementation {
 
     /// Shared type to be returned by all effects interacting with the current EffectsHandlerImplementation
     ///
     associatedtype When: Sendable
 
-    /// EffectsContainer for all ongoing effects
+    /// Handler to manage effects
     var effectsHandler: EffectsHandler<When> { get }
 }
-
-/// When conformed, the object has a default implementation of runEnqueuedEffectAndGetWhenResults and conformance to EffectsContainer
-protocol InternalEffectsHandlerImplementation {
-
-    /// Shared type to be returned by all effects interacting with the current EffectsHandlerImplementation
-    ///
-    associatedtype When: Sendable
-
-    /// Launches the enqueued effects
-    ///  * Parameter safeSend a closure to be executed when enqueed effects complete
-    ///  If any of the launched effects fail with an exception or is cancelled, completion closure won't be called, exception will be catched silently
-    ///  If you want to get failure completions, map your effects using ``Effect.mapToResult(error:)``
-    func runEnqueuedEffectAndGetWhenResults(safeSend: @escaping (AnyEffect<When>, When) async -> Void) throws
-}
-
-public typealias EffectsContainerAndImplementation = EffectsContainer & EffectsHandlerImplementation
 
 /*
  Reducer: No longer provide store as EffectsContainer, force usage of effectsHandler ??
@@ -128,6 +117,7 @@ public extension EffectsHandlerImplementation where Self: AnyObject {
         return effectsHandler.effects
     }
     
+    // Needed as public for clearAllDeepPendingEffects for now
     func clearPending() {
         effectsHandler.clearPending()
     }

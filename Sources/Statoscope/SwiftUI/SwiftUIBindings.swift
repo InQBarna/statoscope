@@ -11,7 +11,7 @@ import SwiftUI
 extension StoreProtocol where Self: AnyObject {
     public func bindNotNilBool<T>(
         _ kp: KeyPath<Self, Optional<T>>,
-        _ when: ((Bool) -> ScopeType.When)? = nil
+        _ when: ((Bool) -> State.When)? = nil
     ) -> Binding<Bool> {
         guard let when = when else {
             return Binding(
@@ -35,7 +35,7 @@ extension StoreProtocol where Self: AnyObject {
 extension StoreProtocol where Self: AnyObject {
     public func bind<T>(
         _ kp: KeyPath<Self, T>,
-        _ when: @escaping (T) -> ScopeType.When
+        _ when: @escaping (T) -> State.When
     ) -> Binding<T> {
         Binding(
             get: { self[keyPath: kp] },
@@ -45,7 +45,7 @@ extension StoreProtocol where Self: AnyObject {
     
     public func weakBind<T>(
         _ kp: KeyPath<Self, T>,
-        _ when: @escaping (T) -> ScopeType.When,
+        _ when: @escaping (T) -> State.When,
         defaultValue: T
     ) -> Binding<T> {
         Binding(

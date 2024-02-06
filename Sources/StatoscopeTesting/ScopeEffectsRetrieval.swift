@@ -8,12 +8,12 @@
 import Foundation
 import Statoscope
 
-extension Statoscope {
+extension StoreProtocol {
     
     func allDeepPendingEffects() -> [String: [any Effect]] {
         return Dictionary(
             allChildScopes().compactMap{
-                let effects = $0.effects
+                let effects = $0.effectsState.effects
                 guard effects.count > 0 else {
                     return nil
                 }

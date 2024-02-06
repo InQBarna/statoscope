@@ -18,7 +18,7 @@ fileprivate protocol ScopeAcceptance {
     var viewShowsContent: String? { get }
 }
         
-fileprivate final class SampleScope: ObservableObject, Statoscope {
+fileprivate final class SampleScope: ObservableObject, Statostore {
     
     @Published var loading: Bool = true
     @Published var content: String?
