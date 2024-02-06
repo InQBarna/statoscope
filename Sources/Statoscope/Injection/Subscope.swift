@@ -23,7 +23,7 @@ public struct Subscope<Value: InjectionTreeNodeProtocol> {
     public init(wrappedValue: Value) {
         storage = wrappedValue
     }
-    
+
     public static subscript<T: InjectionTreeNode & ObservableObject>(
         _enclosingInstance enclosingInstance: T,
         wrapped wrappedKeyPath: ReferenceWritableKeyPath<T, Value>,
@@ -37,11 +37,12 @@ public struct Subscope<Value: InjectionTreeNodeProtocol> {
         set {
             // Enclosing ObservableObject will be notified when assigned:
             let publisher = enclosingInstance.objectWillChange
+            // swiftlint:disable:next force_cast
             (publisher as! ObservableObjectPublisher).send()
-            
+
             // Storage assignment
             enclosingInstance[keyPath: storageKeyPath].storage = newValue
-            
+
             // Children maintenance (for injection retrieval)
             enclosingInstance.assignChildOnPropertyWrapperSet(newValue)
         }
@@ -53,6 +54,6 @@ public struct Subscope<Value: InjectionTreeNodeProtocol> {
 
     public var wrappedValue: Value {
         get { fatalError() }
-        set { fatalError() }
+        set { fatalError("\(newValue)") }
     }
 }

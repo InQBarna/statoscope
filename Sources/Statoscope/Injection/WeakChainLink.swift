@@ -15,7 +15,7 @@ class InjectionTreeNodeBox {
     init(expr: InjectionTreeNodeProtocol? = nil) {
         anyLink = Self.map(expr: expr)
     }
-    
+
     static func map(expr: InjectionTreeNodeProtocol? = nil) -> InjectionTreeNode? {
         if let mandatory = expr as? InjectionTreeNode {
             // Class type
@@ -41,7 +41,7 @@ extension InjectionTreeNodeBox: InjectionTreeNodeProtocol {
     var childrenNodes: [InjectionTreeNodeProtocol] {
         anyLink?.childrenNodes ?? []
     }
-    
+
     var rootNode: InjectionTreeNodeProtocol? {
         anyLink?.rootNode
     }

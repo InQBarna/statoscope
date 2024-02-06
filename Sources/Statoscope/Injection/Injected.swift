@@ -58,6 +58,6 @@ public struct Injected<Value: Injectable> {
 
     public var wrappedValue: Value {
         get { fatalError() }
-        set { fatalError() }
+        set { fatalError("\(newValue)") }
     }
 }

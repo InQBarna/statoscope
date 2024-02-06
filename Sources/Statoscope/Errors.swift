@@ -34,4 +34,3 @@ public enum StatoscopeErrors: Error {
 public protocol EffectError {
     static var unknownError: Self { get }
 }
-

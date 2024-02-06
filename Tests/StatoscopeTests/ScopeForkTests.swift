@@ -10,18 +10,17 @@ import SwiftUI
 @testable import Statoscope
 import StatoscopeTesting
 
-fileprivate enum SampleError: String, Error, Equatable {
+private enum SampleError: String, Error, Equatable {
     case someError
     case noConnection
 }
 
-fileprivate final class SampleScopeState:
+private final class SampleScopeState:
     Scope,
-    ObservableObject
-{
+    ObservableObject {
     @Published var viewShowsLoadingMessage: String?
     @Published var viewShowsContent: Result<String, SampleError>?
-    
+
     // 'When' naming uses to have also a sentence format: subjectVerbPredicate
     enum When {
         case systemLoadsSampleScope
@@ -31,11 +30,11 @@ fileprivate final class SampleScopeState:
 }
 
 // Prueba 1, scope es otro objeto
-fileprivate final class SampleScope: StoreProtocol {
-    
+private final class SampleScope: StoreProtocol {
+
     typealias When = SampleScopeState.When
     typealias State = SampleScopeState
-    
+
     private(set) var state = SampleScopeState()
     static func update(state: SampleScopeState, when: SampleScopeState.When, effectsHandler: EffectsHandler<SampleScopeState.When>) throws {
         switch when {
@@ -48,7 +47,7 @@ fileprivate final class SampleScope: StoreProtocol {
     }
 }
 
-fileprivate struct SampleView: View {
+private struct SampleView: View {
     @ObservedObject var model = SampleScope().state
     var body: some View {
         // If view uses 'acceptance' explicitly it's not only used in tests, also in source code
@@ -67,7 +66,7 @@ fileprivate struct SampleView: View {
     }
 }
 
-fileprivate struct SamplePresentedView: View, StoreViewProtocol {
+private struct SamplePresentedView: View, StoreViewProtocol {
     let model: SampleScopeState
     let send: (SampleScopeState.When) -> Void
     var body: some View {
@@ -87,16 +86,16 @@ fileprivate struct SamplePresentedView: View, StoreViewProtocol {
     }
 }
 
-fileprivate let sampleView1 = SampleScope().buildStoreView() { SamplePresentedView(model: $0, send: $1) }
-fileprivate let sampleView2 = SampleScope().buildStoreView(view: SamplePresentedView.init)
-fileprivate let sampleView3 = SampleScope().buildStoreView(SamplePresentedView.self)
+private let sampleView1 = SampleScope().buildStoreView { SamplePresentedView(model: $0, send: $1) }
+private let sampleView2 = SampleScope().buildStoreView(view: SamplePresentedView.init)
+private let sampleView3 = SampleScope().buildStoreView(SamplePresentedView.self)
 
 final class ScopeForkTests: XCTestCase {
-    
+
     func testForkTestSyntax() throws {
         let forkCalled = expectation(description: "forkCalled")
         let mainCalled = expectation(description: "mainCalled")
-        
+
         try SampleScope.GIVEN {
             SampleScope()
         }
@@ -115,10 +114,10 @@ final class ScopeForkTests: XCTestCase {
             mainCalled.fulfill()
         }
         .runTest()
-        
+
         wait(for: [mainCalled, forkCalled], timeout: 1)
     }
-    
+
     func doSomething() throws {
         try SampleScope.GIVEN {
             SampleScope()
@@ -126,12 +125,12 @@ final class ScopeForkTests: XCTestCase {
         .WHEN(.systemLoadsSampleScope)
         .THEN(\.viewShowsLoadingMessage, equals: "Loading...")
     }
-    
+
     func testForkTestSyntax2Levels() throws {
         let forkCalled = expectation(description: "forkCalled")
         let fork2Called = expectation(description: "fork2Called")
         let mainCalled = expectation(description: "mainCalled")
-        
+
         try SampleScope.GIVEN {
             SampleScope()
         }
@@ -162,7 +161,7 @@ final class ScopeForkTests: XCTestCase {
             mainCalled.fulfill()
         }
         .runTest()
-        
+
         wait(for: [mainCalled, forkCalled, fork2Called], timeout: 1)
     }
 }

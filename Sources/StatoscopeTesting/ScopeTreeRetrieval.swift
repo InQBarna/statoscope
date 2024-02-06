@@ -25,7 +25,8 @@ internal func ifChildScope(
         }
     }
     if String(describing: mirrorChild.value).contains("Subscope<") {
-        if let publishedScopeChild = Mirror(reflecting: mirrorChild.value).children.first as? (String, any StoreProtocol) {
+        if let publishedScopeChild = Mirror(reflecting: mirrorChild.value)
+            .children.first as? (String, any StoreProtocol) {
             if nil == except.first(where: { $0.state === publishedScopeChild.1.state}) {
                 var exceptWithChild = except
                 exceptWithChild.append(publishedScopeChild.1)
@@ -36,7 +37,7 @@ internal func ifChildScope(
 }
 
 extension StoreProtocol {
-    
+
     public func allChildScopes() -> [any StoreProtocol] {
         var scopes: [any StoreProtocol] = [self]
         allChildScopeIterative(except: &scopes)
@@ -52,5 +53,5 @@ extension StoreProtocol {
             }
         }
     }
-    
+
 }

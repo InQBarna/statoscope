@@ -10,7 +10,7 @@ import Foundation
 class InjectionStore {
     fileprivate var injectedByClassDescription = [String: WeakDependency]()
     fileprivate var injectedByValueDescription = [String: Any]()
-    
+
     struct WeakDependency: Hashable {
         static func == (lhs: Self, rhs: Self) -> Bool {
             lhs.dependency === rhs.dependency
@@ -22,24 +22,24 @@ class InjectionStore {
             }
         }
     }
-    
+
     func register<T: AnyObject>(_ dependency: T) {
         let key = String(describing: T.self).removeOptionalDescription
         injectedByClassDescription[key] = WeakDependency(dependency: dependency)
     }
-    
+
     func registerValue<T: Any>(_ dependency: T) {
         let key = String(describing: T.self).removeOptionalDescription
         injectedByValueDescription[key] = dependency
     }
-    
+
     func resolve<T>() throws -> T {
         guard let resolved: T = optResolve() else {
             throw NoInjectedValueFound(T.self)
         }
         return resolved
     }
-    
+
     func optResolve<T>() -> T? {
         let key = String(describing: T.self).removeOptionalDescription
         if let weakDependency = injectedByClassDescription[key],
@@ -51,9 +51,9 @@ class InjectionStore {
         }
         return nil
     }
-    
-    func copy(to: InjectionStore) {
-        to.injectedByClassDescription.merge(injectedByClassDescription) { lhs, _ in lhs }
+
+    func copy(into: InjectionStore) {
+        into.injectedByClassDescription.merge(injectedByClassDescription) { lhs, _ in lhs }
     }
 }
 

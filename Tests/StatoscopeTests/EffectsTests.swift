@@ -12,27 +12,27 @@ import StatoscopeTesting
 
 #if swift(>=5.8)
 class ScopeOngoingEffectsPropertyTests: XCTestCase {
-    
+
     override func setUp() async throws {
         StatoscopeLogger.logEnabled = true
         scopeEffectsDisabledInUnitTests = false
     }
-    
+
     override class func tearDown() {
         StatoscopeLogger.logEnabled = false
         scopeEffectsDisabledInUnitTests = true
     }
-    
+
     static var firstEffectMilliseconds: UInt64 = 100
     static var secondEffectMilliseconds: UInt64 = 500
-    
+
     private struct WaitMillisecondsEffect: Effect {
         let milliseconds: UInt64
-        func runEffect() async throws -> Void {
+        func runEffect() async throws {
             try await Task.sleep(nanoseconds: milliseconds * 1000_000)
         }
     }
-        
+
     private final class SimpleScopeWithEffect: Statostore {
         var completeAnyEffect: () -> Void = { }
         enum When {
@@ -50,7 +50,7 @@ class ScopeOngoingEffectsPropertyTests: XCTestCase {
             }
         }
     }
-    
+
     @MainActor
     func testSingleEffect() async throws {
         let sut = SimpleScopeWithEffect()
@@ -63,7 +63,7 @@ class ScopeOngoingEffectsPropertyTests: XCTestCase {
         await fulfillment(of: [effectCompletionExpectation], timeout: 5)
         XCTAssertEqual(sut.effects.count, 0)
     }
-    
+
     @MainActor
     func testTwoEffects() async throws {
         let sut = SimpleScopeWithEffect()
@@ -94,19 +94,19 @@ class ScopeOngoingEffectsPropertyTests: XCTestCase {
 }
 
 class ScopeEffectsCancellationTests: XCTestCase {
-    
+
     override func setUp() async throws {
         StatoscopeLogger.logEnabled = true
         scopeEffectsDisabledInUnitTests = false
     }
-    
+
     override class func tearDown() {
         StatoscopeLogger.logEnabled = false
         scopeEffectsDisabledInUnitTests = true
     }
-    
+
     static var effectMilliseconds: UInt64 = 2000
-    
+
     private struct WaitMillisecondsEffectReturnCancelled: Effect {
         let milliseconds: UInt64
         func runEffect() async throws -> Bool {
@@ -123,7 +123,7 @@ class ScopeEffectsCancellationTests: XCTestCase {
             }
         }
     }
-        
+
     private final class SimpleScopeWithEffect: Statostore {
         var completeAnyEffect: (Bool) async -> Void = { _ in }
         enum When {
@@ -159,7 +159,7 @@ class ScopeEffectsCancellationTests: XCTestCase {
             }
         }
     }
-    
+
     actor CancelledActor {
         var cancelled: Bool?
         func setCancelled(_ newCancelled: Bool) {
@@ -188,7 +188,7 @@ class ScopeEffectsCancellationTests: XCTestCase {
         XCTAssertNil(cancelled, "completion should never be called")
         await fulfillment(of: [effectCompletionExpectation], timeout: 3)
     }
-    
+
     @MainActor
     func testCancelAllEffectsProgrammatically() async throws {
         let effectCompletionExpectation = expectation(description: #function)
@@ -205,7 +205,7 @@ class ScopeEffectsCancellationTests: XCTestCase {
         XCTAssertNil(cancelled, "completion should never be called")
         await fulfillment(of: [effectCompletionExpectation], timeout: 3)
     }
-    
+
     @MainActor
     func testCancelEffectProgrammatically() async throws {
         let effectCompletionExpectation = expectation(description: #function)
@@ -225,26 +225,26 @@ class ScopeEffectsCancellationTests: XCTestCase {
 }
 
 class ScopeEffectsThrowingTests: XCTestCase {
-    
+
     enum ScopeEffectsThrowingTestsError: Error {
         case forcedError
     }
-    
+
     override func setUp() async throws {
         StatoscopeLogger.logEnabled = true
         scopeEffectsDisabledInUnitTests = false
     }
-    
+
     override class func tearDown() {
         StatoscopeLogger.logEnabled = false
         scopeEffectsDisabledInUnitTests = true
     }
-    
+
     static var effectMilliseconds: UInt64 = 2000
     private struct WaitMillisecondsEffectThrowing<ErrorType: Error & Equatable>: Effect {
         let milliseconds: UInt64
         let throwError: ErrorType?
-        func runEffect() async throws -> Void {
+        func runEffect() async throws {
             if let throwError {
                 throw throwError
             } else {
@@ -252,7 +252,7 @@ class ScopeEffectsThrowingTests: XCTestCase {
             }
         }
     }
-        
+
     private final class SimpleScopeWithTypedThrowingEffect<EffectErrorType: Error & Equatable, ResultErrorType: Error & Equatable>: Statostore {
         var effectCompleted: () -> Void = { }
         var effectThrowError: EffectErrorType?
@@ -283,7 +283,7 @@ class ScopeEffectsThrowingTests: XCTestCase {
             }
         }
     }
-    
+
     // Effects errors are pretty hard to understand, they belong to third parties, we need some mapping into
     //  our domain errors, there are 2 different scenarios:
     // 1.- We don't know the error they may throw (Error)
@@ -294,12 +294,12 @@ class ScopeEffectsThrowingTests: XCTestCase {
         case unusualCornerCase
         case unauthorized
     }
-    
+
     enum UserError: Error, Equatable {
         case unknown
         case retriable
         case nonRetriable
-        
+
         init(effectError: EffectError) {
             switch effectError {
             case .completelyUnexpected:
@@ -310,7 +310,7 @@ class ScopeEffectsThrowingTests: XCTestCase {
                 self = .nonRetriable
             }
         }
-        
+
         init(anyThrownError: Error) {
             guard let effectError = anyThrownError as? EffectError else {
                 self = .unknown
@@ -319,7 +319,7 @@ class ScopeEffectsThrowingTests: XCTestCase {
             self = Self(effectError: effectError)
         }
     }
-    
+
     @MainActor
     func testNoErrorThrown() async throws {
         let effectCompletionExpectation = expectation(description: #function)
@@ -333,7 +333,7 @@ class ScopeEffectsThrowingTests: XCTestCase {
         await fulfillment(of: [effectCompletionExpectation], timeout: 3)
         XCTAssertNil(sut.mappingResult)
     }
-    
+
     @MainActor
     func testTypedUnhandledErrorThrownDoesSilentlyFail() async throws {
         let effectCompletionExpectation = expectation(description: #function)
@@ -347,7 +347,7 @@ class ScopeEffectsThrowingTests: XCTestCase {
         sut.send(.sendWaitEffect(Self.effectMilliseconds))
         await fulfillment(of: [effectCompletionExpectation], timeout: 3)
     }
-    
+
     @MainActor
     func testTypedHandledErrorThrownDoesFailWithResultFailure() async throws {
         let effectCompletionExpectation = expectation(description: #function)
@@ -367,11 +367,11 @@ class ScopeEffectsThrowingTests: XCTestCase {
             XCTAssertEqual(failure, .retriable)
         }
     }
-    
+
     private struct WaitMillisecondsEffectThrowingUntypedError: Effect {
         let milliseconds: UInt64
         let throwError: Bool
-        func runEffect() async throws -> Void {
+        func runEffect() async throws {
             if throwError {
                 throw ScopeEffectsThrowingTestsError.forcedError
             } else {
@@ -379,7 +379,7 @@ class ScopeEffectsThrowingTests: XCTestCase {
             }
         }
     }
-    
+
     private final class SimpleScopeWithUntypedThrowingEffect<ResultErrorType: Error & Equatable>: Statostore {
         var effectCompleted: () -> Void = { }
         var effectThrowError: Bool = false
@@ -410,7 +410,7 @@ class ScopeEffectsThrowingTests: XCTestCase {
             }
         }
     }
-    
+
     @MainActor
     func testUntypedUnhandledErrorThrownDoesSilentlyFail() async throws {
         let effectCompletionExpectation = expectation(description: #function)
@@ -424,7 +424,7 @@ class ScopeEffectsThrowingTests: XCTestCase {
         sut.send(.sendWaitEffect(Self.effectMilliseconds))
         await fulfillment(of: [effectCompletionExpectation], timeout: 3)
     }
-    
+
     @MainActor
     func testUntypedHandledErrorThrownDoesFailWithResultFailure() async throws {
         let effectCompletionExpectation = expectation(description: #function)

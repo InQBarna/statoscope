@@ -12,8 +12,8 @@ import SwiftUI
 import UIKit
 #endif
 
-extension StatoscopeTestPlan {
-    
+extension StoreTestPlan {
+
     public func configureViewSnapshot<V: View>(_ test: XCTestCase, _ block: @escaping (T) -> V) -> Self {
 #if canImport(UIKit)
         snapshot = { sut in
@@ -25,7 +25,7 @@ extension StatoscopeTestPlan {
 #endif
         return self
     }
-    
+
     public func takeSnapshot(file: StaticString = #file, line: UInt = #line) -> Self {
         return addStep { [weak self] sut in
             XCTAssertNotNil(self?.snapshot, "Taking snapshot without configured snapshot block", file: file, line: line)
@@ -36,7 +36,7 @@ extension StatoscopeTestPlan {
 
 #if canImport(UIKit)
 extension View {
-    
+
     func asImage() -> UIImage {
         let controller = UIHostingController(rootView: self)
         let view = controller.view

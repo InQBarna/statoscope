@@ -24,19 +24,18 @@ public protocol Statostore:
     Scope,
     NaiveReducer,
     StoreProtocol
-    where State == Self
-{ }
+    where State == Self { }
 
 public extension Statostore {
-    
+
     static func update(state: State, when: When, effectsHandler: EffectsHandler<When>) throws {
         try state.update(when)
     }
-    
+
     var state: State {
         return self
     }
-    
+
     func set<T>(_ keyPath: ReferenceWritableKeyPath<Self, T>, _ value: T) -> Self {
         self[keyPath: keyPath] = value
         return self

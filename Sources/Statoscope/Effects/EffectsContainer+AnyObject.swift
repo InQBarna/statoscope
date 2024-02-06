@@ -9,34 +9,32 @@ import Foundation
 
 // AnyObject conforming to EffectsHandlerImplementation will
 //  1. synthesize an EffectsHandlerImpl member instance to handle effects
-fileprivate var effectsHandlerStoreKey: UInt8 = 0
+private var effectsHandlerStoreKey: UInt8 = 0
 internal extension EffectsHandlerImplementation where Self: AnyObject {
-    
+
     var logPrefix: String {
         "\(type(of: self)) (\(Unmanaged.passUnretained(self).toOpaque())): "
     }
 }
-    
+
 public extension EffectsHandlerImplementation where Self: AnyObject {
 
     var effectsHandler: EffectsHandler<When> {
-        get {
-            return associatedObject(base: self, key: &effectsHandlerStoreKey, initialiser: {
-                EffectsHandlerImpl<When>(logPrefix: logPrefix)
-            })
-        }
+        return associatedObject(base: self, key: &effectsHandlerStoreKey, initialiser: {
+            EffectsHandlerImpl<When>(logPrefix: logPrefix)
+        })
     }
-    
+
     var effectsState: EffectsState {
         effectsHandler
     }
 }
 
 //  2. synthesize a DeinitObserver member instance
-fileprivate var deinitObserverStoreKey: UInt8 = 0
-fileprivate class DeinitObserver {
-    let execute: () -> ()
-    init(execute: @escaping () -> ()) {
+private var deinitObserverStoreKey: UInt8 = 0
+private class DeinitObserver {
+    let execute: () -> Void
+    init(execute: @escaping () -> Void) {
         self.execute = execute
     }
     deinit {
@@ -57,7 +55,7 @@ fileprivate extension EffectsHandlerImplementation where Self: AnyObject {
 
 //  3. provide a method runEnqueuedEffectAndGetWhenResults to rule the effectsHandler
 internal extension EffectsHandlerImplementation where Self: AnyObject {
-    
+
     func ensureSetupDeinitObserver() {
         if deinitObserver == nil {
             let handler = effectsHandler
@@ -79,4 +77,3 @@ extension EffectsHandlerImplementation where Self: AnyObject {
         try impl.runEnqueuedEffectAndGetWhenResults(safeSend: safeSend)
     }
 }
-

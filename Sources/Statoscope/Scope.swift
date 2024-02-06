@@ -15,7 +15,6 @@ import Foundation
 /// * Is an InjectionTreeNode to communicate with other scopes
 public protocol Scope:
     InjectionTreeNode &
-    AnyObject
-{
+    AnyObject {
     associatedtype When: Sendable
 }

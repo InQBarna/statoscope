@@ -9,8 +9,7 @@ import Foundation
 
 public protocol StoreImplementation:
     EffectsHandlerImplementation,
-    AnyObject
-{
+    AnyObject {
     associatedtype State: Scope where State.When == When
     var state: State { get }
     static func update(state: State, when: State.When, effectsHandler: EffectsHandler<State.When>) throws
@@ -31,15 +30,13 @@ public protocol StorePublicProtocol {
 /// * StoreImplementation: meant for developer's implementation logic
 public protocol StoreProtocol:
     StorePublicProtocol,
-    StoreImplementation
-{ }
+    StoreImplementation { }
 
 public var scopeEffectsDisabledInUnitTests: Bool = nil != NSClassFromString("XCTest")
 let scopeEffectsDisabledInPreviews: Bool = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
 
-extension StoreProtocol
-{
-    
+extension StoreProtocol {
+
     public func send(_ when: State.When) {
         LOG("\(when)")
         do {
@@ -48,7 +45,7 @@ extension StoreProtocol
             LOG("‼️ Exception on send method: \(error)")
         }
     }
-    
+
     public func sendUnsafe(_ when: State.When) throws {
         try updateUsingMiddlewares(when)
         guard !scopeEffectsDisabledInUnitTests else {
@@ -57,20 +54,20 @@ extension StoreProtocol
         guard !scopeEffectsDisabledInPreviews else {
             throw StatoscopeErrors.effectsDisabledForPreviews
         }
-        try self.runEnqueuedEffectAndGetWhenResults() { [weak self] effect, when in
+        try self.runEnqueuedEffectAndGetWhenResults { [weak self] effect, when in
             await self?.safeMainActorSend(effect, when)
         }
         return
     }
-    
+
     private var logPrefix: String {
         "\(type(of: state)) (\(Unmanaged.passUnretained(state).toOpaque())): "
     }
-    
+
     private func LOG(_ string: String) {
         StatoscopeLogger.LOG(prefix: logPrefix, string)
     }
-    
+
     private func updateUsingMiddlewares(_ when: State.When) throws {
         if let middleware = middleWare {
             guard let mappedWhen = try middleware.middleWare(self.state, when) else {
@@ -81,7 +78,7 @@ extension StoreProtocol
             try Self.update(state: state, when: when, effectsHandler: effectsHandler)
         }
     }
-    
+
     @MainActor
     private func safeMainActorSend(_ effect: AnyEffect<State.When>, _ when: State.When) {
         let count = effectsHandler.effects.count
@@ -94,8 +91,8 @@ extension StoreProtocol
     }
 }
 
-fileprivate var middleWareHandlerStoreKey: UInt8 = 0
-fileprivate final class MiddleWareHandler<S: StoreImplementation> {
+private var middleWareHandlerStoreKey: UInt8 = 0
+private final class MiddleWareHandler<S: StoreImplementation> {
     let middleWare: ((S.State, S.When) throws -> S.When?)
     init(middleWare: @escaping (S.State, S.When) throws -> S.When?) {
         self.middleWare = middleWare
@@ -103,7 +100,7 @@ fileprivate final class MiddleWareHandler<S: StoreImplementation> {
 }
 
 extension StoreImplementation {
-    
+
     public func addMiddleWare(_ update: @escaping (State, State.When) throws -> State.When?) {
         if let existingMiddleware = middleWare {
             middleWare = MiddleWareHandler(middleWare: { state, when in

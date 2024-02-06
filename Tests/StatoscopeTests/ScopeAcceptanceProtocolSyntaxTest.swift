@@ -13,16 +13,16 @@ import StatoscopeTesting
 // We can create a protocol so internal state vars are developer-chosen,
 //  but acceptance naming are team/PO chosen
 //  'acceptance' naming uses to have a sentence format: subjectVerbPredicate
-fileprivate protocol ScopeAcceptance {
+private protocol ScopeAcceptance {
     var viewShowsLoadingMessage: String? { get }
     var viewShowsContent: String? { get }
 }
-        
-fileprivate final class SampleScope: ObservableObject, Statostore {
-    
+
+private final class SampleScope: ObservableObject, Statostore {
+
     @Published var loading: Bool = true
     @Published var content: String?
-    
+
     // 'When' naming uses to have also a sentence format: subjectVerbPredicate
     enum When {
         case systemLoadsSampleScope
@@ -43,7 +43,7 @@ extension SampleScope: ScopeAcceptance {
     var viewShowsContent: String? { content }
 }
 
-fileprivate struct SampleView: View {
+private struct SampleView: View {
     @ObservedObject var model = SampleScope()
     var body: some View {
         // If view uses 'acceptance' explicitly it's not only used in tests, also in source code
@@ -56,7 +56,7 @@ fileprivate struct SampleView: View {
 }
 
 final class ScopeAcceptanceProtocolSyntaxTest: XCTestCase {
-    
+
     /*
     func testStateSyntax() throws {
         try SampleScope.GIVEN {

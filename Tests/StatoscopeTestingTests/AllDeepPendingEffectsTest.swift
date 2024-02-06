@@ -11,10 +11,10 @@ import Statoscope
 import XCTest
 
 class AllDeepPendingEffectsTest: XCTestCase {
-    
+
     enum SimpleParentChild {
         struct ParentEffect: Effect {
-            func runEffect() async throws -> Void { () }
+            func runEffect() async throws { () }
             typealias ResType = Void
         }
         final class Parent: Statostore, Injectable, ObservableObject {
@@ -26,9 +26,9 @@ class AllDeepPendingEffectsTest: XCTestCase {
                 enqueue(ParentEffect())
             }
         }
-        
+
         struct ChildEffect: Effect {
-            func runEffect() async throws -> Void { () }
+            func runEffect() async throws { () }
             typealias ResType = Void
         }
         final class Child: Statostore, ObservableObject {
@@ -39,12 +39,12 @@ class AllDeepPendingEffectsTest: XCTestCase {
             }
         }
     }
-    
+
     func testSimpleParentChildAllDeepPendingEffects() throws {
         let parent = SimpleParentChild.Parent()
         parent.send(())
         parent.child?.send(())
-        
+
         let allDeepPendingEffects = parent.allDeepPendingEffects()
         XCTAssertEqual(allDeepPendingEffects.count, 2)
         let parentEffects = try XCTUnwrap(allDeepPendingEffects["StatoscopeTests.AllDeepPendingEffectsTest.SimpleParentChild.Parent"])
@@ -53,14 +53,14 @@ class AllDeepPendingEffectsTest: XCTestCase {
         XCTAssertEqual(childEffects.count, 1)
         XCTAssert(parentEffects.first is SimpleParentChild.ParentEffect)
         XCTAssert(childEffects.first is SimpleParentChild.ChildEffect)
-        
+
         parent.clearAllDeepPendingEffects()
         XCTAssert(parent.allDeepPendingEffects().count == 0)
     }
-    
+
     enum ParentChildGrandSon {
         struct ParentEffect: Effect {
-            func runEffect() async throws -> Void { () }
+            func runEffect() async throws { () }
             typealias ResType = Void
         }
         final class Parent: Statostore, Injectable, ObservableObject {
@@ -72,7 +72,7 @@ class AllDeepPendingEffectsTest: XCTestCase {
             static var defaultValue: Parent = Parent()
         }
         struct ChildEffect: Effect {
-            func runEffect() async throws -> Void { () }
+            func runEffect() async throws { () }
             typealias ResType = Void
         }
         final class Child: Statostore, Injectable, ObservableObject {
@@ -85,7 +85,7 @@ class AllDeepPendingEffectsTest: XCTestCase {
             static var defaultValue: Child = Child()
         }
         struct GrandSonEffect: Effect {
-            func runEffect() async throws -> Void { () }
+            func runEffect() async throws { () }
             typealias ResType = Void
         }
         final class GrandSon: Statostore, ObservableObject {
@@ -97,7 +97,7 @@ class AllDeepPendingEffectsTest: XCTestCase {
             @Superscope var child: Child
         }
     }
-    
+
     func testParentChildGrandSonAllDeepPendingEffects() throws {
         let parent = ParentChildGrandSon.Parent()
         parent.send(())
@@ -114,9 +114,9 @@ class AllDeepPendingEffectsTest: XCTestCase {
         XCTAssert(parentEffects.first is ParentChildGrandSon.ParentEffect)
         XCTAssert(childEffects.first is ParentChildGrandSon.ChildEffect)
         XCTAssert(grandsonEffects.first is ParentChildGrandSon.GrandSonEffect)
-        
+
         parent.clearAllDeepPendingEffects()
         XCTAssert(parent.allDeepPendingEffects().count == 0)
     }
-    
+
 }

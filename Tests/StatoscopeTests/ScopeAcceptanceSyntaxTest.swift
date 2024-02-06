@@ -9,16 +9,15 @@ import XCTest
 import SwiftUI
 @testable import Statoscope
 
-
 private final class SampleScope: ObservableObject, Statostore {
-    
+
     // Internal scope state has developer syntax, we have 2 variables which are
     //  represented in the view (loaded, content) and another internal var
     //  so we will split state information into 2 different pieces view + internals
     @Published var loading: Bool = true
     @Published var content: String?
     var pushPermissionsAccepted: Bool?
-    
+
     // We also split when into 2 different pieces: view + internals
     enum When {
         // View
@@ -32,14 +31,14 @@ private final class SampleScope: ObservableObject, Statostore {
         case networkRespondsWithContent(String)
         case pushPermissionsResponse(accepted: Bool)
     }
-    
+
     struct PushPermissionsRequest: Effect {
         func runEffect() async throws -> Bool {
             try await Task.sleep(nanoseconds: 1_000_000_000)
             return false
         }
     }
-    
+
     func update(_ when: When) throws {
         switch when {
         case .systemLoadsSampleScope:
@@ -75,7 +74,7 @@ private protocol ScopeAcceptance {
 }
 
 extension SampleScope: ScopeAcceptance {
-    
+
     // The struct can be used as output for checking acceptance in a human-readable language
     var view: SampleScopeViewModel {
         SampleScopeViewModel(
@@ -83,7 +82,7 @@ extension SampleScope: ScopeAcceptance {
             showsContent: content
         )
     }
-    
+
     // And it can be used as input
     static var initialState = SampleScope()
     static var loadingState = SampleScope()
@@ -118,7 +117,7 @@ private struct SampleView2: View {
         Button("retry") {
             model.send(.view(.tapsOnRetry))
         }
-            .onReceive(model.objectWillChange) { newModel in
+            .onReceive(model.objectWillChange) { _ in
                 // Here you can control animations for example
                 viewModel = model.view
             }
@@ -162,4 +161,3 @@ class ScopeAcceptanceSyntaxTest: XCTestCase {
         .runTest()
     }
 }
-

@@ -29,17 +29,19 @@ public struct Superscope<Value: Injectable & ObservableObject> {
             if let overwrite = enclosingInstance[keyPath: storageKeyPath].overwrittingValue {
                 return overwrite
             }
-            
+
             // return try enclosingInstance.resolve()
             let foundSuper: Value = enclosingInstance.resolve()
-            
+
             // Listen to parent
             if enclosingInstance[keyPath: storageKeyPath].observed,
                nil == enclosingInstance[keyPath: storageKeyPath].cancellable {
-                enclosingInstance[keyPath: storageKeyPath].cancellable = foundSuper.objectWillChange.sink(receiveValue: { [weak enclosingInstance] _ in
+                enclosingInstance[keyPath: storageKeyPath].cancellable =
+                foundSuper.objectWillChange.sink(receiveValue: { [weak enclosingInstance] _ in
                     // no compila lo de debajo ??
                     // instance?.objectWillChange.send()
                     if let publisher = enclosingInstance?.objectWillChange {
+                        // swiftlint:disable:next force_cast
                         (publisher as! ObservableObjectPublisher).send()
                     }
                 })
@@ -62,6 +64,6 @@ public struct Superscope<Value: Injectable & ObservableObject> {
 
     public var wrappedValue: Value {
         get { fatalError() }
-        set { fatalError() }
+        set { fatalError("\(newValue)") }
     }
 }

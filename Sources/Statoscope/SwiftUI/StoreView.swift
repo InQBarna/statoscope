@@ -37,8 +37,7 @@ extension StoreImplementation where Self: AnyObject {
         StoreView(scope: self, view: view)
     }
     func buildStoreView<V: StoreViewProtocol>(_ type: V.Type) -> StoreView<Self, V>
-        where V.State == Self.State, V.When == Self.When
-    {
+        where V.State == Self.State, V.When == Self.When {
         StoreView(scope: self, view: { V(model: $0, send: $1) })
     }
 }

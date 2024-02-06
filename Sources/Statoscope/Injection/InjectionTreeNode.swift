@@ -8,7 +8,8 @@
 import Foundation
 
 /// Artifact protocol, please refer to ``InjectionTreeNode`` for features
-///  This protocol simply enables both InjectionTreeNode and InjectionTreeNode? struct to conform to the same protocol and be used in the Subscope property wrapper
+///  This protocol simply enables both InjectionTreeNode and InjectionTreeNode? 
+///  struct to conform to the same protocol and be used in the Subscope property wrapper
 public protocol InjectionTreeNodeProtocol {
     /// Returns the ancestor in the injection tree node
     var parentNode: InjectionTreeNodeProtocol? { get set }
@@ -18,7 +19,8 @@ public protocol InjectionTreeNodeProtocol {
     var rootNode: InjectionTreeNodeProtocol? { get }
 }
 
-/// Represents a node in a tree of dependencies search to achieve a dependency injection similar to what environmentObject achieves in swiftUI
+/// Represents a node in a tree of dependencies search to achieve a dependency 
+/// injection similar to what environmentObject achieves in swiftUI
 ///
 /// By conforming to this protocol, your class object automatically synthesizes
 /// * An injection store to hold ad-hoc injected values
@@ -90,7 +92,7 @@ public protocol InjectionTreeNode: InjectionTreeNodeProtocol, AnyObject {
 }
 
 public extension InjectionTreeNode {
-    
+
     var parentNode: InjectionTreeNodeProtocol? {
         get {
             weakParent?.anyLink
@@ -113,7 +115,7 @@ public extension InjectionTreeNode {
             return T.defaultValue
         }
     }
-    
+
     func resolveUnsafe<T>() throws -> T {
         var node: InjectionTreeNode? = self
         while let iterator = node {
@@ -131,49 +133,46 @@ public extension InjectionTreeNode {
     var rootNode: InjectionTreeNodeProtocol? {
         root
     }
-    
+
     var childrenNodes: [InjectionTreeNodeProtocol] {
         children
-            .map { $0 as! InjectionTreeNodeBox }
+            .map {
+                // swiftlint:disable:next force_cast
+                $0 as! InjectionTreeNodeBox
+            }
     }
 }
 
 extension InjectionTreeNode {
-    
+
     @discardableResult
     func injectSuperscope<T: AnyObject>(_ obj: T) -> Self {
         injectionStore.registerValue(obj)
         return self
     }
-    
+
 }
-    
+
 // Objc runtime associated object keys
-fileprivate var injectionStoreKey: UInt8 = 0
-fileprivate var parentStoreKey: UInt8 = 0
-fileprivate var childrenStoreKey: UInt8 = 0
+private var injectionStoreKey: UInt8 = 0
+private var parentStoreKey: UInt8 = 0
+private var childrenStoreKey: UInt8 = 0
 
 fileprivate extension InjectionTreeNode {
     var children: NSMutableArray { // [AnyWeakTreeNode] {
-        get {
-            return associatedObject(base: self, key: &childrenStoreKey, initialiser: { [] })
-        }
+        return associatedObject(base: self, key: &childrenStoreKey, initialiser: { [] })
     }
     var weakParent: InjectionTreeNodeBox? {
-        get {
-            return optionalAssociatedObject(base: self, key: &parentStoreKey, initialiser: { InjectionTreeNodeBox(nil) })
-        }
+        return optionalAssociatedObject(base: self, key: &parentStoreKey, initialiser: { InjectionTreeNodeBox(nil) })
     }
     var injectionStore: InjectionStore {
-        get {
-            return associatedObject(base: self, key: &injectionStoreKey, initialiser: { InjectionStore() })
-        }
+        return associatedObject(base: self, key: &injectionStoreKey, initialiser: { InjectionStore() })
     }
 }
 
 // Tree maintenance
 extension InjectionTreeNode {
-    
+
     var root: InjectionTreeNode {
         var node: InjectionTreeNode = self
         while let weakParentLink = node.weakParent?.anyLink {
@@ -188,16 +187,16 @@ extension InjectionTreeNode {
         }
         assignChildAndCleanupChain(value)
     }
-    
+
     func assignChildOnPropertyWrapperSet<Value: InjectionTreeNodeProtocol>(_ value: Value?) {
         assignChildAndCleanupChain(value)
     }
-    
+
     fileprivate func assignChildAndCleanupChain<Value: InjectionTreeNodeProtocol>(_ newValue: Value?) {
-        
+
         assignChild(newValue)
         cleanupChildren()
-        
+
         // Debug
         // enclosingInstance.root.printRootTree()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak root = root] in
@@ -205,7 +204,7 @@ extension InjectionTreeNode {
             // root?.printRootTree()
         }
     }
-    
+
     fileprivate func assignChild<Value: InjectionTreeNodeProtocol>(_ child: Value?) {
         if var newInjTreeNode = child {
             if !children.contains(newInjTreeNode) {
@@ -214,10 +213,13 @@ extension InjectionTreeNode {
             newInjTreeNode.parentNode = self
         }
     }
-    
+
     fileprivate func cleanupChildren() {
         let allChildren = children
-            .map { $0 as! InjectionTreeNodeBox }
+            .map {
+                // swiftlint:disable:next force_cast
+                $0 as! InjectionTreeNodeBox
+            }
         allChildren.forEach { child in
             child.anyLink?.cleanupChildren()
         }
@@ -234,7 +236,7 @@ extension InjectionTreeNode {
         [
             [
                 "NODE: <\(Unmanaged.passUnretained(self).toOpaque()): \(self)>"
-                //String(describing: self).removeOptionalDescription,
+                // String(describing: self).removeOptionalDescription,
             ],
             injectionStore.treeDescription.map { "  " + $0 }
         ]
@@ -292,7 +294,7 @@ extension InjectionTreeNode {
         throw NoInjectedValueFound(T.self, injectionTreeDescription: self.getPrintTree())
         // return T.defaultValue
     }
-    
+
     func resolveObject<T: Injectable>(keyPath: String?) throws -> T {
         var node: InjectionTreeNode? = self
         while let iterator = node {
@@ -316,14 +318,15 @@ public extension InjectionTreeNodeProtocol {
                        " this is an internal helper for optional-nonoptional property wrapping")
         }
         set {
-            fatalError("Don't try implementing ChainLinkProtocol, " +
+            fatalError("Trying to set value \(String(describing: newValue)) to parentNode. " +
+                       "Don't try implementing ChainLinkProtocol, " +
                        " this is an internal helper for optional-nonoptional property wrapping")
         }
     }
 }
 
 extension Optional: InjectionTreeNodeProtocol where Wrapped: InjectionTreeNode {
-    
+
     public var parentNode: InjectionTreeNodeProtocol? {
         get {
             return self?.parentNode
@@ -332,11 +335,11 @@ extension Optional: InjectionTreeNodeProtocol where Wrapped: InjectionTreeNode {
             self?.parentNode = newValue
         }
     }
-    
+
     public var childrenNodes: [InjectionTreeNodeProtocol] {
         self?.childrenNodes ?? []
     }
-    
+
     public var rootNode: InjectionTreeNodeProtocol? {
         self?.rootNode
     }

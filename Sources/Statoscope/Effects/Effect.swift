@@ -20,7 +20,7 @@ private extension Effect {
 }
 
 public struct AnyEffect<ResType>: Effect, Equatable, CustomDebugStringConvertible, Sendable {
-    
+
     // Helper struct EffectBox
     private struct EffectBox<EBResType>: Effect, CustomDebugStringConvertible {
         let runner: () async throws -> EBResType
@@ -34,15 +34,15 @@ public struct AnyEffect<ResType>: Effect, Equatable, CustomDebugStringConvertibl
             "AnonymousEffect(closure: \(String(describing: runner)))"
         }
     }
-    
+
     let wrappedEffect: any Effect & Sendable
     let runner: @Sendable () async throws -> ResType
-    
+
     // Init with block
     public init(_ runner: @escaping () async throws -> ResType) {
         self.init(effect: EffectBox(runner: runner))
     }
-    
+
     // Init when effect returns When
     public init<E: Effect>(effect: E) where E.ResType == ResType {
         if let anyEffect = effect as? AnyEffect<E.ResType> {
@@ -54,7 +54,7 @@ public struct AnyEffect<ResType>: Effect, Equatable, CustomDebugStringConvertibl
             try await effect.runEffect()
         }
     }
-    
+
     // Init with mapper for effect -> When
     init<E: Effect>(
         _ effect: E,
@@ -69,7 +69,7 @@ public struct AnyEffect<ResType>: Effect, Equatable, CustomDebugStringConvertibl
             mapper(try await effect.runEffect())
         }
     }
-    
+
     // Init with error mapper for throwing effect
     init<E: Effect, ErrorType: Error>(
         _ effect: E,
@@ -92,12 +92,13 @@ public struct AnyEffect<ResType>: Effect, Equatable, CustomDebugStringConvertibl
     public func runEffect() async throws -> ResType {
         try await runner()
     }
-    
+
     public static func == (lhs: AnyEffect<ResType>, rhs: AnyEffect<ResType>) -> Bool {
-        assertionFailure("We can assume effect description is unique, but better don't rely on this equatable implementation")
+        assertionFailure("We can assume effect description is unique, " +
+                         " but better don't rely on this equatable implementation")
         return "\(lhs.wrappedEffect)" == "\(rhs.wrappedEffect)"
     }
-    
+
     public var debugDescription: String {
         return "\(wrappedEffect): \(wrappedEffect.resultTypeDescription)"
     }
@@ -114,13 +115,13 @@ extension Effect {
     ) -> AnyEffect<MapResType> {
         return AnyEffect<MapResType>(self, mapper: mapper)
     }
-    
+
     public func mapToResult<ErrorType: Error>(
         error: @escaping (Error) -> ErrorType
     ) -> AnyEffect<Result<Self.ResType, ErrorType>> {
         return AnyEffect<Result<Self.ResType, ErrorType>>(self, errorMapper: error)
     }
-    
+
     public func mapToResult<ErrorType: Error & EffectError>(
         error: ErrorType.Type
     ) -> AnyEffect<Result<Self.ResType, ErrorType>> {

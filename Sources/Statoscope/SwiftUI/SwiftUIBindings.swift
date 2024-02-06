@@ -10,23 +10,23 @@ import SwiftUI
 
 extension StoreProtocol where Self: AnyObject {
     public func bindNotNilBool<T>(
-        _ kp: KeyPath<Self, Optional<T>>,
+        _ keyPath: KeyPath<Self, T?>,
         _ when: ((Bool) -> State.When)? = nil
     ) -> Binding<Bool> {
         guard let when = when else {
             return Binding(
-                get: { [weak self] in self?[keyPath: kp] != nil },
+                get: { [weak self] in self?[keyPath: keyPath] != nil },
                 set: { _ in return }
             )
         }
         return Binding(
-            get: { [weak self] in self?[keyPath: kp] != nil },
+            get: { [weak self] in self?[keyPath: keyPath] != nil },
             set: { [weak self] in self?.send(when($0)) }
         )
     }
-    public func bindBool(_ kp: KeyPath<Self, Bool>) -> Binding<Bool> {
+    public func bindBool(_ keyPath: KeyPath<Self, Bool>) -> Binding<Bool> {
         return Binding(
-            get: { [weak self] in self?[keyPath: kp] ?? false },
+            get: { [weak self] in self?[keyPath: keyPath] ?? false },
             set: { _ in }
         )
     }
@@ -34,28 +34,28 @@ extension StoreProtocol where Self: AnyObject {
 
 extension StoreProtocol where Self: AnyObject {
     public func bind<T>(
-        _ kp: KeyPath<Self, T>,
+        _ keyPath: KeyPath<Self, T>,
         _ when: @escaping (T) -> State.When
     ) -> Binding<T> {
         Binding(
-            get: { self[keyPath: kp] },
+            get: { self[keyPath: keyPath] },
             set: { [weak self] in self?.send(when($0)) }
         )
     }
-    
+
     public func weakBind<T>(
-        _ kp: KeyPath<Self, T>,
+        _ keyPath: KeyPath<Self, T>,
         _ when: @escaping (T) -> State.When,
         defaultValue: T
     ) -> Binding<T> {
         Binding(
-            get: { [weak self] in self?[keyPath: kp] ?? defaultValue },
+            get: { [weak self] in self?[keyPath: keyPath] ?? defaultValue },
             set: { [weak self] in self?.send(when($0)) }
         )
     }
 }
 
-public func ??<T>(lhs: Binding<Optional<T>>, rhs: T) -> Binding<T> {
+public func ?? <T>(lhs: Binding<T?>, rhs: T) -> Binding<T> {
     Binding(
         get: { lhs.wrappedValue ?? rhs },
         set: { lhs.wrappedValue = $0 }

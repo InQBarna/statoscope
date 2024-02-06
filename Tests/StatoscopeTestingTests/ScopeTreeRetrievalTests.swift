@@ -11,7 +11,7 @@ import Statoscope
 import XCTest
 
 class ScopeTreeRetrievalTests: XCTestCase {
-    
+
     enum SimpleParentChild {
         final class Parent: Statostore, Injectable, ObservableObject {
             typealias When = Void
@@ -26,7 +26,7 @@ class ScopeTreeRetrievalTests: XCTestCase {
             func update(_ when: Void) throws { }
         }
     }
-    
+
     func testSimpleParentChildAllChildScopes() {
         let parent = SimpleParentChild.Parent()
         let allChildScopes = parent.allChildScopes()
@@ -34,7 +34,7 @@ class ScopeTreeRetrievalTests: XCTestCase {
         XCTAssert(allChildScopes.first ===  parent)
         XCTAssert(allChildScopes.last === parent.child)
     }
-    
+
     enum ParentChildGrandSon {
         final class Parent: Statostore, Injectable, ObservableObject {
             typealias When = Void
@@ -56,7 +56,7 @@ class ScopeTreeRetrievalTests: XCTestCase {
             @Superscope var child: Child
         }
     }
-    
+
     func testParentChildGrandSonAllChildScopes() {
         let parent = ParentChildGrandSon.Parent()
         let allChildScopes = parent.allChildScopes()
@@ -65,5 +65,5 @@ class ScopeTreeRetrievalTests: XCTestCase {
         XCTAssert(allChildScopes[1] === parent.child)
         XCTAssert(allChildScopes.last === parent.child?.grandson)
     }
-    
+
 }

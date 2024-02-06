@@ -10,7 +10,7 @@ import XCTest
 @testable import Statoscope
 
 class SubscopeSuperscodePropertyWrapperTests: XCTestCase {
-    
+
     enum SimpleParentChild {
         final class Parent: Statostore, Injectable, ObservableObject {
             typealias When = Void
@@ -25,12 +25,12 @@ class SubscopeSuperscodePropertyWrapperTests: XCTestCase {
             func update(_ when: Void) throws { }
         }
     }
-    
+
     func testSimpleParentChildInjection() {
         let parent = SimpleParentChild.Parent()
         XCTAssert(parent.child?.parent === parent)
     }
-    
+
     enum ParentChildGrandSon {
         final class Parent: InjectionTreeNode, Injectable, ObservableObject {
             @Subscope var child: Child? = Child()
@@ -46,19 +46,19 @@ class SubscopeSuperscodePropertyWrapperTests: XCTestCase {
             @Superscope var child: Child
         }
     }
-    
+
     func testParentGrandSonInjection() {
         let parent = ParentChildGrandSon.Parent()
         XCTAssert(parent.child?.grandson?.parent === parent)
     }
-    
+
     func testTwoIndependentTreesInjection() {
         let parent = ParentChildGrandSon.Parent()
         let parent2 = ParentChildGrandSon.Parent()
         XCTAssert(parent.child?.grandson?.parent === parent)
         XCTAssert(parent2.child?.grandson?.parent === parent2)
     }
-    
+
     enum TwoSubhierarchies {
         final class Parent: InjectionTreeNode, Injectable, ObservableObject {
             @Subscope var child1: Child? = Child()
@@ -74,7 +74,7 @@ class SubscopeSuperscodePropertyWrapperTests: XCTestCase {
             @Superscope var child: Child
         }
     }
-    
+
     func testTwoSubhierarchies() {
         let parent = TwoSubhierarchies.Parent()
         XCTAssert(parent.child1?.grandson?.parent === parent)
@@ -82,18 +82,18 @@ class SubscopeSuperscodePropertyWrapperTests: XCTestCase {
         XCTAssert(parent.child2?.grandson?.parent === parent)
         XCTAssert(parent.child2?.grandson?.child === parent.child2)
     }
-    
+
     func testInjectionNotFoundReturnsDefaultValue() {
         let child = SimpleParentChild.Child()
         XCTAssertEqual(child.parent.uuid, SimpleParentChild.Parent.defaultValue.uuid)
     }
-    
+
     // Otras cosas a cubrir:
     //  mensaje correcto para el developer cuando no se encuentra el superscope
 }
 
 class ForcedInjectSuperscopeTests: XCTestCase {
-    
+
     enum UnrelatedScopes {
         final class First: Statostore, Injectable, ObservableObject {
             typealias When = Void
@@ -107,7 +107,7 @@ class ForcedInjectSuperscopeTests: XCTestCase {
             func update(_ when: Void) throws { }
         }
     }
-    
+
     func testForcedInjectionSingleScope() {
         let parent = UnrelatedScopes.First()
         let child = UnrelatedScopes.Second()
@@ -117,7 +117,7 @@ class ForcedInjectSuperscopeTests: XCTestCase {
         // After injection, correct value
         XCTAssertEqual(child.parent.uuid, parent.uuid)
     }
-    
+
     func testOverwriteInjectionSingleScope() {
         let parent = UnrelatedScopes.First()
         let child = UnrelatedScopes.Second()
@@ -125,7 +125,7 @@ class ForcedInjectSuperscopeTests: XCTestCase {
         // After injection, correct value
         XCTAssertEqual(child.parent.uuid, parent.uuid)
     }
-    
+
     enum ParentChildGrandSon {
         final class Parent: InjectionTreeNode, Injectable, ObservableObject {
             @Subscope var child: Child? = Child()
@@ -142,7 +142,7 @@ class ForcedInjectSuperscopeTests: XCTestCase {
             @Superscope var injected: UnrelatedScopes.First
         }
     }
-    
+
     func testForcedInjectionInGrandSonHierarchy() {
         let injected = UnrelatedScopes.First()
         let parent = ParentChildGrandSon.Parent()
@@ -152,7 +152,7 @@ class ForcedInjectSuperscopeTests: XCTestCase {
         // After injection, correct value
         XCTAssertEqual(parent.child?.grandson?.injected.uuid, injected.uuid)
     }
-    
+
     // Otras cosas a cubrir:
     //  Llamar a injectSuperscope cuando en realidad ya es un superscope
     //   Gestionar problemas de memoria en el punto anterior?
@@ -160,7 +160,7 @@ class ForcedInjectSuperscopeTests: XCTestCase {
 }
 
 class InjectObjectTests: XCTestCase {
-    
+
     final class InjectableClass: Injectable {
         let uuid: UUID = UUID()
         static var defaultValue: InjectableClass = InjectableClass()
@@ -175,20 +175,20 @@ class InjectObjectTests: XCTestCase {
         @Injected var injectedClass: InjectableClass
         func update(_ when: Void) throws { }
     }
-    
+
     func testInjectClass() {
         let sut = ScopeWihInjectables()
-        
+
         // Returns default value before injection
         //  an internally catched exception is thrown, debugger will stop if excp. breakpoint enabled
         XCTAssertEqual(sut.injectedClass.uuid, InjectableClass.defaultValue.uuid)
-        
+
         // Returns injected class after injection
         let injectableClass = InjectableClass()
         sut.injectObject(injectableClass)
         XCTAssertEqual(sut.injectedClass.uuid, injectableClass.uuid)
     }
-    
+
     func testInjectStruct() {
         let injectableStruct = InjectableStruct()
         let sut = ScopeWihInjectables()
@@ -196,11 +196,11 @@ class InjectObjectTests: XCTestCase {
         sut.injectObject(injectableStruct)
         XCTAssertEqual(sut.injectedStruct.uuid, injectableStruct.uuid)
     }
-    
+
     func testInjectPtotocol() {
         // TODO: Protocols can't be injected, create protocolwitness macro
     }
-    
+
     enum ParentChildGrandSon {
         final class Parent: InjectionTreeNode, Injectable, ObservableObject {
             @Subscope var child: Child? = Child()
@@ -218,7 +218,7 @@ class InjectObjectTests: XCTestCase {
             @Injected var injectedClass: InjectableClass
         }
     }
-    
+
     func testInjectClassInGrandsonHierarchy() {
         let injectableClass = InjectableClass()
         let sut = ParentChildGrandSon.Parent()
@@ -226,7 +226,7 @@ class InjectObjectTests: XCTestCase {
         sut.injectObject(injectableClass)
         XCTAssertEqual(sut.child?.grandson?.injectedClass.uuid, injectableClass.uuid)
     }
-    
+
     func testInjectStructInGrandsonHierarchy() {
         let injectableStruct = InjectableStruct()
         let sut = ParentChildGrandSon.Parent()
@@ -234,7 +234,7 @@ class InjectObjectTests: XCTestCase {
         sut.injectObject(injectableStruct)
         XCTAssertEqual(sut.child?.grandson?.injectedStruct.uuid, injectableStruct.uuid)
     }
-    
+
     enum ParentChildGrandSonAccessAtAllLevels {
         final class Parent: InjectionTreeNode, Injectable, ObservableObject {
             @Subscope var child: Child? = Child()
@@ -256,7 +256,7 @@ class InjectObjectTests: XCTestCase {
             @Injected var injectedClass: InjectableClass
         }
     }
-    
+
     func testTwoDifferentInjectsInGrandsonHierarchy() {
         let injectableStruct = InjectableStruct()
         let injectableStruct2 = InjectableStruct()
@@ -273,7 +273,7 @@ class InjectObjectTests: XCTestCase {
         XCTAssertEqual(sut.child?.injectedStruct.uuid, injectableStruct2.uuid)
         XCTAssertEqual(sut.child?.grandson?.injectedStruct.uuid, injectableStruct2.uuid)
     }
-    
+
     // Otras cosas a cubrir:
     //  Gestion de memoria para clases ?
 }

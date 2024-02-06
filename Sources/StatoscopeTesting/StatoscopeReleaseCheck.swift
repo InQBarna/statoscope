@@ -31,11 +31,14 @@ extension Sequence where Element == WeakScopeBox {
     }
 }
 
-func assertChildScopesReleased(file: StaticString = #file, line: UInt = #line, _ rootScope: () throws -> any StoreProtocol) rethrows {
+func assertChildScopesReleased(
+    file: StaticString = #file,
+    line: UInt = #line,
+    _ rootScope: () throws -> any StoreProtocol
+) rethrows {
     try autoreleasepool {
         try rootScope()
             .allChildScopesChecker()
     }
     .assertAllReleased(file: file, line: line)
 }
-

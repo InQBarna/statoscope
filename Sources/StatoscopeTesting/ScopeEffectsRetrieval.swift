@@ -9,10 +9,10 @@ import Foundation
 import Statoscope
 
 extension StoreProtocol {
-    
+
     func allDeepPendingEffects() -> [String: [any Effect]] {
         return Dictionary(
-            allChildScopes().compactMap{
+            allChildScopes().compactMap {
                 let effects = $0.effectsState.effects
                 guard effects.count > 0 else {
                     return nil
@@ -22,7 +22,7 @@ extension StoreProtocol {
             uniquingKeysWith: { first, _ in first }
         )
     }
-    
+
     func clearAllDeepPendingEffects() {
         allChildScopes()
             .forEach { $0.clearPending() }

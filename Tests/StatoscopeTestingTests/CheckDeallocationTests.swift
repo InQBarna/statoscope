@@ -11,7 +11,7 @@ import Statoscope
 import XCTest
 
 class CheckDeallocationTests: XCTestCase {
-    
+
     enum SimpleParentChild {
         final class Parent: Statostore, Injectable, ObservableObject {
             typealias When = Void
@@ -35,7 +35,7 @@ class CheckDeallocationTests: XCTestCase {
             func update(_ when: Void) throws { }
         }
     }
-    
+
     func testSimpleParentChildAutoretainedFailsTest() throws {
         XCTExpectFailure("This should fail")
         try SimpleParentChild.Parent.GIVEN {
@@ -45,4 +45,3 @@ class CheckDeallocationTests: XCTestCase {
         .runTest(assertRelease: true)
     }
 }
-

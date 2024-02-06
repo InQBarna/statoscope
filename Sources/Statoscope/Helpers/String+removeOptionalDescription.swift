@@ -17,4 +17,3 @@ extension String {
         return self
     }
 }
-
