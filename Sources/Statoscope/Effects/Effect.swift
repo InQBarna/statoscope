@@ -7,126 +7,119 @@
 
 import Foundation
 
-public protocol Effect: Equatable {
-    associatedtype ResType
-    func runEffect() async throws -> ResType
+/// Defines an asynchronous operation which returns specific type of action
+///
+/// Conform to the Effect protocol to create an asynchronous operation that can be
+/// enqueued into an store.
+///
+/// The ResultType of the effect is strongly typed. And the Effect should allways return an object of t
+/// the specified type. In case the operation cannot be completed here are some recommended options
+/// - Throw a CancellationError() when the operation should be cancelled
+/// - Throw an appropriate exception: the store in statoscope will catch and log the exception
+/// - Change the ResultType to Result<PreviousResultType, KnownExceptionType> and map any
+///    throwing exception
+///
+/// # Mapping
+/// You can map the throwing exception by using
+/// ```swift
+/// let effect = MyEffect()
+///  .mapToResultWithError { MyErrorType.unknown }
+/// ```
+///
+/// # Pristine effect and pristineEquals
+/// The effect protocol does NOT enforce conform to Equatable, but it is recommended.
+/// When effects are enqueud into an store, querying them is often needed. To do so, we
+/// recommend:
+/// 1. Creating your own typed effects.
+/// 2. Conform the effect type to equatable.
+/// 3. Use ``pristineEquals(_:)-5w9j1`` to search for exact effect instances.
+///
+public protocol Effect {
+    
+    /// The type returned by this effect,
+    ///
+    /// This is usually an enum of When cases to group effects inside a Store
+    associatedtype ResultType: Sendable
+    
+    /// The method to be executed when the Effects handler schedules this Effect
+    ///
+    ///  * returns: An object with the specified type, or throws an error
+    func runEffect() async throws -> ResultType
+    
+    /// Compares the current effect to another effect
+    ///
+    /// This comparison is provided for searching an effect inside an array of effect
+    /// ```swift
+    /// struct MyEffect: Effect, Equatable {
+    ///   let param1: String
+    ///   func runEffect() async throws -> String {
+    ///     return "done"
+    ///   }
+    /// }
+    /// let effects: [MyEffect(param1: "One"), MyEffect(param1: "Two")]
+    /// let effectOne = effects.first { $0.equals(MyEffect(param1: "One")) }
+    /// ```
+    ///  * returns: True if the compared effect
+    ///  See ``Statoscope/AnyEffect/pristine``
+    func pristineEquals<ComparedEffect: Effect & Equatable>(_: ComparedEffect) -> Bool
 }
 
-private extension Effect {
-    var resultTypeDescription: String {
-        "\(type(of: ResType.self))"
-            .replacingOccurrences(of: ".Type", with: "")
-    }
-}
-
-public struct AnyEffect<ResType>: Effect, Equatable, CustomDebugStringConvertible, Sendable {
-
-    // Helper struct EffectBox
-    private struct EffectBox<EBResType>: Effect, CustomDebugStringConvertible {
-        let runner: () async throws -> EBResType
-        func runEffect() async throws -> EBResType {
-            try await runner()
-        }
-        static func == (lhs: EffectBox<EBResType>, rhs: EffectBox<EBResType>) -> Bool {
+public extension Effect {
+    
+    func pristineEquals<ComparedEffect: Effect & Equatable>(_ other: ComparedEffect) -> Bool
+    {
+        if let anySelf = self as? AnyEffect<ResultType>,
+           let typedSelf = anySelf.pristine as? ComparedEffect {
+            return typedSelf == typedSelf
+        } else if let typedSelf = self as? ComparedEffect {
+            return typedSelf == other
+        } else {
             return false
         }
-        public var debugDescription: String {
-            "AnonymousEffect(closure: \(String(describing: runner)))"
-        }
     }
-
-    let wrappedEffect: any Effect & Sendable
-    let runner: @Sendable () async throws -> ResType
-
-    // Init with block
-    public init(_ runner: @escaping () async throws -> ResType) {
-        self.init(effect: EffectBox(runner: runner))
-    }
-
-    // Init when effect returns When
-    public init<E: Effect>(effect: E) where E.ResType == ResType {
-        if let anyEffect = effect as? AnyEffect<E.ResType> {
-            wrappedEffect = anyEffect.wrappedEffect
-        } else {
-            wrappedEffect = effect
-        }
-        runner = {
-            try await effect.runEffect()
-        }
-    }
-
-    // Init with mapper for effect -> When
-    init<E: Effect>(
-        _ effect: E,
-        mapper: @escaping (E.ResType) -> ResType
-    ) {
-        if let anyEffect = effect as? AnyEffect<E.ResType> {
-            wrappedEffect = anyEffect.wrappedEffect
-        } else {
-            wrappedEffect = effect
-        }
-        runner = {
-            mapper(try await effect.runEffect())
-        }
-    }
-
-    // Init with error mapper for throwing effect
-    init<E: Effect, ErrorType: Error>(
-        _ effect: E,
-        errorMapper: @escaping (Error) -> ErrorType
-    ) where ResType == Result<E.ResType, ErrorType> {
-        if let anyEffect = effect as? AnyEffect<E.ResType> {
-            wrappedEffect = anyEffect.wrappedEffect
-        } else {
-            wrappedEffect = effect
-        }
-        runner = {
-            do {
-                return .success(try await effect.runEffect())
-            } catch {
-                return .failure(errorMapper(error))
-            }
-        }
-    }
-
-    public func runEffect() async throws -> ResType {
-        try await runner()
-    }
-
-    public static func == (lhs: AnyEffect<ResType>, rhs: AnyEffect<ResType>) -> Bool {
-        assertionFailure("We can assume effect description is unique, " +
-                         " but better don't rely on this equatable implementation")
-        return "\(lhs.wrappedEffect)" == "\(rhs.wrappedEffect)"
-    }
-
-    public var debugDescription: String {
-        return "\(wrappedEffect): \(wrappedEffect.resultTypeDescription)"
-    }
-}
-
-extension Effect {
-
-    public func eraseToAnyEffect() -> AnyEffect<ResType> {
+    
+    /// Type erasure helper
+    func eraseToAnyEffect() -> AnyEffect<ResultType> {
         AnyEffect(effect: self)
     }
 
-    public func map<MapResType>(
-        _ mapper: @escaping (Self.ResType) -> MapResType
+    /// Maps the result of the effect to another type
+    ///
+    /// - Parameter mapper: the closure mapping the result to anothre type
+    /// - Returns: An Effect with a new ReturnType
+    func map<MapResType>(
+        _ mapper: @escaping (Self.ResultType) -> MapResType
     ) -> AnyEffect<MapResType> {
         return AnyEffect<MapResType>(self, mapper: mapper)
     }
 
-    public func mapToResult<ErrorType: Error>(
-        error: @escaping (Error) -> ErrorType
-    ) -> AnyEffect<Result<Self.ResType, ErrorType>> {
-        return AnyEffect<Result<Self.ResType, ErrorType>>(self, errorMapper: error)
+    /// Maps the result of the effect to a result type with a typed Error
+    ///
+    /// - Parameter error: the closure mapping the result exceptions to a known error type
+    /// - Returns: An Effect with a new ReturnType Result<ReturnType, ErrorType>
+    func mapToResultWithError<ErrorType: Error>(
+        _ error: @escaping (Error) -> ErrorType
+    ) -> AnyEffect<Result<Self.ResultType, ErrorType>> {
+        return AnyEffect<Result<Self.ResultType, ErrorType>>(self, errorMapper: error)
     }
 
-    public func mapToResult<ErrorType: Error & EffectError>(
-        error: ErrorType.Type
-    ) -> AnyEffect<Result<Self.ResType, ErrorType>> {
-        return AnyEffect<Result<Self.ResType, ErrorType>>(self) {
+    /// Maps the result of the effect to a result type with a typed Error, which conforms to EffectError
+    ///
+    /// - Parameter error: the closure mapping the result exceptions to a known error type
+    /// - Returns: An Effect with a new ReturnType Result<ReturnType, ErrorType>
+    func mapToResultWithErrorType<ErrorType: Error & EffectError>(
+        _ error: ErrorType.Type
+    ) -> AnyEffect<Result<Self.ResultType, ErrorType>> {
+        return AnyEffect<Result<Self.ResultType, ErrorType>>(self) {
             $0 as? ErrorType ?? error.unknownError
         }
     }
 }
+
+internal extension Effect {
+    var resultTypeDescription: String {
+        "\(type(of: ResultType.self))"
+            .replacingOccurrences(of: ".Type", with: "")
+    }
+}
+

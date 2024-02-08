@@ -31,6 +31,10 @@ public enum StatoscopeErrors: Error {
     case effectsDisabledForPreviews
 }
 
+/// An error that can be thrown by an effect
+///
+/// See:  ``Effect/mapToResultWithErrorType(_:)``
 public protocol EffectError {
+    /// The value an effect will return in case the mapping does not succeed
     static var unknownError: Self { get }
 }

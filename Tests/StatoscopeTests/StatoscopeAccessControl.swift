@@ -52,7 +52,7 @@ class StatoscopeAccessControl: XCTestCase {
             try self.update(.delayFinished)
 
             // TODO: it should better not compile does not make sense to addMiddleware
-            self.addMiddleWare { _, _ in nil }
+            _ = self.addMiddleWare { _, _ in nil }
 
             // This may compile... should be used only for debugging
             _ = self.parentNode

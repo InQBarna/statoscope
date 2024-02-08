@@ -31,7 +31,7 @@ public protocol EffectsContainer: EffectsState {
     ///   It must complete with an appropriate When case
     ///
     /// Please note enqueueing an effect is just adding it to a list of pending effects..
-    /// Later calling ``EffectsContainer.runEnqueuedEffectAndGetWhenResults`` 
+    /// Later calling ``EffectsContainer/runEnqueuedEffectAndGetWhenResults`` 
     /// will actually trigger all enqueued effects.
     ///
     /// However, Statoscope handles calling runEnqueuedEffectAndGetWhenResults right after 
@@ -67,7 +67,7 @@ public protocol EffectsContainer: EffectsState {
     ///       .map(When.networkPostCompleted)
     ///  )
     ///  ```
-    func enqueue<E: Effect>(_ effect: E) where E.ResType == When
+    func enqueue<E: Effect>(_ effect: E) where E.ResultType == When
 
     /// Cancels the effects that conform to the provided block.
     ///
@@ -115,7 +115,7 @@ public protocol EffectsHandlerImplementation {
  */
 public extension EffectsHandlerImplementation where Self: AnyObject {
 
-    func enqueue<E: Effect>(_ effect: E) where E.ResType == When {
+    func enqueue<E: Effect>(_ effect: E) where E.ResultType == When {
         effectsHandler.enqueue(effect)
     }
 

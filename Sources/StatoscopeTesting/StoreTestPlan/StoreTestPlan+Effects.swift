@@ -12,7 +12,7 @@ import XCTest
 extension StoreTestPlan {
 
     @discardableResult
-    public func THEN_EnquedEffect<EffectType: Effect>(
+    public func THEN_EnquedEffect<EffectType: Effect & Equatable>(
         file: StaticString = #file, line: UInt = #line,
         _ enquedEffect: EffectType
     ) throws -> Self {
@@ -33,7 +33,7 @@ extension StoreTestPlan {
     }
 
     @discardableResult
-    public func THEN_Enqued<EffectType: Effect, Subscope: StoreProtocol>(
+    public func THEN_Enqued<EffectType: Effect & Equatable, Subscope: StoreProtocol>(
         _ keyPath: KeyPath<T.State, Subscope?>,
         effect: EffectType,
         file: StaticString = #file, line: UInt = #line
@@ -60,7 +60,7 @@ extension StoreTestPlan {
     }
 
     @discardableResult
-    public func THEN_Enqued<EffectType: Effect, Subscope: StoreProtocol>(
+    public func THEN_Enqued<EffectType: Effect & Equatable, Subscope: StoreProtocol>(
         _ keyPath: KeyPath<T.State, Subscope>,
         effect: EffectType,
         file: StaticString = #file, line: UInt = #line
@@ -112,7 +112,7 @@ public func XCTAssertEffectsInclude<S, T2>(
     _ message: @autoclosure () -> String = "",
     file: StaticString = #filePath,
     line: UInt = #line
-) where S: StoreProtocol, T2: Effect {
+) where S: StoreProtocol, T2: Effect & Equatable {
     do {
         let sut = try expression1()
         let expected = try expression2()

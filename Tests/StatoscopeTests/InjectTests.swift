@@ -113,7 +113,7 @@ class ForcedInjectSuperscopeTests: XCTestCase {
         let child = UnrelatedScopes.Second()
         // Before injection call, injected value is the defaultValue
         XCTAssertEqual(child.parent.uuid, UnrelatedScopes.First.defaultValue.uuid)
-        child.injectSuperscope(parent)
+        child.injectSuperscopeForTesting(parent)
         // After injection, correct value
         XCTAssertEqual(child.parent.uuid, parent.uuid)
     }
@@ -148,7 +148,7 @@ class ForcedInjectSuperscopeTests: XCTestCase {
         let parent = ParentChildGrandSon.Parent()
         // Before injection call, injected value is the defaultValue
         XCTAssertEqual(parent.child?.grandson?.injected.uuid, UnrelatedScopes.First.defaultValue.uuid)
-        parent.injectSuperscope(injected)
+        parent.injectSuperscopeForTesting(injected)
         // After injection, correct value
         XCTAssertEqual(parent.child?.grandson?.injected.uuid, injected.uuid)
     }

@@ -26,7 +26,7 @@ class ScopeOngoingEffectsPropertyTests: XCTestCase {
     static var firstEffectMilliseconds: UInt64 = 100
     static var secondEffectMilliseconds: UInt64 = 500
 
-    private struct WaitMillisecondsEffect: Effect {
+    private struct WaitMillisecondsEffect: Effect, Equatable {
         let milliseconds: UInt64
         func runEffect() async throws {
             try await Task.sleep(nanoseconds: milliseconds * 1000_000)
@@ -107,7 +107,7 @@ class ScopeEffectsCancellationTests: XCTestCase {
 
     static var effectMilliseconds: UInt64 = 2000
 
-    private struct WaitMillisecondsEffectReturnCancelled: Effect {
+    private struct WaitMillisecondsEffectReturnCancelled: Effect, Equatable {
         let milliseconds: UInt64
         func runEffect() async throws -> Bool {
             do {
@@ -268,7 +268,7 @@ class ScopeEffectsThrowingTests: XCTestCase {
                 if let mapToResultError {
                     enqueue(
                         WaitMillisecondsEffectThrowing(milliseconds: milliseconds, throwError: effectThrowError)
-                            .mapToResult(error: { mapToResultError($0) })
+                            .mapToResultWithError { mapToResultError($0) }
                             .map(When.waitEffectCompleted)
                     )
                 } else {
@@ -395,7 +395,7 @@ class ScopeEffectsThrowingTests: XCTestCase {
                 if let mapToResultError {
                     enqueue(
                         WaitMillisecondsEffectThrowingUntypedError(milliseconds: milliseconds, throwError: effectThrowError)
-                            .mapToResult(error: { mapToResultError($0) })
+                            .mapToResultWithError { mapToResultError($0) }
                             .map(When.waitEffectCompleted)
                     )
                 } else {
@@ -446,3 +446,51 @@ class ScopeEffectsThrowingTests: XCTestCase {
     }
 }
 #endif
+
+class EffectsProtocolTests: XCTestCase {
+    private struct Effect1: Effect, Equatable {
+        let param1: String
+        func runEffect() async throws -> String {
+            return "done"
+        }
+    }
+    private struct Effect2: Effect, Equatable {
+        let param1: String
+        func runEffect() async throws -> String {
+            return "done"
+        }
+    }
+    
+    func testEquatable() {
+        let effectA = Effect1(param1: "param1")
+        let effectB = Effect1(param1: "param1")
+        XCTAssertEqual(effectA, effectB)
+    }
+    
+    func testEquatableAfterMap() {
+        let effectA = Effect1(param1: "param1")
+            .map { "\($0)-appended" }
+        let effectB = Effect1(param1: "param1")
+        XCTAssert(effectA.pristineEquals(effectB))
+    }
+    
+    func testEquatableAfterMapError() {
+        let effectA = Effect1(param1: "param1")
+            .map { "\($0)-appended" }
+            .mapToResultWithError { _ in InvalidStateError() }
+        let effectB = Effect1(param1: "param1")
+        XCTAssert(effectA.pristineEquals(effectB))
+    }
+    
+    func testFindTestInArray() {
+        struct MyEffect: Effect, Equatable {
+            let param1: String
+            func runEffect() async throws -> String {
+                return "done"
+            }
+        }
+        let effects = [MyEffect(param1: "One"), MyEffect(param1: "Two")]
+        let effectOne = effects.first { $0.pristineEquals(MyEffect(param1: "One")) }
+        XCTAssertNotNil(effectOne)
+    }
+}

@@ -15,7 +15,7 @@ class AllDeepPendingEffectsTest: XCTestCase {
     enum SimpleParentChild {
         struct ParentEffect: Effect {
             func runEffect() async throws { () }
-            typealias ResType = Void
+            typealias ResultType = Void
         }
         final class Parent: Statostore, Injectable, ObservableObject {
             typealias When = Void
@@ -29,7 +29,7 @@ class AllDeepPendingEffectsTest: XCTestCase {
 
         struct ChildEffect: Effect {
             func runEffect() async throws { () }
-            typealias ResType = Void
+            typealias ResultType = Void
         }
         final class Child: Statostore, ObservableObject {
             typealias When = Void
@@ -61,7 +61,7 @@ class AllDeepPendingEffectsTest: XCTestCase {
     enum ParentChildGrandSon {
         struct ParentEffect: Effect {
             func runEffect() async throws { () }
-            typealias ResType = Void
+            typealias ResultType = Void
         }
         final class Parent: Statostore, Injectable, ObservableObject {
             typealias When = Void
@@ -73,7 +73,7 @@ class AllDeepPendingEffectsTest: XCTestCase {
         }
         struct ChildEffect: Effect {
             func runEffect() async throws { () }
-            typealias ResType = Void
+            typealias ResultType = Void
         }
         final class Child: Statostore, Injectable, ObservableObject {
             typealias When = Void
@@ -86,7 +86,7 @@ class AllDeepPendingEffectsTest: XCTestCase {
         }
         struct GrandSonEffect: Effect {
             func runEffect() async throws { () }
-            typealias ResType = Void
+            typealias ResultType = Void
         }
         final class GrandSon: Statostore, ObservableObject {
             typealias When = Void

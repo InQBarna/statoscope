@@ -7,6 +7,20 @@
 
 import Foundation
 
+// TODO: rename to EffectsBouncer ?
+
+/// A base class to handle Effects. Capable of launching an Effect and keep it working during all the lifespan
+///  of the EffectsHandler. All ongoing effects can be cleared before triggered (good for testing purposes),
+///  read or cancelled
+public class EffectsHandler<When: Sendable>: EffectsContainer {
+    public var effects: [any Effect] { fatalError() }
+    public func clearPending() { fatalError() }
+    public func enqueue<E: Effect>(_ effect: E) where E.ResultType == When { fatalError() }
+    public func cancelEffect(where whereBlock: (any Effect) -> Bool) { fatalError() }
+    public func cancelAllEffects() { fatalError() }
+    internal init() { }
+}
+
 private actor RunnerTasks<When: Sendable> {
     var runningTasks: [UUID: Task<When?, Error>] = [:]
     func addTask(_ uuid: UUID, task: Task<When?, Error>) {
@@ -31,23 +45,8 @@ private actor RunnerTasks<When: Sendable> {
     }
 }
 
-// TODO: rename to EffectsBouncer ?
-
-/// A base class to handle Effects. Capable of launching an Effect and keep it working during all the lifespan
-///  of the EffectsHandler. All ongoing effects can be cleared before triggered (good for testing purposes),
-///  read or cancelled
-public class EffectsHandler<When: Sendable>: EffectsContainer {
-    public var effects: [any Effect] { fatalError() }
-    public func clearPending() { fatalError() }
-    public func enqueue<E: Effect>(_ effect: E) where E.ResType == When { fatalError() }
-    public func cancelEffect(where whereBlock: (any Effect) -> Bool) { fatalError() }
-    public func cancelAllEffects() { fatalError() }
-    internal init() { }
-}
-
 internal final class EffectsHandlerImpl<When: Sendable>: EffectsHandler<When> {
 
-    // Status
     private var pendingEffects: [AnyEffect<When>] = []
     private var ongoingEffects: [(UUID, AnyEffect<When>)] = []
     private var tasks: RunnerTasks<When> = RunnerTasks()
@@ -59,12 +58,12 @@ internal final class EffectsHandlerImpl<When: Sendable>: EffectsHandler<When> {
 
     public override var effects: [any Effect] {
         return (pendingEffects + ongoingEffects.map { $0.1 })
-            .map { $0.wrappedEffect }
+            .map { $0.pristine }
     }
 
     override func enqueue<E: Effect>(
         _ effect: E
-    ) where E.ResType == When {
+    ) where E.ResultType == When {
         pendingEffects.append(AnyEffect(effect: effect))
     }
 
@@ -149,7 +148,7 @@ internal final class EffectsHandlerImpl<When: Sendable>: EffectsHandler<When> {
 
     override func cancelEffect(where whereBlock: (any Effect) -> Bool) {
         let cancellables = ongoingEffects
-            .map { ($0.0, $0.1.wrappedEffect) }
+            .map { ($0.0, $0.1.pristine) }
             .filter { whereBlock($0.1) }
         cancellables.forEach { effect in
             StatoscopeLogger.LOG(prefix: logPrefix, "🪃 ✋ CANCELLING \(effect)")
@@ -199,7 +198,7 @@ public final class EffectsHandlerSpy<When: Sendable>: EffectsHandler<When> {
 
     /// Returns enqueued effects
     public override var effects: [any Effect] {
-        privateEffects.map { $0.wrappedEffect }
+        privateEffects.map { $0.pristine }
     }
 
     /// Clears all enqueued effects
@@ -210,7 +209,7 @@ public final class EffectsHandlerSpy<When: Sendable>: EffectsHandler<When> {
     /// Enqueues an effect, but it never runs it
     public override func enqueue<E: Effect>(
         _ effect: E
-    ) where E.ResType == When {
+    ) where E.ResultType == When {
         privateEffects.append(AnyEffect(effect: effect))
     }
 
