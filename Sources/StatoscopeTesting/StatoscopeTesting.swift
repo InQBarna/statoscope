@@ -14,7 +14,7 @@ import Statoscope
 extension StoreProtocol {
     @discardableResult
     func assertNoDeepEffects(_ message: String? = nil, file: StaticString = #file, line: UInt = #line) -> Self {
-        let deepEffects = allDeepPendingEffects().filter({ $0.value.count > 0 })
+        let deepEffects = allDeepOngoingEffects().filter({ $0.value.count > 0 })
         if deepEffects.values.flatMap({ $0 }).count > 0 {
             XCTFail(message ?? "Should have 0 deep effects, found \(deepEffects)", file: file, line: line)
         }

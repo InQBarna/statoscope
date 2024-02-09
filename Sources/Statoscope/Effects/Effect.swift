@@ -114,6 +114,13 @@ public extension Effect {
             $0 as? ErrorType ?? error.unknownError
         }
     }
+    
+    /// Maps the result of the effect to a result type with an untyped Error
+    ///
+    /// - Returns: An Effect with a new ReturnType Result<ReturnType, Error>
+    func mapToResult() -> AnyEffect<Result<Self.ResultType, Error>> {
+        return AnyEffect<Result<Self.ResultType, Error>>(self, errorMapper: { $0 })
+    }
 }
 
 internal extension Effect {

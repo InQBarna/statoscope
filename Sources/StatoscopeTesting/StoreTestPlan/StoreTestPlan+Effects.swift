@@ -125,7 +125,7 @@ public func XCTAssertEffectsInclude<S, T2>(
             XCTFail("Effects on sut \(type(of: sut)): \(effs) do not include \(expected)", file: file, line: line)
             return
         }
-        // sut?.clearPending()
+        // sut?.cancelAllEffects()
     } catch {
         XCTFail("Thrown \(error)", file: file, line: line)
     }

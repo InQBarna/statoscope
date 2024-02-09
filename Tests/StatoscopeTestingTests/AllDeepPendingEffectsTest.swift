@@ -45,17 +45,17 @@ class AllDeepPendingEffectsTest: XCTestCase {
         parent.send(())
         parent.child?.send(())
 
-        let allDeepPendingEffects = parent.allDeepPendingEffects()
-        XCTAssertEqual(allDeepPendingEffects.count, 2)
-        let parentEffects = try XCTUnwrap(allDeepPendingEffects["StatoscopeTests.AllDeepPendingEffectsTest.SimpleParentChild.Parent"])
-        let childEffects = try XCTUnwrap(allDeepPendingEffects["StatoscopeTests.AllDeepPendingEffectsTest.SimpleParentChild.Child"])
+        let allDeepOngoingEffects = parent.allDeepOngoingEffects()
+        XCTAssertEqual(allDeepOngoingEffects.count, 2)
+        let parentEffects = try XCTUnwrap(allDeepOngoingEffects["StatoscopeTests.AllDeepPendingEffectsTest.SimpleParentChild.Parent"])
+        let childEffects = try XCTUnwrap(allDeepOngoingEffects["StatoscopeTests.AllDeepPendingEffectsTest.SimpleParentChild.Child"])
         XCTAssertEqual(parentEffects.count, 1)
         XCTAssertEqual(childEffects.count, 1)
         XCTAssert(parentEffects.first is SimpleParentChild.ParentEffect)
         XCTAssert(childEffects.first is SimpleParentChild.ChildEffect)
 
-        parent.clearAllDeepPendingEffects()
-        XCTAssert(parent.allDeepPendingEffects().count == 0)
+        parent.cancellAllDeepEffects()
+        XCTAssert(parent.allDeepOngoingEffects().count == 0)
     }
 
     enum ParentChildGrandSon {
@@ -103,11 +103,11 @@ class AllDeepPendingEffectsTest: XCTestCase {
         parent.send(())
         parent.child?.send(())
         parent.child?.grandson?.send(())
-        let allDeepPendingEffects = parent.allDeepPendingEffects()
-        XCTAssertEqual(allDeepPendingEffects.count, 3)
-        let parentEffects = try XCTUnwrap(allDeepPendingEffects["StatoscopeTests.AllDeepPendingEffectsTest.ParentChildGrandSon.Parent"])
-        let childEffects = try XCTUnwrap(allDeepPendingEffects["StatoscopeTests.AllDeepPendingEffectsTest.ParentChildGrandSon.Child"])
-        let grandsonEffects = try XCTUnwrap(allDeepPendingEffects["StatoscopeTests.AllDeepPendingEffectsTest.ParentChildGrandSon.GrandSon"])
+        let allDeepOngoingEffects = parent.allDeepOngoingEffects()
+        XCTAssertEqual(allDeepOngoingEffects.count, 3)
+        let parentEffects = try XCTUnwrap(allDeepOngoingEffects["StatoscopeTests.AllDeepPendingEffectsTest.ParentChildGrandSon.Parent"])
+        let childEffects = try XCTUnwrap(allDeepOngoingEffects["StatoscopeTests.AllDeepPendingEffectsTest.ParentChildGrandSon.Child"])
+        let grandsonEffects = try XCTUnwrap(allDeepOngoingEffects["StatoscopeTests.AllDeepPendingEffectsTest.ParentChildGrandSon.GrandSon"])
         XCTAssertEqual(parentEffects.count, 1)
         XCTAssertEqual(childEffects.count, 1)
         XCTAssertEqual(grandsonEffects.count, 1)
@@ -115,8 +115,8 @@ class AllDeepPendingEffectsTest: XCTestCase {
         XCTAssert(childEffects.first is ParentChildGrandSon.ChildEffect)
         XCTAssert(grandsonEffects.first is ParentChildGrandSon.GrandSonEffect)
 
-        parent.clearAllDeepPendingEffects()
-        XCTAssert(parent.allDeepPendingEffects().count == 0)
+        parent.cancellAllDeepEffects()
+        XCTAssert(parent.allDeepOngoingEffects().count == 0)
     }
 
 }

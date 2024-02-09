@@ -22,9 +22,6 @@ public protocol EffectsContainer: EffectsState {
     /// Shared type to be returned by all effects interacting with the current EffectsContainer
     associatedtype When: Sendable
 
-    /// Clears the effects that have not yet been triggered. Useful for testing purposes
-    func clearPending()
-
     /// Enqueues an effect. The provided effect must return a new When case
     ///
     ///  - Parameter effect: a container of an async operation to be executed.
@@ -121,11 +118,6 @@ public extension EffectsHandlerImplementation where Self: AnyObject {
 
     var effects: [any Effect] {
         return effectsHandler.effects
-    }
-
-    // Needed as public for clearAllDeepPendingEffects for now
-    func clearPending() {
-        effectsHandler.clearPending()
     }
 
     func cancelEffect(where whereBlock: (any Effect) -> Bool) {

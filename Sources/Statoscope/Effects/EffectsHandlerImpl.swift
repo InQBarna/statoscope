@@ -14,7 +14,6 @@ import Foundation
 ///  read or cancelled
 public class EffectsHandler<When: Sendable>: EffectsContainer {
     public var effects: [any Effect] { fatalError() }
-    public func clearPending() { fatalError() }
     public func enqueue<E: Effect>(_ effect: E) where E.ResultType == When { fatalError() }
     public func cancelEffect(where whereBlock: (any Effect) -> Bool) { fatalError() }
     public func cancelAllEffects() { fatalError() }
@@ -47,6 +46,7 @@ private actor RunnerTasks<When: Sendable> {
 
 internal final class EffectsHandlerImpl<When: Sendable>: EffectsHandler<When> {
 
+    // TODO: Use actors, pendingEffects and ongoingEffects are only edited from main actor now
     private var pendingEffects: [AnyEffect<When>] = []
     private var ongoingEffects: [(UUID, AnyEffect<When>)] = []
     private var tasks: RunnerTasks<When> = RunnerTasks()
@@ -57,6 +57,7 @@ internal final class EffectsHandlerImpl<When: Sendable>: EffectsHandler<When> {
     }
 
     public override var effects: [any Effect] {
+        assert(Thread.current.isMainThread, "For pending/ongoingEffects thread safety")
         return (pendingEffects + ongoingEffects.map { $0.1 })
             .map { $0.pristine }
     }
@@ -67,12 +68,14 @@ internal final class EffectsHandlerImpl<When: Sendable>: EffectsHandler<When> {
         pendingEffects.append(AnyEffect(effect: effect))
     }
 
+    // TODO: should we move to main actor ? retains self and fails to detect deinit
+    // @MainActor
     func runEnqueuedEffectAndGetWhenResults(
         safeSend: @escaping (AnyEffect<When>, When) async -> Void
     ) throws {
         assert(Thread.current.isMainThread, "For pending/ongoingEffects thread safety")
         var copiedEffects: [(UUID, AnyEffect<When>)] = pendingEffects.map { (UUID(), $0) }
-        clearPending()
+        pendingEffects.removeAll()
         ongoingEffects.append(contentsOf: copiedEffects)
         let currentCount = ongoingEffects.count
         var enqueued = 0
@@ -142,11 +145,8 @@ internal final class EffectsHandlerImpl<When: Sendable>: EffectsHandler<When> {
         return returnResult
     }
 
-    override func clearPending() {
-        pendingEffects.removeAll()
-    }
-
     override func cancelEffect(where whereBlock: (any Effect) -> Bool) {
+        assert(Thread.current.isMainThread, "For pending/ongoingEffects thread safety")
         let cancellables = ongoingEffects
             .map { ($0.0, $0.1.pristine) }
             .filter { whereBlock($0.1) }
@@ -161,7 +161,25 @@ internal final class EffectsHandlerImpl<When: Sendable>: EffectsHandler<When> {
     }
 
     override func cancelAllEffects() {
+        cancelAllOngoingEffects()
+        if Thread.current.isMainThread {
+            self.unsafeClearPending()
+        } else {
+            Task {
+                await MainActor.run { [weak self] in
+                    self?.unsafeClearPending
+                }
+            }
+        }
+    }
+    
+    private func cancelAllOngoingEffects() {
         let retainedTasks = tasks
+        ongoingEffects
+            .map { ($0.0, $0.1.pristine) }
+            .forEach { effect in
+                StatoscopeLogger.LOG(prefix: logPrefix, "🪃 ✋ CANCELLING \(effect)")
+            }
         Task(priority: .high, operation: {
             let count = await retainedTasks.count()
             if count > 0 {
@@ -169,9 +187,17 @@ internal final class EffectsHandlerImpl<When: Sendable>: EffectsHandler<When> {
             }
         })
     }
+    
+    func unsafeClearPending() {
+        pendingEffects.removeAll()
+        pendingEffects
+            .forEach { effect in
+                StatoscopeLogger.LOG(prefix: logPrefix, "🪃 ✋ DEQUEUING \(effect)")
+            }
+    }
 
     deinit {
-        cancelAllEffects()
+        cancelAllOngoingEffects()
     }
 
     @MainActor
@@ -199,11 +225,6 @@ public final class EffectsHandlerSpy<When: Sendable>: EffectsHandler<When> {
     /// Returns enqueued effects
     public override var effects: [any Effect] {
         privateEffects.map { $0.pristine }
-    }
-
-    /// Clears all enqueued effects
-    public override func clearPending() {
-        privateEffects.removeAll()
     }
 
     /// Enqueues an effect, but it never runs it

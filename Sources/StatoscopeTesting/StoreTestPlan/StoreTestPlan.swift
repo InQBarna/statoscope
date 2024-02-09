@@ -77,7 +77,7 @@ internal extension StoreImplementation {
                                                    _ whens: [Subscope.When]) throws -> Self {
         // assertNoDeepEffects(file: file, line: line)
         try whens.forEach {
-            childScope.clearPending()
+            childScope.cancelAllEffects()
             try childScope.sendUnsafe($0)
         }
         return self

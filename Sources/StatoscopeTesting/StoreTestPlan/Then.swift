@@ -19,7 +19,7 @@ extension StoreTestPlan {
         addStep { sut in
             try checker(sut)
             // assertNoDeepEffects(file: file, line: line)
-            // sut.clearPending()
+            // sut.cancelAllEffects()
         }
     }
 
@@ -33,7 +33,7 @@ extension StoreTestPlan {
             let childScope = sut.state[keyPath: keyPath]
             try checker(childScope)
             // childScope.assertNoDeepEffects(file: file, line: line)
-            // childScope.clearPending() // only cleared on next WHEN
+            // childScope.cancelAllEffects() // only cleared on next WHEN
         }
     }
     @discardableResult
@@ -51,7 +51,7 @@ extension StoreTestPlan {
             }
             try checker(childScope)
             // childScope.assertNoDeepEffects(file: file, line: line)
-            // childScope.clearPending() // only cleared on next WHEN
+            // childScope.cancelAllEffects() // only cleared on next WHEN
         }
     }
 
@@ -64,7 +64,7 @@ extension StoreTestPlan {
         addStep { sut in
             XCTAssertEqual(sut.state[keyPath: keyPath], expectedValue, file: file, line: line)
             // assertNoDeepEffects(file: file, line: line)
-            // sut.clearPending() // only cleared on next WHEN
+            // sut.cancelAllEffects() // only cleared on next WHEN
         }
     }
 
@@ -76,7 +76,7 @@ extension StoreTestPlan {
         addStep { sut in
             XCTAssertNotNil(sut.state[keyPath: keyPath], file: file, line: line)
             // assertNoDeepEffects(file: file, line: line)
-            // sut.clearPending() // only cleared on next WHEN
+            // sut.cancelAllEffects() // only cleared on next WHEN
         }
     }
 
@@ -88,7 +88,7 @@ extension StoreTestPlan {
         addStep { sut in
             XCTAssertNotNil(sut.state[keyPath: keyPath], file: file, line: line)
             // assertNoDeepEffects(file: file, line: line)
-            // sut.clearPending() // only cleared on next WHEN
+            // sut.cancelAllEffects() // only cleared on next WHEN
         }
     }
 
@@ -100,7 +100,7 @@ extension StoreTestPlan {
         addStep { sut in
             XCTAssertNil(sut.state[keyPath: keyPath], file: file, line: line)
             // assertNoDeepEffects(file: file, line: line)
-            // sut.clearPending() // only cleared on next WHEN
+            // sut.cancelAllEffects() // only cleared on next WHEN
         }
     }
 

@@ -68,6 +68,8 @@ internal extension EffectsHandlerImplementation where Self: AnyObject {
 
 // ... and ... Conform to InternalEffectsHandlerImplementation implicitly
 extension EffectsHandlerImplementation where Self: AnyObject {
+    // TODO: should we move to main actor ? retains self and fails to detect deinit
+    // @MainActor
     func runEnqueuedEffectAndGetWhenResults(safeSend: @escaping (AnyEffect<When>, When) async -> Void) throws {
         ensureSetupDeinitObserver()
         guard let impl = effectsHandler as? EffectsHandlerImpl<When> else {

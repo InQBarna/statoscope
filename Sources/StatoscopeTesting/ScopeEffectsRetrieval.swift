@@ -10,7 +10,7 @@ import Statoscope
 
 extension StoreProtocol {
 
-    func allDeepPendingEffects() -> [String: [any Effect]] {
+    func allDeepOngoingEffects() -> [String: [any Effect]] {
         return Dictionary(
             allChildScopes().compactMap {
                 let effects = $0.effectsState.effects
@@ -23,8 +23,8 @@ extension StoreProtocol {
         )
     }
 
-    func clearAllDeepPendingEffects() {
+    func cancellAllDeepEffects() {
         allChildScopes()
-            .forEach { $0.clearPending() }
+            .forEach { $0.cancelAllEffects() }
     }
 }

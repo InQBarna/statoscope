@@ -16,7 +16,7 @@ extension StoreTestPlan {
         addStep { sut in
             // assertNoDeepEffects(file: file, line: line)
             try whens.forEach {
-                sut.effectsHandler.clearPending()
+                sut.effectsHandler.cancelAllEffects()
                 try sut.sendUnsafe($0)
             }
         }
@@ -50,7 +50,7 @@ extension StoreTestPlan {
     public func throwsWHEN(file: StaticString = #file, line: UInt = #line, _ when: T.When) -> Self {
         addStep { sut in
             // assertNoDeepEffects(file: file, line: line)
-            sut.clearPending()
+            sut.cancelAllEffects()
             XCTAssertThrowsError(try sut.sendUnsafe(when), file: file, line: line)
         }
     }
@@ -60,7 +60,7 @@ extension StoreTestPlan {
                                                     file: StaticString = #file, line: UInt = #line,
                                                     _ when: Subscope.When) throws -> Self {
         addStep { sut in
-            sut.clearPending()
+            sut.cancelAllEffects()
             XCTAssertThrowsError(try sut.state[keyPath: keyPath].sendUnsafe(when), file: file, line: line)
         }
     }
