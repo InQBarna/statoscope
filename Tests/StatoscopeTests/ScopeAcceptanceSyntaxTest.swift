@@ -43,7 +43,7 @@ private final class SampleScope: ObservableObject, Statostore {
         switch when {
         case .systemLoadsSampleScope:
             loading = true
-            effectsHandler.enqueue(PushPermissionsRequest().map(When.pushPermissionsResponse))
+            effectsController.enqueue(PushPermissionsRequest().map(When.pushPermissionsResponse))
         case .networkRespondsWithContent(let newContent):
             loading = false
             content = newContent

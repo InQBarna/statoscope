@@ -36,7 +36,7 @@ private final class SampleScope: StoreProtocol {
     typealias State = SampleScopeState
 
     private(set) var state = SampleScopeState()
-    static func update(state: SampleScopeState, when: SampleScopeState.When, effectsHandler: EffectsHandler<SampleScopeState.When>) throws {
+    static func update(state: SampleScopeState, when: SampleScopeState.When, effects: inout EffectsState<When>) throws {
         switch when {
         case .systemLoadsSampleScope, .retry:
             state.viewShowsLoadingMessage = "Loading..."

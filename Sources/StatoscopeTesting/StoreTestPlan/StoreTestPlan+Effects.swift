@@ -117,12 +117,12 @@ public func XCTAssertEffectsInclude<S, T2>(
         let sut = try expression1()
         let expected = try expression2()
         guard let effs = sut?.effectsState.effects else {
-            XCTFail("Effects on NIL sut \(type(of: sut)) do not include \(expected)", file: file, line: line)
+            XCTFail("Effects on NIL sut \(type(of: sut)) does not contain \(expected)", file: file, line: line)
             return
         }
         let matchingTypes = effs.compactMap({ $0 as? T2})
         guard nil != matchingTypes.first(where: { $0 == expected }) else {
-            XCTFail("Effects on sut \(type(of: sut)): \(effs) do not include \(expected)", file: file, line: line)
+            XCTFail("Effects on sut \(type(of: sut)): \(effs) does not contain \(expected)", file: file, line: line)
             return
         }
         // sut?.cancelAllEffects()

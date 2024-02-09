@@ -7,26 +7,14 @@
 
 import Foundation
 
-// AnyObject conforming to EffectsHandlerImplementation will
-//  1. synthesize an EffectsHandlerImpl member instance to handle effects
+// StoreProtocol will handle events by
+//  1. synthesize an EffectsHandlerImplementation member instance to handle effects
 private var effectsHandlerStoreKey: UInt8 = 0
-internal extension EffectsHandlerImplementation where Self: AnyObject {
-
-    var logPrefix: String {
-        "\(type(of: self)) (\(Unmanaged.passUnretained(self).toOpaque())): "
-    }
-}
-
-public extension EffectsHandlerImplementation where Self: AnyObject {
-
-    var effectsHandler: EffectsHandler<When> {
+extension StoreProtocol where Self: AnyObject {
+    var effectsHandler: EffectsHandlerImplementation<When> {
         return associatedObject(base: self, key: &effectsHandlerStoreKey, initialiser: {
-            EffectsHandlerImpl<When>(logPrefix: logPrefix)
+            EffectsHandlerImplementation<When>(logPrefix: logPrefix)
         })
-    }
-
-    var effectsState: EffectsState {
-        effectsHandler
     }
 }
 
@@ -42,7 +30,7 @@ private class DeinitObserver {
     }
 }
 
-fileprivate extension EffectsHandlerImplementation where Self: AnyObject {
+fileprivate extension StoreProtocol where Self: AnyObject {
     var deinitObserver: DeinitObserver? {
         get {
             optionalAssociatedObject(base: self, key: &deinitObserverStoreKey, initialiser: { nil })
@@ -51,10 +39,6 @@ fileprivate extension EffectsHandlerImplementation where Self: AnyObject {
             associateOptionalObject(base: self, key: &deinitObserverStoreKey, value: newValue)
         }
     }
-}
-
-//  3. provide a method runEnqueuedEffectAndGetWhenResults to rule the effectsHandler
-internal extension EffectsHandlerImplementation where Self: AnyObject {
 
     func ensureSetupDeinitObserver() {
         if deinitObserver == nil {
@@ -66,16 +50,26 @@ internal extension EffectsHandlerImplementation where Self: AnyObject {
     }
 }
 
-// ... and ... Conform to InternalEffectsHandlerImplementation implicitly
-extension EffectsHandlerImplementation where Self: AnyObject {
+//  3. provide a method runEnqueuedEffectAndGetWhenResults to rule the effectsHandler
+extension StoreProtocol where Self: AnyObject {
     // TODO: should we move to main actor ? retains self and fails to detect deinit
     // @MainActor
-    func runEnqueuedEffectAndGetWhenResults(safeSend: @escaping (AnyEffect<When>, When) async -> Void) throws {
+    func runEnqueuedEffectAndGetWhenResults(
+        newSnapshot: EffectsState<When>,
+        safeSend: @escaping (AnyEffect<When>, When
+    ) async -> Void) throws {
         ensureSetupDeinitObserver()
-        guard let impl = effectsHandler as? EffectsHandlerImpl<When> else {
-            // May have been overwritten to a spy for testing purposes ?
-            return
-        }
-        try impl.runEnqueuedEffectAndGetWhenResults(safeSend: safeSend)
+        try effectsHandler.runEnqueuedEffectAndGetWhenResults(newSnapshot: newSnapshot, safeSend: safeSend)
     }
 }
+
+public extension StoreProtocol where Self: AnyObject {
+    var effectsState: Effectfull {
+        effectsHandler
+    }
+    
+    var effects: [any Effect] {
+        effectsHandler.effects
+    }
+}
+

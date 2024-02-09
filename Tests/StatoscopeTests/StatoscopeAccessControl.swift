@@ -27,17 +27,16 @@ class StatoscopeAccessControl: XCTestCase {
             case delayFinished
         }
         func update(_ when: When) throws {
-            effectsHandler.enqueue(AnyEffect {
-                try await Task.sleep(nanoseconds: 1_000_000)
-                return When.delayFinished
-            })
+            // Can't access effectsHandler
+            // effectsHandler.enqueue(AnyEffect{})
+            // effects.enqueue(AnyEffect{})
 
             // Does not compile, internal
             // runEnqueuedEffectAndGetWhenResults { _, _ in return }
 
             // TODO: it should better not compile ... it's better to expose the effectsHandler
             //  as the only method to handle effects
-            enqueue(AnyEffect {
+            effectsController.enqueue(AnyEffect {
                 try await Task.sleep(nanoseconds: 1_000_000)
                 return When.delayFinished
             })

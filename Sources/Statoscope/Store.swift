@@ -8,15 +8,17 @@
 import Foundation
 
 public protocol StoreImplementation:
-    EffectsHandlerImplementation,
     AnyObject {
+    associatedtype When
     associatedtype State: Scope where State.When == When
     var state: State { get }
-    static func update(state: State, when: State.When, effectsHandler: EffectsHandler<State.When>) throws
+    static func update(state: State, when: State.When, effects: inout EffectsState<State.When>) throws
     func addMiddleWare(_ update: @escaping (State, State.When) throws -> State.When?) -> Self
 }
 
-public protocol StorePublicProtocol {
+public protocol StorePublicProtocol:
+    Effectfull
+{
     associatedtype State: Scope
     var state: State { get }
     @discardableResult
@@ -52,20 +54,22 @@ extension StoreProtocol {
 
     @discardableResult
     public func sendUnsafe(_ when: State.When) throws -> Self {
-        try updateUsingMiddlewares(when)
-        guard !scopeEffectsDisabledInUnitTests else {
-            return self
+        
+        // For Statoscope, we store the snapshot in effectsHandler
+        //  during update process
+        var snapshot = effectsHandler.snapshot
+        defer {
+            effectsHandler.cleanupSnapshot()
         }
-        guard !scopeEffectsDisabledInPreviews else {
-            throw StatoscopeErrors.effectsDisabledForPreviews
-        }
-        try self.runEnqueuedEffectAndGetWhenResults { [weak self] effect, when in
+        
+        try updateUsingMiddlewares(when, effects: &snapshot)
+        try self.runEnqueuedEffectAndGetWhenResults(newSnapshot: snapshot) { [weak self] effect, when in
             await self?.safeMainActorSend(effect, when)
         }
         return self
     }
 
-    private var logPrefix: String {
+    var logPrefix: String {
         "\(type(of: state)) (\(Unmanaged.passUnretained(state).toOpaque())): "
     }
 
@@ -73,14 +77,14 @@ extension StoreProtocol {
         StatoscopeLogger.LOG(prefix: logPrefix, string)
     }
 
-    private func updateUsingMiddlewares(_ when: State.When) throws {
+    private func updateUsingMiddlewares(_ when: State.When, effects: inout EffectsState<When>) throws {
         if let middleware = middleWare {
             guard let mappedWhen = try middleware.middleWare(self.state, when) else {
                 return
             }
-            try Self.update(state: state, when: mappedWhen, effectsHandler: effectsHandler)
+            try Self.update(state: state, when: mappedWhen, effects: &effects)
         } else {
-            try Self.update(state: state, when: when, effectsHandler: effectsHandler)
+            try Self.update(state: state, when: when, effects: &effects)
         }
     }
 
@@ -93,6 +97,11 @@ extension StoreProtocol {
             LOG("🪃 ↩ \(effect)")
         }
         send(when)
+    }
+    
+    // TODO: Make it only available to StatoscopeTesting
+    public func privateCancelAllEffects() {
+        effectsHandler.cancelAllEffects()
     }
 }
 
@@ -128,4 +137,5 @@ extension StoreImplementation {
             associateOptionalObject(base: self, key: &middleWareHandlerStoreKey, value: newValue)
         }
     }
+    
 }

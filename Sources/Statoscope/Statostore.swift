@@ -17,7 +17,6 @@ public protocol NaiveReducer {
 /// The same class-type object, may provide all features in
 /// * State: Using member variables
 /// * When: forcing definition
-/// * EffectsHandlerImplementation (to rename): Provides control over effects
 /// * NaiveReducer: forcing implementation of the update method
 /// * InjectionTreeNode: Enabling communication with other statoscopes
 public protocol Statostore:
@@ -28,8 +27,10 @@ public protocol Statostore:
 
 public extension Statostore {
 
-    static func update(state: State, when: When, effectsHandler: EffectsHandler<When>) throws {
+    static func update(state: State, when: State.When, effects: inout EffectsState<State.When>) throws {
+        // Passed effects are not used, but implementor will use self.effectsController to manage effects
         try state.update(when)
+        effects = state.effectsController
     }
 
     var state: State {
@@ -39,5 +40,14 @@ public extension Statostore {
     func set<T>(_ keyPath: ReferenceWritableKeyPath<Self, T>, _ value: T) -> Self {
         self[keyPath: keyPath] = value
         return self
+    }
+    
+    var effectsController: EffectsState<When> {
+        get {
+            effectsHandler.snapshot
+        }
+        set {
+            effectsHandler.snapshot = newValue
+        }
     }
 }

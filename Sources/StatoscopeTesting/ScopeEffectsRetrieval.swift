@@ -25,6 +25,6 @@ extension StoreProtocol {
 
     func cancellAllDeepEffects() {
         allChildScopes()
-            .forEach { $0.cancelAllEffects() }
+            .forEach { $0.privateCancelAllEffects() }
     }
 }
