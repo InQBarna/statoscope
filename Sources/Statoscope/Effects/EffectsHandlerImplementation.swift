@@ -33,9 +33,7 @@ private actor RunnerTasks<When: Sendable> {
 
 internal final class EffectsHandlerImplementation<When: Sendable>: Effectfull {
 
-    // TODO: Use actors, pendingEffects and ongoingEffects are only edited from main actor now
-    // private var pendingEffects: [AnyEffect<When>] = []
-    private(set) var ongoingEffects: [(UUID, AnyEffect<When>)] = []
+    private var requestedEffects: [(UUID, AnyEffect<When>)] = []
     private var tasks: RunnerTasks<When> = RunnerTasks()
     let logPrefix: String
     internal var currentSnapshot: EffectsState<When>?
@@ -45,33 +43,44 @@ internal final class EffectsHandlerImplementation<When: Sendable>: Effectfull {
     }
 
     var effects: [any Effect] {
-        assert(Thread.current.isMainThread, "For pending/ongoingEffects thread safety")
-        return ongoingEffects
+        assert(Thread.current.isMainThread, "For requestedEffects thread safety")
+        return requestedEffects
             .map { $0.1.pristine }
     }
 
-    // TODO: should we move to main actor ? retains self and fails to detect deinit
-    // @MainActor
     func runEnqueuedEffectAndGetWhenResults(
         newSnapshot: EffectsState<When>,
         safeSend: @escaping (AnyEffect<When>, When) async -> Void
     ) throws {
-        assert(Thread.current.isMainThread, "For pending/ongoingEffects thread safety")
-        cancelEffects(uuids: newSnapshot.cancelledEffects)
-        var copiedEffects: [(UUID, AnyEffect<When>)] = newSnapshot.enquedEffects
-        ongoingEffects.append(contentsOf: copiedEffects)
-        
+        assert(Thread.current.isMainThread, "For requestedEffects thread safety")
+        requestedEffects.append(contentsOf: newSnapshot.enquedEffects)
+
         guard !scopeEffectsDisabledInUnitTests else {
             return
         }
         guard !scopeEffectsDisabledInPreviews else {
             throw StatoscopeErrors.effectsDisabledForPreviews
         }
+
+        cancelEffects(effects: newSnapshot.cancelledEffects)
+        Task {
+            try await privateRunEnqueuedEffectAndGetWhenResults(
+                newSnapshot: newSnapshot,
+                safeSend: safeSend
+            )
+        }
+    }
         
-        let currentCount = ongoingEffects.count
+    private func privateRunEnqueuedEffectAndGetWhenResults(
+        newSnapshot: EffectsState<When>,
+        safeSend: @escaping (AnyEffect<When>, When) async -> Void
+    ) async throws {
+        
+        var toEnqueueEffects: [(UUID, AnyEffect<When>)] = newSnapshot.enquedEffects
+        let currentCount = newSnapshot.snapshotEffects.count
         var enqueued = 0
-        while copiedEffects.count > 0 {
-            let effect = copiedEffects.removeFirst()
+        while toEnqueueEffects.count > 0 {
+            let effect = toEnqueueEffects.removeFirst()
             let handler = self
             let newCount = currentCount + enqueued
             if newCount > 1 {
@@ -111,13 +120,13 @@ internal final class EffectsHandlerImplementation<When: Sendable>: Effectfull {
         let newTask: Task<When?, Error> = Task { [weak tasks] in
             guard nil != tasks else {
                 StatoscopeLogger.LOG(prefix: logPrefix, "🪃 🚫 CANCELLED \(effect) (not even started)")
-                await removeOngoingEffect(uuid)
+                await removeRequestedEffect(uuid)
                 throw CancellationError()
             }
             let result = try await effect.runEffect()
             if Task.isCancelled {
                 StatoscopeLogger.LOG(prefix: logPrefix, "🪃 🚫 CANCELLED \(effect)")
-                await removeOngoingEffect(uuid)
+                await removeRequestedEffect(uuid)
                 return nil
             }
             await tasks?.removeTask(taskUUID)
@@ -125,39 +134,44 @@ internal final class EffectsHandlerImplementation<When: Sendable>: Effectfull {
                 StatoscopeLogger.LOG(prefix: logPrefix,
                                      "🪃 🚫 CANCELLED \(effect) (complete executed though, " +
                                      "cancelled right before sending result back to scope)")
-                await removeOngoingEffect(uuid)
+                await removeRequestedEffect(uuid)
                 return nil
             }
             return result
         }
         await tasks.addTask(taskUUID, task: newTask)
         let returnResult = await newTask.result
-        await removeOngoingEffect(uuid)
+        await removeRequestedEffect(uuid)
         return returnResult
     }
 
-    func cancelEffects(uuids: [UUID]) {
-        assert(Thread.current.isMainThread, "For pending/ongoingEffects thread safety")
-        let cancellables = ongoingEffects
-            .filter { uuids.contains($0.0) }
-        cancellables.forEach { effect in
+    func cancelEffects(
+        effects: [(UUID, AnyEffect<When>)]
+    ) {
+        effects.forEach { effect in
             StatoscopeLogger.LOG(prefix: logPrefix, "🪃 ✋ CANCELLING \(effect)")
         }
+        let retainedTasks = tasks
         Task(priority: .high, operation: {
-            for cancellable in cancellables {
-                await tasks.cancel(cancellable.0)
+            for cancellable in effects {
+                await retainedTasks.cancel(cancellable.0)
             }
         })
     }
     
     func cancelAllEffects() {
-        let retainedTasks = tasks
-        ongoingEffects
+        assert(Thread.current.isMainThread, "For requestedEffects thread safety")
+        requestedEffects
             .map { ($0.0, $0.1.pristine) }
             .forEach { effect in
                 StatoscopeLogger.LOG(prefix: logPrefix, "🪃 ✋ CANCELLING \(effect)")
             }
-        ongoingEffects.removeAll()
+        requestedEffects.removeAll()
+        cancelAllTasks()
+    }
+    
+    func cancelAllTasks() {
+        let retainedTasks = tasks
         Task(priority: .high, operation: {
             let count = await retainedTasks.count()
             if count > 0 {
@@ -167,14 +181,14 @@ internal final class EffectsHandlerImplementation<When: Sendable>: Effectfull {
     }
     
     deinit {
-        cancelAllEffects()
+        cancelAllTasks()
     }
 
     @MainActor
-    func removeOngoingEffect(_ uuid: UUID) {
-        assert(Thread.current.isMainThread, "For pending/ongoingEffects thread safety")
-        if let idx = ongoingEffects.firstIndex(where: { uuid == $0.0 }) {
-            ongoingEffects.remove(at: idx)
+    func removeRequestedEffect(_ uuid: UUID) {
+        assert(Thread.current.isMainThread, "For requestedEffects thread safety")
+        if let idx = requestedEffects.firstIndex(where: { uuid == $0.0 }) {
+            requestedEffects.remove(at: idx)
         }
     }
 }
@@ -200,52 +214,9 @@ extension EffectsHandlerImplementation {
     }
     
     internal func buildSnapshot() -> EffectsState<When> {
-        assert(Thread.current.isMainThread, "For pending/ongoingEffects thread safety")
-        return EffectsState(snapshotEffects: ongoingEffects)
+        assert(Thread.current.isMainThread, "For requestedEffects thread safety")
+        return EffectsState(snapshotEffects: requestedEffects)
     }
     
 
 }
-
-// TODO: To be used when we have Reducer-style Scopes
-
-/*
-/// A helper class to spy the effects launched by an Statoscope
-public final class EffectsHandlerSpy<When: Sendable>: EffectsHandler<When> {
-
-    private var privateEffects: [AnyEffect<When>] = []
-    private var privateCancelledEffects: [AnyEffect<When>] = []
-
-    /// returns the recently cancelled effects
-    public var cancelledEffects: [any Effect] {
-        privateCancelledEffects
-    }
-
-    /// Returns enqueued effects
-    public override var effects: [any Effect] {
-        privateEffects.map { $0.pristine }
-    }
-
-    /// Enqueues an effect, but it never runs it
-    public override func enqueue<E: Effect>(
-        _ effect: E
-    ) where E.ResultType == When {
-        privateEffects.append(AnyEffect(effect: effect))
-    }
-
-    /// Updates the cancelledEffects variable with the provided closure
-    public override func cancelEffect(where whereBlock: (any Effect) -> Bool) {
-        privateCancelledEffects.removeAll()
-        let newCancelled = privateEffects.filter(whereBlock)
-        privateCancelledEffects.append(contentsOf: newCancelled)
-    }
-
-    /// Updates the cancelledEffects with all current effects
-    public override func cancelAllEffects() {
-        privateCancelledEffects.removeAll()
-        privateCancelledEffects.append(contentsOf: privateEffects)
-        privateEffects.removeAll()
-    }
-}
-
-*/

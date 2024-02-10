@@ -34,7 +34,6 @@ class StatoscopeAccessControl: XCTestCase {
             // Does not compile, internal
             // runEnqueuedEffectAndGetWhenResults { _, _ in return }
 
-            // TODO: it should better not compile ... it's better to expose the effectsHandler
             //  as the only method to handle effects
             effectsController.enqueue(AnyEffect {
                 try await Task.sleep(nanoseconds: 1_000_000)

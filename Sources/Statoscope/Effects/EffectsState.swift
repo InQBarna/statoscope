@@ -13,16 +13,18 @@ import Foundation
 /// and provides functions to enqueue new effects or cancel existing ones.
 public struct EffectsState<When: Sendable> {
     
-    internal var snapshotEffects: [(UUID, AnyEffect<When>)]
+    internal let snapshotEffects: [(UUID, AnyEffect<When>)]
+    internal var currentRequestedEffects: [(UUID, AnyEffect<When>)]
     internal var enquedEffects: [(UUID, AnyEffect<When>)] = []
-    internal var cancelledEffects: [UUID] = []
+    internal var cancelledEffects: [(UUID, AnyEffect<When>)] = []
     
     init(snapshotEffects: [(UUID, AnyEffect<When>)]) {
         self.snapshotEffects = snapshotEffects
+        self.currentRequestedEffects = snapshotEffects
     }
     /// List of effects expected to be ongoing. They may be already triggered or pending.
     public var effects: [any Effect] {
-        (snapshotEffects + enquedEffects).map { $0.1.pristine }
+        currentRequestedEffects.map { $0.1.pristine }
     }
     
     /// Enqueues an effect to be triggered. The provided effect must return a new When case
@@ -89,19 +91,21 @@ public struct EffectsState<When: Sendable> {
     ///  )
     ///  ```
     public mutating func cancelEffect(where whereBlock: (any Effect) -> Bool) {
-        let cancelledFromSnapshots = snapshotEffects
+        let cancelledFromCurrent = currentRequestedEffects
             .filter { whereBlock($0.1.pristine) }
-            .map { $0.0 }
-        cancelledEffects.append(contentsOf: cancelledFromSnapshots)
-        snapshotEffects = snapshotEffects.filter({ !whereBlock($0.1.pristine) })
-        
-        enquedEffects = enquedEffects.filter({ !whereBlock($0.1.pristine) })
+        cancelledEffects.append(contentsOf: cancelledFromCurrent)
+        currentRequestedEffects = currentRequestedEffects.filter {
+            !whereBlock($0.1.pristine)
+        }
+        enquedEffects = enquedEffects.filter {
+            !whereBlock($0.1.pristine)
+        }
     }
 
     /// Cancells all ongoing effects
     public mutating func cancelAllEffects() {
+        cancelledEffects.append(contentsOf: currentRequestedEffects)
         enquedEffects.removeAll()
-        cancelledEffects.removeAll()
-        cancelledEffects.append(contentsOf: snapshotEffects.map { $0.0 })
+        currentRequestedEffects.removeAll()
     }
 }
