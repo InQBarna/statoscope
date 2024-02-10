@@ -35,7 +35,7 @@ class StatoscopeAccessControl: XCTestCase {
             // runEnqueuedEffectAndGetWhenResults { _, _ in return }
 
             //  as the only method to handle effects
-            effectsController.enqueue(AnyEffect {
+            effectsState.enqueue(AnyEffect {
                 try await Task.sleep(nanoseconds: 1_000_000)
                 return When.delayFinished
             })

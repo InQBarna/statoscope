@@ -30,7 +30,7 @@ public extension Statostore {
     static func update(state: State, when: State.When, effects: inout EffectsState<State.When>) throws {
         // Passed effects are not used, but implementor will use self.effectsController to manage effects
         try state.update(when)
-        effects = state.effectsController
+        effects = state.effectsState
     }
 
     var state: State {
@@ -42,6 +42,7 @@ public extension Statostore {
         return self
     }
     
+    /*
     var effectsController: EffectsState<When> {
         get {
             effectsHandler.snapshot
@@ -50,4 +51,5 @@ public extension Statostore {
             effectsHandler.snapshot = newValue
         }
     }
+     */
 }

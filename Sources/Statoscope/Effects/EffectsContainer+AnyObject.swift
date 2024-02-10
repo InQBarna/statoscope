@@ -50,26 +50,46 @@ fileprivate extension StoreProtocol where Self: AnyObject {
     }
 }
 
-//  3. provide a method runEnqueuedEffectAndGetWhenResults to rule the effectsHandler
+//  3. provide a method to rule the effectsHandler
 extension StoreProtocol where Self: AnyObject {
     // TODO: should we move to main actor ? retains self and fails to detect deinit
     // @MainActor
     func runEnqueuedEffectAndGetWhenResults(
         newSnapshot: EffectsState<When>,
-        safeSend: @escaping (AnyEffect<When>, When
-    ) async -> Void) throws {
+        safeSend: @escaping (AnyEffect<When>, When?, [(UUID, AnyEffect<When>)]) async -> Void
+    ) throws -> [(UUID, AnyEffect<When>)] {
         ensureSetupDeinitObserver()
-        try effectsHandler.runEnqueuedEffectAndGetWhenResults(newSnapshot: newSnapshot, safeSend: safeSend)
+        return try effectsHandler.runEnqueuedEffectAndGetWhenResults(newSnapshot: newSnapshot, safeSend: safeSend)
     }
 }
 
+/*
 public extension StoreProtocol where Self: AnyObject {
-    var effectsState: Effectfull {
-        effectsHandler
-    }
-    
     var effects: [any Effect] {
-        effectsHandler.effects
+        effectsState.effects
+    }
+}
+ */
+
+private class AssociatedValue<T> {
+    var value: T
+    init(value: T) {
+        self.value = value
     }
 }
 
+private var effectsStateStoreKey: UInt8 = 0
+extension StoreProtocol where Self: AnyObject {
+    public var effectsState: EffectsState<Self.When> {
+        get {
+            associatedObject(base: self, key: &effectsStateStoreKey, initialiser: {
+                AssociatedValue(value: EffectsState<Self.When>(snapshotEffects: []))
+            }).value
+        }
+        set {
+            associatedObject(base: self, key: &effectsStateStoreKey, initialiser: {
+                AssociatedValue(value: EffectsState<Self.When>(snapshotEffects: []))
+            }).value = newValue
+        }
+    }
+}

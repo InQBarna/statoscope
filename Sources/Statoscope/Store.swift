@@ -57,15 +57,15 @@ extension StoreProtocol {
         
         // For Statoscope, we store the snapshot in effectsHandler
         //  during update process
-        var snapshot = effectsHandler.snapshot
-        defer {
-            effectsHandler.cleanupSnapshot()
-        }
-        
+        var snapshot = effectsState
         try updateUsingMiddlewares(when, effects: &snapshot)
-        try self.runEnqueuedEffectAndGetWhenResults(newSnapshot: snapshot) { [weak self] effect, when in
-            await self?.safeMainActorSend(effect, when)
+        let newEffects = try runEnqueuedEffectAndGetWhenResults(newSnapshot: snapshot) { [weak self] effect, when, newEffectsState in
+            self?.effectsState = EffectsState(snapshotEffects: newEffectsState)
+            if let when {
+                await self?.safeMainActorSend(effect, when)
+            }
         }
+        effectsState = EffectsState(snapshotEffects: newEffects)
         return self
     }
 
@@ -90,7 +90,7 @@ extension StoreProtocol {
 
     @MainActor
     private func safeMainActorSend(_ effect: AnyEffect<State.When>, _ when: State.When) {
-        let count = effectsHandler.effects.count
+        let count = effects.count
         if count > 0 {
             LOG("🪃 ↩ \(effect) (ongoing \(count)x🪃)")
         } else {

@@ -13,7 +13,7 @@ extension StoreProtocol {
     func allDeepOngoingEffects() -> [String: [any Effect]] {
         return Dictionary(
             allChildScopes().compactMap {
-                let effects = $0.effectsState.effects
+                let effects = $0.effects
                 guard effects.count > 0 else {
                     return nil
                 }

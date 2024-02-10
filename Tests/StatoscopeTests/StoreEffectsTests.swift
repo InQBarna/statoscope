@@ -42,7 +42,7 @@ class StoreOngoingEffectsPropertyTests: XCTestCase {
         func update(_ when: When) throws {
             switch when {
             case .sendWaitEffect(let milliseconds):
-                effectsController.enqueue(WaitMillisecondsEffect(milliseconds: milliseconds).map {
+                effectsState.enqueue(WaitMillisecondsEffect(milliseconds: milliseconds).map {
                     .anyEffectCompleted
                 })
             case .anyEffectCompleted:
@@ -135,7 +135,7 @@ class StoreEffectsCancellationTests: XCTestCase {
         func update(_ when: When) throws {
             switch when {
             case .sendWaitEffect(let milliseconds):
-                effectsController.enqueue(
+                effectsState.enqueue(
                     WaitMillisecondsEffectReturnCancelled(milliseconds: milliseconds)
                         .map(When.anyEffectCompleted)
                 )
@@ -144,11 +144,11 @@ class StoreEffectsCancellationTests: XCTestCase {
                     await completeAnyEffect(cancelled)
                 }
             case .cancelAllEffects:
-                effectsController.cancelEffect { effect in
+                effectsState.cancelEffect { effect in
                     effect is WaitMillisecondsEffectReturnCancelled
                 }
             case .cancelSingleEffectWithEqual(let milliseconds):
-                effectsController.cancelEffect { anyEffect in
+                effectsState.cancelEffect { anyEffect in
                     if let effect = anyEffect as? WaitMillisecondsEffectReturnCancelled,
                        effect == WaitMillisecondsEffectReturnCancelled(milliseconds: milliseconds) {
                         return true
@@ -266,13 +266,13 @@ class StoreeEffectsThrowingTests: XCTestCase {
             switch when {
             case .sendWaitEffect(let milliseconds):
                 if let mapToResultError {
-                    effectsController.enqueue(
+                    effectsState.enqueue(
                         WaitMillisecondsEffectThrowing(milliseconds: milliseconds, throwError: effectThrowError)
                             .mapToResultWithError { mapToResultError($0) }
                             .map(When.waitEffectCompleted)
                     )
                 } else {
-                    effectsController.enqueue(
+                    effectsState.enqueue(
                         WaitMillisecondsEffectThrowing(milliseconds: milliseconds, throwError: effectThrowError)
                             .map { When.waitEffectCompleted(nil) }
                     )
@@ -393,13 +393,13 @@ class StoreeEffectsThrowingTests: XCTestCase {
             switch when {
             case .sendWaitEffect(let milliseconds):
                 if let mapToResultError {
-                    effectsController.enqueue(
+                    effectsState.enqueue(
                         WaitMillisecondsEffectThrowingUntypedError(milliseconds: milliseconds, throwError: effectThrowError)
                             .mapToResultWithError { mapToResultError($0) }
                             .map(When.waitEffectCompleted)
                     )
                 } else {
-                    effectsController.enqueue(
+                    effectsState.enqueue(
                         WaitMillisecondsEffectThrowingUntypedError(milliseconds: milliseconds, throwError: effectThrowError)
                             .map { When.waitEffectCompleted(nil) }
                     )
