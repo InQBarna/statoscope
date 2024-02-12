@@ -32,7 +32,7 @@ class StatoscopeAccessControl: XCTestCase {
             // effects.enqueue(AnyEffect{})
 
             // Does not compile, internal
-            // runEnqueuedEffectAndGetWhenResults { _, _ in return }
+            // triggerNewEffectsState { _, _ in return }
 
             //  as the only method to handle effects
             effectsState.enqueue(AnyEffect {
@@ -43,8 +43,8 @@ class StatoscopeAccessControl: XCTestCase {
             // it should not compile does not make sense to send during update
             self.send(.delayFinished)
 
-            // it should not compile does not make sense to send during update
-            _ = try self.sendUnsafe(.delayFinished)
+            // Does not compile
+            // _ = try self.sendUnsafe(.delayFinished)
 
             // TODO: it should better not compile does not make sense to update during update
             try self.update(.delayFinished)

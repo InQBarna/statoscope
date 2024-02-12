@@ -40,128 +40,127 @@ class EffectsHanlderImplementationTests: XCTestCase {
         }
     }
     
-    func testEnqueueEmptySnapshot() throws {
+    func testEnqueueEmptySnapshot() async throws {
         let exp = expectation(description: "Wait for new snapshot")
         exp.isInverted = true
+        var completedEffects: [AnyEffect<()>] = []
         let sut: EffectsHandlerImplementation<Void> =
-            EffectsHandlerImplementation(logPrefix: #function)
-        let currentSnapshot = sut.buildSnapshot()
-        XCTAssert(currentSnapshot.enquedEffects.isEmpty)
-        XCTAssert(currentSnapshot.snapshotEffects.isEmpty)
-        XCTAssert(currentSnapshot.cancelledEffects.isEmpty)
-        XCTAssert(currentSnapshot.effects.isEmpty)
-        XCTAssert(currentSnapshot.currentRequestedEffects.isEmpty)
-        let newState = try sut.runEnqueuedEffectAndGetWhenResults(newSnapshot: currentSnapshot) 
-        { completedEffect, when, newState in
+        EffectsHandlerImplementation(logPrefix: #function) { _, effect, _ in
+            completedEffects.append(effect)
             exp.fulfill()
         }
-        let newStateEffects = newState.map { $0.1 }
-        XCTAssert(newStateEffects.isEmpty)
-        _ = XCTWaiter.wait(for: [exp], timeout: 1.0)
+        let snapshot = await sut.buildSnapshot()
+        let currentEffects = await sut.effects
+        XCTAssert(currentEffects.isEmpty)
+        try await sut.triggerNewEffectsState(newSnapshot: snapshot)
+        let newState = await sut.effects
+        XCTAssert(newState.isEmpty)
+        await fulfillment(of: [exp], timeout: 1)
     }
     
-    func testEnqueueOneEffect() throws {
+    func testEnqueueOneEffect() async throws {
         let exp = expectation(description: "Wait for new snapshot")
+        var completedEffects: [AnyEffect<()>] = []
         let sut: EffectsHandlerImplementation<Void> =
-            EffectsHandlerImplementation(logPrefix: #function)
-        var currentSnapshot = sut.buildSnapshot()
+        EffectsHandlerImplementation(logPrefix: #function) { _, effect, _ in
+            completedEffects.append(effect)
+            exp.fulfill()
+        }
+        var snapshot = await sut.buildSnapshot()
         let effect = WaitMillisecondsEffect(milliseconds: Self.firstEffectMilliseconds)
-        currentSnapshot.enqueue(effect)
-        let newState = try sut.runEnqueuedEffectAndGetWhenResults(newSnapshot: currentSnapshot)
-        { completedEffect, when, newState in
-            XCTAssertEqual(completedEffect.pristine as? WaitMillisecondsEffect, effect)
-            let newStateEffects = newState.map { $0.1 }
-            XCTAssert(newStateEffects.isEmpty)
-            exp.fulfill()
-        }
-        let newStateEffects = newState.map { $0.1 }
-        XCTAssertEqual(newStateEffects.count, 1)
-        XCTAssertEqual(newStateEffects.first?.pristine as? WaitMillisecondsEffect, effect)
-        _ = XCTWaiter.wait(for: [exp], timeout: 5.0)
+        snapshot.enqueue(effect)
+        try await sut.triggerNewEffectsState(newSnapshot: snapshot)
+        let newEffects = await sut.effects
+        XCTAssertEqual(newEffects.count, 1)
+        XCTAssertEqual(newEffects.first as? WaitMillisecondsEffect, effect)
+        await fulfillment(of: [exp], timeout: 1)
+        let newEffectsAfterCompletion = await sut.effects
+        XCTAssertEqual(newEffectsAfterCompletion.count, 0)
+        XCTAssertEqual(completedEffects.first?.pristine as? WaitMillisecondsEffect, effect)
     }
     
-    func testEnqueueTwoEffect() throws {
+    func testEnqueueTwoEffect() async throws {
         let exp = expectation(description: "Wait for new snapshot")
-        exp.expectedFulfillmentCount = 2
+        exp.assertForOverFulfill = false
+        let exp2 = expectation(description: "Wait for new snapshot")
+        exp2.expectedFulfillmentCount = 2
+        var completedEffects: [AnyEffect<()>] = []
         let sut: EffectsHandlerImplementation<Void> =
-            EffectsHandlerImplementation(logPrefix: #function)
-        var currentSnapshot = sut.buildSnapshot()
-        let effect1 = WaitMillisecondsEffect(milliseconds: Self.firstEffectMilliseconds)
-        let effect2 = WaitMillisecondsEffect(milliseconds: Self.secondEffectMilliseconds)
-        currentSnapshot.enqueue(effect1)
-        currentSnapshot.enqueue(effect2)
-        var receivedStates: [[AnyEffect<Void>]] = []
-        let newState = try sut.runEnqueuedEffectAndGetWhenResults(newSnapshot: currentSnapshot)
-        { completedEffect, when, newState in
-            let newStateEffects = newState.map { $0.1 }
-            receivedStates.append(newStateEffects)
+        EffectsHandlerImplementation(logPrefix: #function) { _, effect, _ in
+            completedEffects.append(effect)
             exp.fulfill()
-        }
-        let newStateEffects = newState.map { $0.1 }
-        XCTAssertEqual(newStateEffects.count, 2)
-        XCTAssertEqual(newStateEffects.first?.pristine as? WaitMillisecondsEffect, effect1)
-        XCTAssertEqual(newStateEffects.last?.pristine as? WaitMillisecondsEffect, effect2)
-        _ = XCTWaiter.wait(for: [exp], timeout: 5.0)
-        
-        XCTAssertEqual(receivedStates.count, 2)
-        
-        let firstReceivedState = try XCTUnwrap(receivedStates.first)
-        XCTAssertEqual(firstReceivedState.count, 1)
-        XCTAssertEqual(firstReceivedState.first?.pristine as? WaitMillisecondsEffect, effect2)
-        
-        let secondReceivedState = try XCTUnwrap(receivedStates.last)
-        XCTAssert(secondReceivedState.isEmpty)
-    }
-    
-    func testEnqueueAutocancelledEffect() throws {
-        let exp = expectation(description: "Wait for new snapshot")
-        let sut: EffectsHandlerImplementation<Void> =
-        EffectsHandlerImplementation(logPrefix: #function)
-        
-        // Enqueue an effect
-        var currentSnapshot = sut.buildSnapshot()
-        let effect = AutoCancelledEffect(milliseconds: Self.firstEffectMilliseconds)
-        currentSnapshot.enqueue(effect)
-        let newState = try sut.runEnqueuedEffectAndGetWhenResults(newSnapshot: currentSnapshot)
-        { completedEffect, when, newState in
-            XCTAssertEqual(completedEffect.pristine as? AutoCancelledEffect, effect)
-            let newStateEffects = newState.map { $0.1 }
-            XCTAssert(newStateEffects.isEmpty)
-            exp.fulfill()
-        }
-        let newStateEffects = newState.map { $0.1 }
-        XCTAssertEqual(newStateEffects.count, 1)
-        _ = XCTWaiter.wait(for: [exp], timeout: 1.0)
-    }
-    func testEnqueueAndCancelOneEffect() throws {
-        let exp = expectation(description: "Wait for new snapshot")
-        let sut: EffectsHandlerImplementation<Void> =
-        EffectsHandlerImplementation(logPrefix: #function)
-        
-        // Enqueue an effect
-        var currentSnapshot = sut.buildSnapshot()
-        let effect = WaitMillisecondsEffect(milliseconds: Self.firstEffectMilliseconds)
-        currentSnapshot.enqueue(effect)
-        let newState = try sut.runEnqueuedEffectAndGetWhenResults(newSnapshot: currentSnapshot)
-        { completedEffect, when, newState in
-            XCTAssertEqual(completedEffect.pristine as? WaitMillisecondsEffect, effect)
-            let newStateEffects = newState.map { $0.1 }
-            XCTAssert(newStateEffects.isEmpty)
-            exp.fulfill()
-        }
-        let newStateEffects = newState.map { $0.1 }
-        XCTAssertEqual(newStateEffects.count, 1)
-        
-        // Cancel the effect
-        let exp2 = expectation(description: "This completion won't be called")
-        exp2.isInverted = true
-        var currentSnapshot2 = sut.buildSnapshot()
-        currentSnapshot2.cancelAllEffects()
-        let newState2 = try sut.runEnqueuedEffectAndGetWhenResults(newSnapshot: currentSnapshot2)
-        { completedEffect, when, newState in
             exp2.fulfill()
         }
-        XCTAssertEqual(newState2.map({ $0.1 }).count, 0)
-        _ = XCTWaiter.wait(for: [exp, exp2], timeout: 1.0)
+        var snapshot = await sut.buildSnapshot()
+        let effect1 = WaitMillisecondsEffect(milliseconds: Self.firstEffectMilliseconds)
+        let effect2 = WaitMillisecondsEffect(milliseconds: Self.secondEffectMilliseconds)
+        snapshot.enqueue(effect1)
+        snapshot.enqueue(effect2)
+        try await sut.triggerNewEffectsState(newSnapshot: snapshot)
+        let newEffects = await sut.effects
+        XCTAssertEqual(newEffects.count, 2)
+        XCTAssertEqual(newEffects.first as? WaitMillisecondsEffect, effect1)
+        XCTAssertEqual(newEffects.last as? WaitMillisecondsEffect, effect2)
+        
+        await fulfillment(of: [exp], timeout: 1)
+        let newEffectsAfterCompletion = await sut.effects
+        XCTAssertEqual(newEffectsAfterCompletion.count, 1)
+        XCTAssertEqual(newEffects.last as? WaitMillisecondsEffect, effect2)
+        XCTAssertEqual(completedEffects.first?.pristine as? WaitMillisecondsEffect, effect1)
+        
+        await fulfillment(of: [exp2], timeout: 1)
+        let newEffectsAfterCompletion2 = await sut.effects
+        XCTAssertEqual(newEffectsAfterCompletion2.count, 0)
+        XCTAssertEqual(completedEffects.last?.pristine as? WaitMillisecondsEffect, effect2)
     }
+    
+    func testEnqueueAutocancelledEffect() async throws {
+        let exp = expectation(description: "Wait for new snapshot")
+        var completedEffects: [(AnyEffect<()>, ()?)] = []
+        let sut: EffectsHandlerImplementation<Void> =
+        EffectsHandlerImplementation(logPrefix: #function) { _, effect, when in
+            completedEffects.append((effect, when))
+            exp.fulfill()
+        }
+        var snapshot = await sut.buildSnapshot()
+        let effect = AutoCancelledEffect(milliseconds: Self.firstEffectMilliseconds)
+        snapshot.enqueue(effect)
+        try await sut.triggerNewEffectsState(newSnapshot: snapshot)
+        let newEffects = await sut.effects
+        XCTAssertEqual(newEffects.count, 1)
+        XCTAssertEqual(newEffects.first as? AutoCancelledEffect, effect)
+        await fulfillment(of: [exp], timeout: 1)
+        let newEffectsAfterCompletion = await sut.effects
+        XCTAssertEqual(newEffectsAfterCompletion.count, 0)
+        XCTAssertEqual(completedEffects.first?.0.pristine as? AutoCancelledEffect, effect)
+        XCTAssertNil(completedEffects.first?.1)
+    }
+    
+    func testEnqueueAndCancelOneEffect() async throws {
+        let exp = expectation(description: "Wait for new snapshot")
+        var completedEffects: [(AnyEffect<()>, ()?)] = []
+        let sut: EffectsHandlerImplementation<Void> =
+        EffectsHandlerImplementation(logPrefix: #function) { _, effect, when in
+            completedEffects.append((effect, when))
+            exp.fulfill()
+        }
+        var snapshot = await sut.buildSnapshot()
+        let effect = WaitMillisecondsEffect(milliseconds: Self.firstEffectMilliseconds)
+        snapshot.enqueue(effect)
+        try await sut.triggerNewEffectsState(newSnapshot: snapshot)
+        let newEffects = await sut.effects
+        XCTAssertEqual(newEffects.count, 1)
+        XCTAssertEqual(newEffects.first as? WaitMillisecondsEffect, effect)
+        
+        var snapshot2 = await sut.buildSnapshot()
+        snapshot2.cancelAllEffects()
+        try await sut.triggerNewEffectsState(newSnapshot: snapshot2)
+        await fulfillment(of: [exp], timeout: 1)
+        let newEffectsAfterCompletion2 = await sut.effects
+        XCTAssertEqual(newEffectsAfterCompletion2.count, 0)
+        XCTAssertEqual(completedEffects.count, 1)
+        XCTAssertEqual(completedEffects.first?.0.pristine as? WaitMillisecondsEffect, effect)
+        XCTAssertNil(completedEffects.first?.1)
+    }
+    
 }

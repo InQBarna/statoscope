@@ -41,15 +41,4 @@ public extension Statostore {
         self[keyPath: keyPath] = value
         return self
     }
-    
-    /*
-    var effectsController: EffectsState<When> {
-        get {
-            effectsHandler.snapshot
-        }
-        set {
-            effectsHandler.snapshot = newValue
-        }
-    }
-     */
 }

@@ -7,9 +7,9 @@
 
 import Foundation
 
-// Default Implementations
 public struct StatoscopeLogger {
 
+    /// Enable or disable statoscope log with this global variable
     public static var logEnabled: Bool = false
 
     static func LOG(_ string: String) {

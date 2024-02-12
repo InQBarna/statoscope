@@ -7,11 +7,11 @@
 
 import Foundation
 
-/// Responsible of controlling a group of effects, all they having a common return object type ``When``.
+/// Responsible of controlling a group of effects, all they having a common return object type When.
 /// This struct is meant for communication between an update of your app's state and the trigger of
 /// the appropriate effects. Simply defines the current ongoing effects providing an snapshot,
 /// and provides functions to enqueue new effects or cancel existing ones.
-public struct EffectsState<When: Sendable> {
+public struct EffectsState<When: Sendable>: Sendable {
     
     internal let snapshotEffects: [(UUID, AnyEffect<When>)]
     internal var currentRequestedEffects: [(UUID, AnyEffect<When>)]
@@ -67,7 +67,9 @@ public struct EffectsState<When: Sendable> {
     ///  )
     ///  ```
     public mutating func enqueue<E: Effect>(_ effect: E) where E.ResultType == When {
-        enquedEffects.append((UUID(), AnyEffect(effect: effect)))
+        let uuid = UUID()
+        enquedEffects.append((uuid, AnyEffect(effect: effect)))
+        currentRequestedEffects.append((uuid, AnyEffect(effect: effect)))
     }
     
     /// Cancels the effects that conform to the provided block.

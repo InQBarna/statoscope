@@ -7,10 +7,20 @@
 
 import Foundation
 
+/// Error to be thrown in an update method when the received When event
+/// should not be received given the current state
+///
+/// See:  ``StoreImplementation/update(state:when:effects:)``
 public struct InvalidStateError: Error {
     public init() {}
 }
 
+/// Error tthrown by the injection property wrappers.
+///
+/// It is catched internally, but should stop your debugger if Swift errors exception
+/// breakpoint is enabled
+///
+/// See:  ``StoreImplementation/update(state:when:effects:)``
 public struct NoInjectedValueFound: Error {
     let type: String
     let injectionTreeDescription: [String]?

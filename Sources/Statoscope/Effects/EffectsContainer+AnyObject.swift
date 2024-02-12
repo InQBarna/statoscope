@@ -13,7 +13,9 @@ private var effectsHandlerStoreKey: UInt8 = 0
 extension StoreProtocol where Self: AnyObject {
     var effectsHandler: EffectsHandlerImplementation<When> {
         return associatedObject(base: self, key: &effectsHandlerStoreKey, initialiser: {
-            EffectsHandlerImplementation<When>(logPrefix: logPrefix)
+            EffectsHandlerImplementation<When>(logPrefix: logPrefix) { [weak self] uuid, effect, when in
+                self?.completedEffect(uuid, effect, when)
+            }
         })
     }
 }
@@ -30,8 +32,8 @@ private class DeinitObserver {
     }
 }
 
-fileprivate extension StoreProtocol where Self: AnyObject {
-    var deinitObserver: DeinitObserver? {
+internal extension StoreProtocol where Self: AnyObject {
+    fileprivate var deinitObserver: DeinitObserver? {
         get {
             optionalAssociatedObject(base: self, key: &deinitObserverStoreKey, initialiser: { nil })
         }
@@ -44,32 +46,14 @@ fileprivate extension StoreProtocol where Self: AnyObject {
         if deinitObserver == nil {
             let handler = effectsHandler
             deinitObserver = DeinitObserver { [weak handler] in
-                handler?.cancelAllEffects()
+                guard let handler else { return }
+                Task {
+                    await handler.cancelAllEffects()
+                }
             }
         }
     }
 }
-
-//  3. provide a method to rule the effectsHandler
-extension StoreProtocol where Self: AnyObject {
-    // TODO: should we move to main actor ? retains self and fails to detect deinit
-    // @MainActor
-    func runEnqueuedEffectAndGetWhenResults(
-        newSnapshot: EffectsState<When>,
-        safeSend: @escaping (AnyEffect<When>, When?, [(UUID, AnyEffect<When>)]) async -> Void
-    ) throws -> [(UUID, AnyEffect<When>)] {
-        ensureSetupDeinitObserver()
-        return try effectsHandler.runEnqueuedEffectAndGetWhenResults(newSnapshot: newSnapshot, safeSend: safeSend)
-    }
-}
-
-/*
-public extension StoreProtocol where Self: AnyObject {
-    var effects: [any Effect] {
-        effectsState.effects
-    }
-}
- */
 
 private class AssociatedValue<T> {
     var value: T

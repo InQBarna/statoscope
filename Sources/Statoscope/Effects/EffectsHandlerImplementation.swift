@@ -7,52 +7,31 @@
 
 import Foundation
 
-private actor RunnerTasks<When: Sendable> {
-    var runningTasks: [UUID: Task<When?, Error>] = [:]
-    func addTask(_ uuid: UUID, task: Task<When?, Error>) {
-        runningTasks[uuid] = task
-    }
-    func removeTask(_ uuid: UUID) {
-        runningTasks.removeValue(forKey: uuid)
-    }
-    func cancelAndRemoveAll() {
-        runningTasks.forEach { $0.value.cancel() }
-        runningTasks.removeAll()
-    }
-    func count() -> Int {
-        return runningTasks.count
-    }
-    func cancel(_ uuid: UUID) {
-        runningTasks.forEach { (taskUuid, task) in
-            if taskUuid == uuid {
-                task.cancel()
-            }
-        }
-    }
-}
-
-internal final class EffectsHandlerImplementation<When: Sendable> {
+// Internal actor to handle effects
+actor EffectsHandlerImplementation<When: Sendable> {
 
     private var requestedEffects: [(UUID, AnyEffect<When>)] = []
-    private var tasks: RunnerTasks<When> = RunnerTasks()
+    private var runningTasks: [UUID: Task<When?, Error>] = [:]
     let logPrefix: String
+    let effectCompleted: (UUID, AnyEffect<When>, When?) -> Void
 
-    init(logPrefix: String) {
+    init(
+        logPrefix: String,
+        effectCompleted: @escaping (UUID, AnyEffect<When>, When?) -> Void
+    ) {
         self.logPrefix = logPrefix
+        self.effectCompleted = effectCompleted
     }
     
-    func runEnqueuedEffectAndGetWhenResults(
-        newSnapshot: EffectsState<When>,
-        safeSend: @escaping (AnyEffect<When>, When?, [(UUID, AnyEffect<When>)]) async -> Void
-    ) throws -> [(UUID, AnyEffect<When>)] {
+    func triggerNewEffectsState(
+        newSnapshot: EffectsState<When>
+    ) async throws {
         
-        cancelEffects(effects: newSnapshot.cancelledEffects)
-        
-        assert(Thread.current.isMainThread, "For requestedEffects thread safety")
+        removeCancelledEffectsAndCancelTasks(effects: newSnapshot.cancelledEffects)
         requestedEffects.append(contentsOf: newSnapshot.enquedEffects)
 
         guard !scopeEffectsDisabledInUnitTests else {
-            return requestedEffects
+            return
         }
         guard !scopeEffectsDisabledInPreviews else {
             throw StatoscopeErrors.effectsDisabledForPreviews
@@ -62,80 +41,69 @@ internal final class EffectsHandlerImplementation<When: Sendable> {
         let currentCount = newSnapshot.snapshotEffects.count
         var enqueued = 0
         while toEnqueueEffects.count > 0 {
-            let effect = toEnqueueEffects.removeFirst()
-            let handler = self
+            let (uuid, effect) = toEnqueueEffects.removeFirst()
             let newCount = currentCount + enqueued
             if newCount > 1 {
-                StatoscopeLogger.LOG(prefix: logPrefix, "🪃 ↗ \(effect.1) (ongoing \(newCount)x🪃)")
+                StatoscopeLogger.LOG(prefix: logPrefix, "🪃 ↗ \(effect) (ongoing \(newCount)x🪃)")
             } else {
-                StatoscopeLogger.LOG(prefix: logPrefix, "🪃 ↗ \(effect.1)")
+                StatoscopeLogger.LOG(prefix: logPrefix, "🪃 ↗ \(effect)")
             }
             enqueued += 1
-            Task { [weak handler] in
-                do {
-                    guard let result = try await handler?.triggerEffect(effect.0, effect: effect.1) else {
-                        return
-                    }
-                    switch result {
-                    case .success(let optionalWhen):
-                        if let when = optionalWhen {
-                            guard !Task.isCancelled else {
-                                assertionFailure("Can we ever get here ? I don't think so. Delete if never fails?")
-                                StatoscopeLogger.LOG(prefix: logPrefix,
-                                                     "🪃 🚫 CANCELLED \(effect.1) (right before sending result)")
-                                throw CancellationError()
-                            }
-                            await safeSend(effect.1, when, handler?.requestedEffects ?? [])
-                        }
-                    case .failure(let error):
+            let task = await buildEffectTask(logPrefix: logPrefix, effect: effect)
+            runningTasks[uuid] = task
+            Task {
+                let result = await task.result
+                removeRequestedEffect(uuid)
+                runningTasks.removeValue(forKey: uuid)
+                switch result {
+                case .success(let when):
+                    guard !Task.isCancelled else {
+                        assertionFailure("Can we ever get here ? I don't think so. Delete if never fails?")
                         StatoscopeLogger.LOG(prefix: logPrefix,
-                                             "🪃 💥 Unhandled throw (use mapToResult to handle): \(effect): \(error).")
+                                             "🪃 🚫 CANCELLED \(effect) (right before sending result)")
+                        throw CancellationError()
                     }
-                } catch {
-                    await safeSend(effect.1, nil, handler?.requestedEffects ?? [])
+                    effectCompleted(uuid, effect, when)
+                case .failure(let error):
+                    StatoscopeLogger.LOG(prefix: logPrefix,
+                                         "🪃 💥 Unhandled throw (use mapToResult to handle): \(effect): \(error).")
+                    effectCompleted(uuid, effect, nil)
                 }
             }
         }
-        return requestedEffects
     }
 
-    internal func buildSnapshot() -> EffectsState<When> {
+    func buildSnapshot() -> EffectsState<When> {
         EffectsState(snapshotEffects: requestedEffects)
     }
+    
+    var effects: [any Effect] {
+        requestedEffects.map { $0.1.pristine }
+    }
 
-    private func triggerEffect(_ uuid: UUID, effect: AnyEffect<When>) async throws -> Result<When?, Error> {
-
-        let taskUUID = uuid // UUID()
-        let tasks = self.tasks
-        let newTask: Task<When?, Error> = Task { [weak tasks] in
-            guard nil != tasks else {
+    func buildEffectTask(logPrefix: String, effect: AnyEffect<When>) async -> Task<When?, Error> {
+        let newTask: Task<When?, Error> = Task { [weak self] in
+            guard nil != self else {
                 StatoscopeLogger.LOG(prefix: logPrefix, "🪃 🚫 CANCELLED \(effect) (not even started)")
-                await removeRequestedEffect(uuid)
                 throw CancellationError()
             }
             let result = try await effect.runEffect()
             if Task.isCancelled {
                 StatoscopeLogger.LOG(prefix: logPrefix, "🪃 🚫 CANCELLED \(effect)")
-                await removeRequestedEffect(uuid)
                 return nil
             }
-            await tasks?.removeTask(taskUUID)
             if Task.isCancelled {
                 StatoscopeLogger.LOG(prefix: logPrefix,
                                      "🪃 🚫 CANCELLED \(effect) (complete executed though, " +
                                      "cancelled right before sending result back to scope)")
-                await removeRequestedEffect(uuid)
                 return nil
             }
             return result
         }
-        await tasks.addTask(taskUUID, task: newTask)
-        let returnResult = await newTask.result
-        await removeRequestedEffect(uuid)
-        return returnResult
+        return newTask
     }
 
-    private func cancelEffects(
+    private func removeCancelledEffectsAndCancelTasks(
         effects: [(UUID, AnyEffect<When>)]
     ) {
         let cancellableUUIDs = effects.map { $0.0 }
@@ -145,16 +113,14 @@ internal final class EffectsHandlerImplementation<When: Sendable> {
         effects.forEach { effect in
             StatoscopeLogger.LOG(prefix: logPrefix, "🪃 ✋ CANCELLING \(effect)")
         }
-        let retainedTasks = tasks
-        Task(priority: .high, operation: {
-            for cancellable in effects {
-                await retainedTasks.cancel(cancellable.0)
+        for cancellable in effects {
+            if let (_, task) = runningTasks.first(where: { (taskUuid, _) in taskUuid == cancellable.0 }) {
+                task.cancel()
             }
-        })
+        }
     }
     
     func cancelAllEffects() {
-        assert(Thread.current.isMainThread, "For requestedEffects thread safety")
         requestedEffects
             .map { ($0.0, $0.1.pristine) }
             .forEach { effect in
@@ -165,54 +131,19 @@ internal final class EffectsHandlerImplementation<When: Sendable> {
     }
     
     private func cancelAllTasks() {
-        let retainedTasks = tasks
+        let retainedTasks: [Task<When?, Error>] = Array(runningTasks.values)
+        runningTasks.removeAll()
         Task(priority: .high, operation: {
-            let count = await retainedTasks.count()
-            if count > 0 {
-                await retainedTasks.cancelAndRemoveAll()
-            }
+            retainedTasks
+                .forEach {
+                    $0.cancel()
+                }
         })
     }
     
-    deinit {
-        cancelAllTasks()
-    }
-
-    @MainActor
     private func removeRequestedEffect(_ uuid: UUID) {
-        assert(Thread.current.isMainThread, "For requestedEffects thread safety")
         if let idx = requestedEffects.firstIndex(where: { uuid == $0.0 }) {
             requestedEffects.remove(at: idx)
         }
     }
 }
-
-/*
- extension EffectsHandlerImplementation {
- 
- public var snapshot: EffectsState<When> {
- get {
- if let currentSnapshot {
- return currentSnapshot
- }
- let newSnapshot = buildSnapshot()
- currentSnapshot = newSnapshot
- return newSnapshot
- }
- set {
- currentSnapshot = newValue
- }
- }
- 
- internal func cleanupSnapshot() {
- currentSnapshot = nil
- }
- 
- internal func buildSnapshot() -> EffectsState<When> {
- assert(Thread.current.isMainThread, "For requestedEffects thread safety")
- return EffectsState(snapshotEffects: requestedEffects)
- }
- 
- 
- }
- */

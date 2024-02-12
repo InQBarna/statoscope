@@ -11,8 +11,26 @@ public protocol StoreImplementation:
     AnyObject {
     associatedtype When
     associatedtype State: Scope where State.When == When
+    
+    /// The state handled by the store.
+    ///
+    /// The state object should implement the ``Scope`` protocol, providing
+    /// * Usable inside injection tree
+    /// * Member variables with the Scope's state
     var state: State { get }
+    
+    /// Implements the business logic for this scope of the state
+    ///
+    /// Method responsible or receiving the current State of your app's scope
+    /// and transform it according to the received when. When necessary, effects
+    /// can be enqueued, queried or cancelled using the provided EffectsState.
+    ///  Runs allways on the main thread.
+    ///
+    /// * Parameter state: the current state of the scope
+    /// * Parameter when: the received event
+    /// * Parameter effects: an EffectsState object to enqueue, query or cancel effects
     static func update(state: State, when: State.When, effects: inout EffectsState<State.When>) throws
+    
     func addMiddleWare(_ update: @escaping (State, State.When) throws -> State.When?) -> Self
 }
 
@@ -20,9 +38,30 @@ public protocol StorePublicProtocol:
     Effectfull
 {
     associatedtype State: Scope
+    
+    /// The state handled by the store.
+    ///
+    /// The state object should implement the ``Scope`` protocol, providing
+    /// * Usable inside injection tree
+    /// * Member variables with the Scope's state
     var state: State { get }
+    
+    /// Public method to send events to the store
+    ///
+    /// Usually UI or system notitications send messages to stores using a When case
+    /// * Parameter when: the typed event case to send to the store
     @discardableResult
     func send(_ when: State.When) -> Self
+    
+    /// Public method to send events to the store
+    ///
+    /// Usually UI or system notitications send messages to stores using a When case
+    ///
+    /// # Discussion
+    /// Different from ``send(_:)`` because this method throws any unexpected
+    /// exception. Use this method for debugging or unit testing
+    ///
+    /// * Parameter when: the typed event case to send to the store
     @discardableResult
     func sendUnsafe(_ when: State.When) throws -> Self
 }
@@ -58,14 +97,15 @@ extension StoreProtocol {
         // For Statoscope, we store the snapshot in effectsHandler
         //  during update process
         var snapshot = effectsState
+        assert(effectsState.enquedEffects.count == 0)
+        assert(effectsState.cancelledEffects.count == 0)
         try updateUsingMiddlewares(when, effects: &snapshot)
-        let newEffects = try runEnqueuedEffectAndGetWhenResults(newSnapshot: snapshot) { [weak self] effect, when, newEffectsState in
-            self?.effectsState = EffectsState(snapshotEffects: newEffectsState)
-            if let when {
-                await self?.safeMainActorSend(effect, when)
-            }
+        effectsState = EffectsState(snapshotEffects: snapshot.currentRequestedEffects)
+        let copiedSnapshot = snapshot
+        ensureSetupDeinitObserver()
+        Task { [weak self] in
+            try await self?.effectsHandler.triggerNewEffectsState(newSnapshot: copiedSnapshot)
         }
-        effectsState = EffectsState(snapshotEffects: newEffects)
         return self
     }
 
@@ -87,9 +127,19 @@ extension StoreProtocol {
             try Self.update(state: state, when: when, effects: &effects)
         }
     }
+    
+    func completedEffect(_ uuid: UUID, _ effect: AnyEffect<State.When>, _ when: State.When?) {
+        if let when {
+            Task {
+                let newEffects = effectsState.currentRequestedEffects.filter { $0.0 != uuid }
+                effectsState = EffectsState(snapshotEffects: newEffects)
+                await safeMainActorSend(effect, when)
+            }
+        }
+    }
 
     @MainActor
-    private func safeMainActorSend(_ effect: AnyEffect<State.When>, _ when: State.When) {
+    func safeMainActorSend(_ effect: AnyEffect<State.When>, _ when: State.When) {
         let count = effects.count
         if count > 0 {
             LOG("🪃 ↩ \(effect) (ongoing \(count)x🪃)")
@@ -101,7 +151,10 @@ extension StoreProtocol {
     
     // TODO: Make it only available to StatoscopeTesting
     public func privateCancelAllEffects() {
-        effectsHandler.cancelAllEffects()
+        effectsState = EffectsState(snapshotEffects: [])
+        Task {
+            await effectsHandler.cancelAllEffects()
+        }
     }
 }
 
