@@ -110,4 +110,13 @@ public struct EffectsState<When: Sendable>: Sendable {
         enquedEffects.removeAll()
         currentRequestedEffects.removeAll()
     }
+    
+    /// Resets effects state to the original status previous to the update method
+    ///
+    /// This method is mostly meant for unit testing
+    public mutating func reset() {
+        currentRequestedEffects.removeAll()
+        enquedEffects.removeAll()
+        cancelledEffects.removeAll()
+    }
 }

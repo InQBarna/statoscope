@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import Statoscope
+@testable import Statoscope
 
 extension StoreProtocol {
 
@@ -25,6 +25,6 @@ extension StoreProtocol {
 
     func cancellAllDeepEffects() {
         allChildScopes()
-            .forEach { $0.privateCancelAllEffects() }
+            .forEach { $0.resetEffects() }
     }
 }

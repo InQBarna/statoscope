@@ -89,12 +89,8 @@ actor EffectsHandlerImplementation<When: Sendable> {
             }
             let result = try await effect.runEffect()
             if Task.isCancelled {
-                StatoscopeLogger.LOG(prefix: logPrefix, "🪃 🚫 CANCELLED \(effect)")
-                return nil
-            }
-            if Task.isCancelled {
                 StatoscopeLogger.LOG(prefix: logPrefix,
-                                     "🪃 🚫 CANCELLED \(effect) (complete executed though, " +
+                                     "🪃 🚫 CANCELLED \(effect) (completely executed though, " +
                                      "cancelled right before sending result back to scope)")
                 return nil
             }

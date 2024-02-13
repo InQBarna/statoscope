@@ -149,12 +149,8 @@ extension StoreProtocol {
         send(when)
     }
     
-    // TODO: Make it only available to StatoscopeTesting
-    public func privateCancelAllEffects() {
-        effectsState = EffectsState(snapshotEffects: [])
-        Task {
-            await effectsHandler.cancelAllEffects()
-        }
+    internal func resetEffects() {
+        effectsState.reset()
     }
 }
 

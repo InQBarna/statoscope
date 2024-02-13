@@ -11,7 +11,7 @@ import Foundation
 /// should not be received given the current state
 ///
 /// See:  ``StoreImplementation/update(state:when:effects:)``
-public struct InvalidStateError: Error {
+public struct InvalidStateError: Error, Equatable {
     public init() {}
 }
 
@@ -44,7 +44,7 @@ public enum StatoscopeErrors: Error {
 /// An error that can be thrown by an effect
 ///
 /// See:  ``Effect/mapToResultWithErrorType(_:)``
-public protocol EffectError {
+public protocol EffectError: Error {
     /// The value an effect will return in case the mapping does not succeed
     static var unknownError: Self { get }
 }

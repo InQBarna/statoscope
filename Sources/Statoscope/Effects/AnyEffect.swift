@@ -37,9 +37,6 @@ public struct AnyEffect<ResultType: Sendable>:
         func runEffect() async throws -> BoxResultType {
             try await runner()
         }
-        static func == (lhs: EffectBox<BoxResultType>, rhs: EffectBox<BoxResultType>) -> Bool {
-            return false
-        }
         public var debugDescription: String {
             "AnonymousEffect(closure: \(String(describing: runner)))"
         }

@@ -70,7 +70,7 @@ public extension Effect {
     {
         if let anySelf = self as? AnyEffect<ResultType>,
            let typedSelf = anySelf.pristine as? ComparedEffect {
-            return typedSelf == typedSelf
+            return typedSelf == other
         } else if let typedSelf = self as? ComparedEffect {
             return typedSelf == other
         } else {
