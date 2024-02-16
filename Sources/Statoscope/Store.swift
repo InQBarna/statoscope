@@ -29,7 +29,7 @@ public protocol StoreImplementation:
     /// * Parameter state: the current state of the scope
     /// * Parameter when: the received event
     /// * Parameter effects: an EffectsState object to enqueue, query or cancel effects
-    static func update(state: State, when: State.When, effects: inout EffectsState<State.When>) throws
+    func update(_ when: State.When) throws
     
     func addMiddleWare(_ update: @escaping (State, State.When) throws -> State.When?) -> Self
 }
@@ -96,12 +96,11 @@ extension StoreProtocol {
         
         // For Statoscope, we store the snapshot in effectsHandler
         //  during update process
-        var snapshot = effectsState
         assert(effectsState.enquedEffects.count == 0)
         assert(effectsState.cancelledEffects.count == 0)
-        try updateUsingMiddlewares(when, effects: &snapshot)
-        effectsState = EffectsState(snapshotEffects: snapshot.currentRequestedEffects)
-        let copiedSnapshot = snapshot
+        try updateUsingMiddlewares(when)
+        let copiedSnapshot = effectsState
+        effectsState = EffectsState(snapshotEffects: effectsState.currentRequestedEffects)
         ensureSetupDeinitObserver()
         Task { [weak self] in
             try await self?.effectsHandler.triggerNewEffectsState(newSnapshot: copiedSnapshot)
@@ -117,14 +116,14 @@ extension StoreProtocol {
         StatoscopeLogger.LOG(prefix: logPrefix, string)
     }
 
-    private func updateUsingMiddlewares(_ when: State.When, effects: inout EffectsState<When>) throws {
+    private func updateUsingMiddlewares(_ when: State.When) throws {
         if let middleware = middleWare {
             guard let mappedWhen = try middleware.middleWare(self.state, when) else {
                 return
             }
-            try Self.update(state: state, when: mappedWhen, effects: &effects)
+            try update(mappedWhen)
         } else {
-            try Self.update(state: state, when: when, effects: &effects)
+            try update(when)
         }
     }
     
