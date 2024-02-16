@@ -1,0 +1,12 @@
+@Tutorial(time: 30) {
+  @Intro(title: "StateWhenAndEffects") {
+    Trigger side effects that will get back to your scope as a new When event
+  }
+  
+  @Section(title: "What is a side effect?") {
+    @ContentAndMedia {
+      Side effects are by far the most important aspect of feature development
+    }
+    
+  }
+}

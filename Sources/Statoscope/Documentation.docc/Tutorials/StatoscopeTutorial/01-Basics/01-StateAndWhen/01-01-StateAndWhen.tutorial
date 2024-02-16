@@ -1,0 +1,91 @@
+@Tutorial(time: 20) { 
+  @Intro(title: "Create an Scope") {
+    Define a state object representing a part of your app status,
+    define the events that may affect this state and create
+    a view to display the state
+  }
+  
+  @Section(title: "Create a reducer") {
+    @ContentAndMedia {
+      Blah blah
+    }
+    @Steps {
+      @Step {
+        Create a file Counter.swift and import the Composable Architecture.
+        
+        @Code(name: "Counter.swift", file: 01-01-01-code-0001.swift)
+      }
+      
+      @Step {
+        Create your state as an ObservableObject with your state variables.
+        
+        Use sentence-like namings if the vars are suitable for acceptance testing
+        
+        @Code(name: "Counter.swift", file: 01-01-01-code-0002.swift)
+      }
+      
+      @Step {
+        Add the When events that can occur in your scope
+        
+        Use sentence-like namings again for acceptance testing
+        
+        @Code(name: "Counter.swift", file: 01-01-01-code-0003.swift)
+      }
+      
+      @Step {
+        Finally, implement the update method with your business logic
+        
+        @Code(name: "Counter.swift", file: 01-01-01-code-0004.swift)
+      }
+      
+      @Step {
+        Before building the real scope implementation via the update method,
+        let's take a look at how we can write acceptance tests for the 
+        current state's scope
+        
+        One of the main goals of the statoscope architecture is to achieve
+        ACCEPTANCE AS CODE. This example shows how using sentence-like
+        state variables and When cases, the test description matches the 
+        acceptance criteria 
+        
+        @Code(name: "CounterTests.swift", file: 01-01-01-code-0005.swift)
+      }
+
+      @Step {
+        Now, if you run the test it will fail. let's fill in the update method
+        
+        @Code(name: "Counter.swift", file: 01-01-01-code-0004.swift)
+      }
+      
+      @Step {
+        Update contains the state maintenance and business logic of your
+        current app state's scope
+        
+        @Code(name: "Counter.swift", file: 01-01-01-code-0006.swift)
+      }
+      
+      @Step {
+        We'll soon create our view to display the state. Since we'll be 
+        using SwiftUI, adopt the ObservableObject protocol
+        
+        @Code(name: "Counter.swift", file: 01-01-01-code-0007.swift)
+      }
+    }
+  }
+      
+  @Section(title: "Create your view") {
+    @ContentAndMedia {
+      Blah blah
+    }
+    @Steps {
+      @Step {
+        Nice! Let's create our view
+        
+        @Code(name: "CounterView.swift", file: 01-01-01-code-0008.swift)
+      }
+      
+      So far so goo, we've built our first scope.
+      
+   }   
+  }
+}
