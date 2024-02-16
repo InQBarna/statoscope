@@ -1,10 +1,11 @@
 //
-//  ScopeForkTests.swift
-//  familymealplanTests
+//  File.swift
+//  
 //
-//  Created by Sergi Hernanz on 18/1/24.
+//  Created by Sergi Hernanz on 16/2/24.
 //
 
+import Foundation
 import XCTest
 import SwiftUI
 @testable import Statoscope
@@ -15,10 +16,9 @@ private enum SampleError: String, Error, Equatable {
     case noConnection
 }
 
-private final class SampleScope:
-    Statostore,
+private final class SampleScopeState:
+    Scope,
     ObservableObject {
-
     @Published var viewShowsLoadingMessage: String?
     @Published var viewShowsContent: Result<String, SampleError>?
 
@@ -27,8 +27,14 @@ private final class SampleScope:
         case networkRespondsWithContent(Result<String, Error>)
         case retry
     }
+}
 
-    func update(_ when: When) throws {
+private final class SampleScope: StoreProtocol {
+    
+    typealias When = SampleScopeState.When
+    private(set) var state = SampleScopeState()
+    
+    func update(_ when: SampleScopeState.When) throws {
         switch when {
         case .systemLoadsSampleScope, .retry:
             state.viewShowsLoadingMessage = "Loading..."
@@ -39,7 +45,7 @@ private final class SampleScope:
     }
 }
 
-final class ScopeForkTests: XCTestCase {
+final class StoreAndStateDifferentObjects: XCTestCase {
 
     func testForkTestSyntax() throws {
         let forkCalled = expectation(description: "forkCalled")
