@@ -16,7 +16,7 @@ private enum SampleError: String, Error, Equatable {
     case noConnection
 }
 
-private final class SampleScopeState:
+private final class SampleStoreState:
     Scope,
     ObservableObject {
     @Published var viewShowsLoadingMessage: String?
@@ -31,16 +31,16 @@ private final class SampleScopeState:
 
 private final class SampleScope: StoreProtocol {
     
-    typealias When = SampleScopeState.When
-    private(set) var state = SampleScopeState()
+    typealias When = SampleStoreState.When
+    private(set) var _storeState = SampleStoreState()
     
-    func update(_ when: SampleScopeState.When) throws {
+    func update(_ when: SampleStoreState.When) throws {
         switch when {
         case .systemLoadsSampleScope, .retry:
-            state.viewShowsLoadingMessage = "Loading..."
+            _storeState.viewShowsLoadingMessage = "Loading..."
         case .networkRespondsWithContent(let newContent):
-            state.viewShowsContent = newContent.mapError { _ in SampleError.someError }
-            state.viewShowsLoadingMessage = nil
+            _storeState.viewShowsContent = newContent.mapError { _ in SampleError.someError }
+            _storeState.viewShowsLoadingMessage = nil
         }
     }
 }

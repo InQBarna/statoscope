@@ -15,6 +15,7 @@ import Foundation
 /// * Is an InjectionTreeNode to communicate with other scopes
 public protocol Scope:
     InjectionTreeNode &
+    CustomDebugStringConvertible &
     AnyObject {
     associatedtype When: Sendable
 }

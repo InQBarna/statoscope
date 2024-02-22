@@ -17,7 +17,7 @@ internal func ifChildScope(
         return
     }
     if let scopeChild = mirrorChild.value as? any StoreProtocol {
-        if nil == except.first(where: { $0.state === scopeChild.state}) {
+        if nil == except.first(where: { $0._storeState === scopeChild._storeState}) {
             var exceptWithChild = except
             exceptWithChild.append(scopeChild)
             block(scopeChild, label, exceptWithChild)
@@ -27,7 +27,7 @@ internal func ifChildScope(
     if String(describing: mirrorChild.value).contains("Subscope<") {
         if let publishedScopeChild = Mirror(reflecting: mirrorChild.value)
             .children.first as? (String, any StoreProtocol) {
-            if nil == except.first(where: { $0.state === publishedScopeChild.1.state}) {
+            if nil == except.first(where: { $0._storeState === publishedScopeChild.1._storeState}) {
                 var exceptWithChild = except
                 exceptWithChild.append(publishedScopeChild.1)
                 block(publishedScopeChild.1, label, exceptWithChild)

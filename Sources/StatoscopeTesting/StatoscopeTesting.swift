@@ -25,12 +25,12 @@ extension StoreProtocol {
 extension StoreTestPlan {
     @discardableResult
     public func WITH<Subscope: StoreProtocol>(
-        _ keyPath: KeyPath<T.State, Subscope>,
+        _ keyPath: KeyPath<T.StoreState, Subscope>,
         file: StaticString = #file, line: UInt = #line,
         _ with: @escaping (_ sut: Subscope) throws -> Void
     ) rethrows -> Self {
         addStep { sut in
-            try with(sut.state[keyPath: keyPath])
+            try with(sut._storeState[keyPath: keyPath])
         }
     }
 }

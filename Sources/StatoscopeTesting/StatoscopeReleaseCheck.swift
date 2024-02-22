@@ -15,7 +15,7 @@ struct WeakScopeBox {
 
 extension StoreProtocol {
     func allChildScopesChecker() -> [WeakScopeBox] {
-        allChildScopes().map { WeakScopeBox(scope: $0.state) }
+        allChildScopes().map { WeakScopeBox(scope: $0._storeState) }
     }
 }
 

@@ -17,11 +17,11 @@ import Foundation
 public protocol Statostore:
     Scope,
     StoreProtocol
-    where State == Self { }
+    where StoreState == Self { }
 
 public extension Statostore {
 
-    var state: State {
+    var _storeState: StoreState {
         return self
     }
 

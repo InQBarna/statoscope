@@ -16,7 +16,7 @@ import Combine
 //  so it can navigate thru all model->submodel-> hierarchy for injection and debug
 //
 @propertyWrapper
-public struct Subscope<Value: InjectionTreeNodeProtocol> {
+public struct Subscope<Value: InjectionTreeNodeProtocol>: CustomStringConvertible {
 
     private var storage: Value
 
@@ -24,7 +24,7 @@ public struct Subscope<Value: InjectionTreeNodeProtocol> {
         storage = wrappedValue
     }
 
-    public static subscript<T: InjectionTreeNode & ObservableObject>(
+    public static subscript<T: InjectionTreeNode>(
         _enclosingInstance enclosingInstance: T,
         wrapped wrappedKeyPath: ReferenceWritableKeyPath<T, Value>,
         storage storageKeyPath: ReferenceWritableKeyPath<T, Self>
@@ -36,9 +36,11 @@ public struct Subscope<Value: InjectionTreeNodeProtocol> {
         }
         set {
             // Enclosing ObservableObject will be notified when assigned:
-            let publisher = enclosingInstance.objectWillChange
-            // swiftlint:disable:next force_cast
-            (publisher as! ObservableObjectPublisher).send()
+            if let enclosingObservable = enclosingInstance as? (any ObservableObject) {
+                let publisher = enclosingObservable.objectWillChange as any Publisher
+                // swiftlint:disable:next force_cast
+                (publisher as! ObservableObjectPublisher).send()
+            }
 
             // Storage assignment
             enclosingInstance[keyPath: storageKeyPath].storage = newValue
@@ -55,5 +57,9 @@ public struct Subscope<Value: InjectionTreeNodeProtocol> {
     public var wrappedValue: Value {
         get { fatalError() }
         set { fatalError("\(newValue)") }
+    }
+    
+    public var description: String {
+        "\(storage)".removeOptionalDescription
     }
 }

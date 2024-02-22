@@ -9,7 +9,7 @@ import Foundation
 import Combine
 
 @propertyWrapper
-public struct Superscope<Value: Injectable & ObservableObject> {
+public struct Superscope<Value: Injectable & ObservableObject>: CustomStringConvertible {
 
     private var observed: Bool = false
     private var cancellable: AnyCancellable?
@@ -65,5 +65,13 @@ public struct Superscope<Value: Injectable & ObservableObject> {
     public var wrappedValue: Value {
         get { fatalError() }
         set { fatalError("\(newValue)") }
+    }
+    
+    public var description: String {
+        if let overwrittingValue {
+            return "\(overwrittingValue)" // .removeOptionalDescription
+        } else {
+            return "\(Value.self)"
+        }
     }
 }

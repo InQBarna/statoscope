@@ -13,6 +13,10 @@ extension String {
            self[self.startIndex...minusIdx] == "Optional<",
            self.last == ">" {
             return String(self[index(after: minusIdx)..<index(before: endIndex)])
+        } else if let minusIdx = self.firstIndex(of: "("),
+                  self[self.startIndex...minusIdx] == "Optional(",
+                  self.last == ")" {
+            return String(self[index(after: minusIdx)..<index(before: endIndex)])
         }
         return self
     }
