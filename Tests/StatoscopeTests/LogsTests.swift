@@ -124,44 +124,36 @@ Parent(
     }
     
     func testLogEffects() throws {
-        try ScopeWithEffect.GIVEN {
-            ScopeWithEffect()
-        }
-        .THEN { sut in
-            let expectedDescription = """
+        let sut = ScopeWithEffect()
+        XCTAssertEqual(
+            String(describing: sut),
+"""
 ScopeWithEffect(
   loading: false
 )
+""")
+        sut.send(.sendWaitEffect)
+        XCTAssertEqual(
+            String(describing: sut),
 """
-            let description = String(describing: sut)
-            XCTAssertEqual(description, expectedDescription)
-        }
-        .WHEN(.sendWaitEffect)
-        .THEN { sut in
-            let expectedDescription = """
 ScopeWithEffect(
   loading: true
   effects: [
   MyEffect(milliseconds: 1000)
   ]
 )
+""")
+        sut.send(.sendWaitEffect)
+        XCTAssertEqual(
+            String(describing: sut),
 """
-            let description = String(describing: sut)
-            XCTAssertEqual(description, expectedDescription)
-        }
-        .WHEN(.sendWaitEffect)
-        .THEN { sut in
-            let expectedDescription = """
 ScopeWithEffect(
   loading: true
   effects: [
   MyEffect(milliseconds: 1000)
+  MyEffect(milliseconds: 1000)
   ]
 )
-"""
-            let description = String(describing: sut)
-            XCTAssertEqual(description, expectedDescription)
-        }
-        .runTest(assertRelease: true)
+""")
     }
 }

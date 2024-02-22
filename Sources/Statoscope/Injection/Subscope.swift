@@ -8,6 +8,8 @@
 import Foundation
 import Combine
 
+public protocol IsSubscopeToMirror {}
+
 //
 // A property wrapper
 //  AND: triggers an objectwillChange on containing ObserverObject
@@ -16,7 +18,7 @@ import Combine
 //  so it can navigate thru all model->submodel-> hierarchy for injection and debug
 //
 @propertyWrapper
-public struct Subscope<Value: InjectionTreeNodeProtocol>: CustomStringConvertible {
+public struct Subscope<Value: InjectionTreeNodeProtocol>: CustomStringConvertible, IsSubscopeToMirror {
 
     private var storage: Value
 

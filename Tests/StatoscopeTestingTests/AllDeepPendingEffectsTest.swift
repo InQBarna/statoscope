@@ -23,7 +23,7 @@ class AllDeepPendingEffectsTest: XCTestCase {
             let uuid: UUID = UUID()
             static var defaultValue: Parent = Parent()
             func update(_ when: Void) throws {
-                enqueue(ParentEffect())
+                effectsState.enqueue(ParentEffect())
             }
         }
 
@@ -35,7 +35,7 @@ class AllDeepPendingEffectsTest: XCTestCase {
             typealias When = Void
             @Superscope var parent: Parent
             func update(_ when: Void) throws {
-                enqueue(ChildEffect())
+                effectsState.enqueue(ChildEffect())
             }
         }
     }
@@ -47,8 +47,8 @@ class AllDeepPendingEffectsTest: XCTestCase {
 
         let allDeepOngoingEffects = parent.allDeepOngoingEffects()
         XCTAssertEqual(allDeepOngoingEffects.count, 2)
-        let parentEffects = try XCTUnwrap(allDeepOngoingEffects["StatoscopeTests.AllDeepPendingEffectsTest.SimpleParentChild.Parent"])
-        let childEffects = try XCTUnwrap(allDeepOngoingEffects["StatoscopeTests.AllDeepPendingEffectsTest.SimpleParentChild.Child"])
+        let parentEffects = try XCTUnwrap(allDeepOngoingEffects["Parent"])
+        let childEffects = try XCTUnwrap(allDeepOngoingEffects["Child"])
         XCTAssertEqual(parentEffects.count, 1)
         XCTAssertEqual(childEffects.count, 1)
         XCTAssert(parentEffects.first is SimpleParentChild.ParentEffect)
@@ -66,7 +66,7 @@ class AllDeepPendingEffectsTest: XCTestCase {
         final class Parent: Statostore, Injectable, ObservableObject {
             typealias When = Void
             func update(_ when: Void) throws {
-                enqueue(ParentEffect())
+                effectsState.enqueue(ParentEffect())
             }
             @Subscope var child: Child? = Child()
             static var defaultValue: Parent = Parent()
@@ -78,7 +78,7 @@ class AllDeepPendingEffectsTest: XCTestCase {
         final class Child: Statostore, Injectable, ObservableObject {
             typealias When = Void
             func update(_ when: Void) throws {
-                enqueue(ChildEffect())
+                effectsState.enqueue(ChildEffect())
             }
             @Superscope var parent: Parent
             @Subscope var grandson: GrandSon? = GrandSon()
@@ -91,7 +91,7 @@ class AllDeepPendingEffectsTest: XCTestCase {
         final class GrandSon: Statostore, ObservableObject {
             typealias When = Void
             func update(_ when: Void) throws {
-                enqueue(GrandSonEffect())
+                effectsState.enqueue(GrandSonEffect())
             }
             @Superscope var parent: Parent
             @Superscope var child: Child
@@ -105,9 +105,9 @@ class AllDeepPendingEffectsTest: XCTestCase {
         parent.child?.grandson?.send(())
         let allDeepOngoingEffects = parent.allDeepOngoingEffects()
         XCTAssertEqual(allDeepOngoingEffects.count, 3)
-        let parentEffects = try XCTUnwrap(allDeepOngoingEffects["StatoscopeTests.AllDeepPendingEffectsTest.ParentChildGrandSon.Parent"])
-        let childEffects = try XCTUnwrap(allDeepOngoingEffects["StatoscopeTests.AllDeepPendingEffectsTest.ParentChildGrandSon.Child"])
-        let grandsonEffects = try XCTUnwrap(allDeepOngoingEffects["StatoscopeTests.AllDeepPendingEffectsTest.ParentChildGrandSon.GrandSon"])
+        let parentEffects = try XCTUnwrap(allDeepOngoingEffects["Parent"])
+        let childEffects = try XCTUnwrap(allDeepOngoingEffects["Child"])
+        let grandsonEffects = try XCTUnwrap(allDeepOngoingEffects["GrandSon"])
         XCTAssertEqual(parentEffects.count, 1)
         XCTAssertEqual(childEffects.count, 1)
         XCTAssertEqual(grandsonEffects.count, 1)

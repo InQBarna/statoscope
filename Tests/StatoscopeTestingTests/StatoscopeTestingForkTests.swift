@@ -1,5 +1,5 @@
 //
-//  ScopeForkTests.swift
+//  StatoscopeTestingForkTests.swift
 //  familymealplanTests
 //
 //  Created by Sergi Hernanz on 18/1/24.
@@ -39,7 +39,7 @@ private final class SampleScope:
     }
 }
 
-final class ScopeForkTests: XCTestCase {
+final class StatoscopeTestingForkTests: XCTestCase {
 
     func testForkTestSyntax() throws {
         let forkCalled = expectation(description: "forkCalled")

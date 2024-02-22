@@ -38,6 +38,18 @@ let package = Package(
         ),
         .testTarget(
             name: "StatoscopeTests",
-            dependencies: ["Statoscope", "StatoscopeTesting"])
+            dependencies: [
+                "Statoscope",
+                "StatoscopeTesting"
+            ]
+        ),
+        .testTarget(
+            name: "StatoscopeTestingTests",
+            dependencies: [
+                "Statoscope",
+                "StatoscopeTesting"
+            ]
+        )
+
     ]
 )

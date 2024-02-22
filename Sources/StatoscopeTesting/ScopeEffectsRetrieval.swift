@@ -17,7 +17,7 @@ extension StoreProtocol {
                 guard effects.count > 0 else {
                     return nil
                 }
-                return ("\($0)", effects)
+                return ("\(type(of: $0))", effects)
             },
             uniquingKeysWith: { first, _ in first }
         )

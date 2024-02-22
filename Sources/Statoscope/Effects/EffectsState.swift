@@ -22,9 +22,15 @@ public struct EffectsState<When: Sendable>: Sendable {
         self.snapshotEffects = snapshotEffects
         self.currentRequestedEffects = snapshotEffects
     }
+    
     /// List of effects expected to be ongoing. They may be already triggered or pending.
     public var effects: [any Effect] {
         currentRequestedEffects.map { $0.1.pristine }
+    }
+    
+    /// Erased list of effects expected to be ongoing. They may be already triggered or pending.
+    public var erasedEffects: [AnyEffect<When>] {
+        currentRequestedEffects.map { $0.1 }
     }
     
     /// Enqueues an effect to be triggered. The provided effect must return a new When case
@@ -114,8 +120,10 @@ public struct EffectsState<When: Sendable>: Sendable {
     /// Resets effects state to the original status previous to the update method
     ///
     /// This method is mostly meant for unit testing
-    public mutating func reset() {
-        currentRequestedEffects.removeAll()
+    public mutating func reset(clearing: (any Effect) -> Bool = { _ in true }) {
+        currentRequestedEffects = currentRequestedEffects.filter { _, anyEffect in
+            !clearing(anyEffect.pristine)
+        }
         enquedEffects.removeAll()
         cancelledEffects.removeAll()
     }

@@ -7,6 +7,8 @@
 
 import Foundation
 
+public struct InvalidPristineResult: Error { }
+
 /// Type erased box for an Effect
 ///
 /// Use this container to have a type erased / anonymous version of the effect.

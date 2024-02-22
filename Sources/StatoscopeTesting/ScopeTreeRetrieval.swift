@@ -24,7 +24,7 @@ internal func ifChildScope(
             return
         }
     }
-    if String(describing: mirrorChild.value).contains("Subscope<") {
+    if mirrorChild.value is IsSubscopeToMirror {
         if let publishedScopeChild = Mirror(reflecting: mirrorChild.value)
             .children.first as? (String, any StoreProtocol) {
             if nil == except.first(where: { $0._storeState === publishedScopeChild.1._storeState}) {

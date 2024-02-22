@@ -29,6 +29,7 @@ private final class SampleScope:
     }
 }
 
+#if YOU_CAN_LATER_IMPLEMENT_NO_NEED_WHEN_USING_GIVEN_SPEC
 extension SampleScope: Statostore {
     func update(_ when: When) throws {
         switch when {
@@ -40,11 +41,12 @@ extension SampleScope: Statostore {
         }
     }
 }
+#endif
 
 final class SpecFirstTest: XCTestCase {
 
     func DISABLED_testSpec() throws {
-        try SampleScope.GIVEN {
+        try SampleScope.GIVEN_spec {
             SampleScope()
         }
         .WHEN(.systemLoadsSampleScope)
