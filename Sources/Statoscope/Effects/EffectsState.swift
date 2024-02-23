@@ -28,11 +28,6 @@ public struct EffectsState<When: Sendable>: Sendable {
         currentRequestedEffects.map { $0.1.pristine }
     }
     
-    /// Erased list of effects expected to be ongoing. They may be already triggered or pending.
-    public var erasedEffects: [AnyEffect<When>] {
-        currentRequestedEffects.map { $0.1 }
-    }
-    
     /// Enqueues an effect to be triggered. The provided effect must return a new When case
     ///
     ///  - Parameter effect: a container of an async operation to be executed.
