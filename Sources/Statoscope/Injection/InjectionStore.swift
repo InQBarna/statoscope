@@ -11,25 +11,17 @@ class InjectionStore {
     fileprivate var injectedByClassDescription = [String: WeakDependency]()
     fileprivate var injectedByValueDescription = [String: Any]()
 
-    struct WeakDependency: Hashable {
-        static func == (lhs: Self, rhs: Self) -> Bool {
-            lhs.dependency === rhs.dependency
-        }
+    struct WeakDependency {
         weak var dependency: AnyObject?
-        func hash(into hasher: inout Hasher) {
-            if let dependency = dependency {
-                hasher.combine(ObjectIdentifier(dependency))
-            }
-        }
     }
 
     func register<T: AnyObject>(_ dependency: T) {
-        let key = String(describing: T.self).removeOptionalDescription
+        let key = "\(type(of: dependency))".removeOptionalDescription
         injectedByClassDescription[key] = WeakDependency(dependency: dependency)
     }
 
     func registerValue<T: Any>(_ dependency: T) {
-        let key = String(describing: T.self).removeOptionalDescription
+        let key = "\(type(of: dependency))".removeOptionalDescription
         injectedByValueDescription[key] = dependency
     }
 
@@ -51,10 +43,6 @@ class InjectionStore {
         }
         return nil
     }
-
-    func copy(into: InjectionStore) {
-        into.injectedByClassDescription.merge(injectedByClassDescription) { lhs, _ in lhs }
-    }
 }
 
 extension InjectionStore {
@@ -64,7 +52,7 @@ extension InjectionStore {
             guard let dep = value.dependency else {
                 return nil
             }
-            return "+ \(key):\t\(dep)"
+            return "+ \(key):\t\(String(describing: dep))"
         }
         if injectedByValueDescription.count > 0 {
             let objects = "+++ " + injectedByValueDescription.keys.joined(separator: ", ")

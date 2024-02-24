@@ -10,10 +10,10 @@ import XCTest
 import StatoscopeTesting
 @testable import Statoscope
 
-private enum SampleError: String, Error, Equatable {
-    case someError
-    case noConnection
-}
+// This file demonstrates hot to design first the
+//  feature and the acceptance criteria, later you
+//  can conform to Statostore and implement the
+//  business logic
 
 private final class SampleScope:
     Scope,
@@ -26,6 +26,11 @@ private final class SampleScope:
         case systemLoadsSampleScope
         case networkRespondsWithContent(Result<String, Error>)
         case retry
+    }
+    
+    enum SampleError: String, Error, Equatable {
+        case someError
+        case noConnection
     }
 }
 

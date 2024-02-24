@@ -10,6 +10,7 @@ import XCTest
 import SwiftUI
 @testable import Statoscope
 import StatoscopeTesting
+import Combine
 
 private final class SampleScope:
     Statostore,
@@ -25,7 +26,7 @@ private final class SampleScope:
     }
     
     func update(_ when: When) throws {
-        fatalError()
+        viewShowsLoadingMessage = (viewShowsLoadingMessage ?? "") + "-"
     }
 }
 
@@ -58,7 +59,34 @@ private struct SamplePresentedView: View, StoreViewProtocol {
 }
 
 // And how it can be used with an ObservedObject == StoreView
-private let sampleView1 = SampleScope().buildStoreView { SamplePresentedView(model: $0, send: $1) }
-private let sampleView2 = SampleScope().buildStoreView(view: SamplePresentedView.init)
-private let sampleView3 = SampleScope().buildStoreView(SamplePresentedView.self)
+final class PresentedViewPatternTests: XCTestCase {
+    
+    func testPresenterViewPatterns() {
+        let willChangeObjectExp = expectation(description: "willChangeObject")
+        willChangeObjectExp.assertForOverFulfill = false
+        let scope = SampleScope()
+        let cancellable = scope.objectWillChange.sink { _ in
+            willChangeObjectExp.fulfill()
+        }
+        _ = scope.buildStoreView {
+            SamplePresentedView(model: $0, send: $1)
+        }
+        scope.send(.retry)
+        XCTAssertNotNil(cancellable)
+        self.wait(for: [willChangeObjectExp], timeout: 1.0)
+    }
+
+    func testPresenterViewPatternsTypeInitializer() {
+        let willChangeObjectExp = expectation(description: "willChangeObject")
+        willChangeObjectExp.assertForOverFulfill = false
+        let scope = SampleScope()
+        let cancellable = scope.objectWillChange.sink { _ in
+            willChangeObjectExp.fulfill()
+        }
+        _ = scope.buildStoreView(SamplePresentedView.self)
+        scope.send(.retry)
+        XCTAssertNotNil(cancellable)
+        self.wait(for: [willChangeObjectExp], timeout: 1.0)
+    }
+}
 

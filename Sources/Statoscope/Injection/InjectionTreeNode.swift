@@ -278,39 +278,6 @@ extension InjectionTreeNode {
     }
 }
 
-#if false
-extension InjectionTreeNode {
-    func resolveSuperscope<T: Injectable>() throws -> T {
-        var node: InjectionTreeNode? = self
-        while let iterator = node {
-            node = iterator.weakParent?.anyLink
-            if let found = iterator as? T {
-                return found
-            }
-            if let inStoreFound: T = iterator.injectionStore.optResolve() {
-                return inStoreFound
-            }
-        }
-        throw NoInjectedValueFound(T.self, injectionTreeDescription: self.getPrintTree())
-        // return T.defaultValue
-    }
-
-    func resolveObject<T: Injectable>(keyPath: String?) throws -> T {
-        var node: InjectionTreeNode? = self
-        while let iterator = node {
-            node = iterator.weakParent?.anyLink
-            if let foundInStore: T = iterator.injectionStore.optResolve() {
-                return foundInStore
-            }
-            if let foundInAncestor = iterator as? T {
-                return foundInAncestor
-            }
-        }
-        throw NoInjectedValueFound(T.self, injectionTreeDescription: self.getPrintRootTree())
-    }
-}
-#endif
-
 public extension InjectionTreeNodeProtocol {
     var parentNode: InjectionTreeNodeProtocol? {
         get {

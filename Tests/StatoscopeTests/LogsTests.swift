@@ -9,7 +9,6 @@ import Foundation
 import XCTest
 @testable import Statoscope
 import StatoscopeTesting
-import CustomDump
 
 final class LogsTests: XCTestCase {
     

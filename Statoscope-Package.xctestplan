@@ -1,0 +1,44 @@
+{
+  "configurations" : [
+    {
+      "id" : "5C548782-D4BD-42A3-BF74-390D2E051F2D",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "codeCoverage" : {
+      "targets" : [
+        {
+          "containerPath" : "container:",
+          "identifier" : "Statoscope",
+          "name" : "Statoscope"
+        },
+        {
+          "containerPath" : "container:",
+          "identifier" : "StatoscopeTesting",
+          "name" : "StatoscopeTesting"
+        }
+      ]
+    }
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "StatoscopeTests",
+        "name" : "StatoscopeTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "StatoscopeTestingTests",
+        "name" : "StatoscopeTestingTests"
+      }
+    }
+  ],
+  "version" : 1
+}
