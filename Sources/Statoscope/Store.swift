@@ -82,11 +82,10 @@ extension StoreProtocol {
     
     @discardableResult
     public func send(_ when: StoreState.When) -> Self {
-        LOG("\(when)")
         do {
             return try sendUnsafe(when)
         } catch {
-            LOG("‼️ Exception on send method: \(error)")
+            LOG(.errors, "‼️ Exception on send method: \(error)")
             return self
         }
     }
@@ -96,9 +95,27 @@ extension StoreProtocol {
         
         // For Statoscope, we store the snapshot in effectsHandler
         //  during update process
+        LOG(.when, "\(when)")
         assert(effectsState.enquedEffects.count == 0)
         assert(effectsState.cancelledEffects.count == 0)
+        let currentState = String(describing: _storeState)
+        for stateLine in currentState.split(separator: "\n") {
+            LOG(.state, "[STATE] " + stateLine)
+        }
         try updateUsingMiddlewares(when)
+        let newState = String(describing: _storeState)
+        for stateLine in newState.split(separator: "\n") {
+            LOG(.state, "[STATE] " + stateLine)
+        }
+        let differences = newState.split(separator: "\n").difference(from: currentState.split(separator: "\n"))
+        for difference in differences {
+            switch difference {
+            case .remove(_, let element, _):
+                LOG(.stateDiff, "[STATE] [DIFF] - " + element)
+            case .insert(_, let element, _):
+                LOG(.stateDiff, "[STATE] [DIFF] + " + element)
+            }
+        }
         let copiedSnapshot = effectsState
         effectsState = EffectsState(snapshotEffects: effectsState.currentRequestedEffects)
         ensureSetupDeinitObserver()
@@ -112,8 +129,8 @@ extension StoreProtocol {
         "\(type(of: _storeState)) (\(Unmanaged.passUnretained(_storeState).toOpaque())): "
     }
 
-    private func LOG(_ string: String) {
-        StatoscopeLogger.LOG(prefix: logPrefix, string)
+    private func LOG(_ level: LogLevel, _ string: String) {
+        StatoscopeLogger.LOG(level, prefix: logPrefix, string)
     }
 
     private func updateUsingMiddlewares(_ when: StoreState.When) throws {
@@ -141,9 +158,9 @@ extension StoreProtocol {
     func safeMainActorSend(_ effect: AnyEffect<StoreState.When>, _ when: StoreState.When) {
         let count = effects.count
         if count > 0 {
-            LOG("🪃 ↩ \(effect) (ongoing \(count)x🪃)")
+            LOG(.effects, "🪃 ↩ \(effect) (ongoing \(count)x🪃)")
         } else {
-            LOG("🪃 ↩ \(effect)")
+            LOG(.effects, "🪃 ↩ \(effect)")
         }
         send(when)
     }

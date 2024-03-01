@@ -14,12 +14,12 @@ import StatoscopeTesting
 class StoreOngoingEffectsPropertyTests: XCTestCase {
 
     override func setUp() async throws {
-        StatoscopeLogger.logEnabled = true
+        StatoscopeLogger.logLevel = Set(arrayLiteral: LogLevel.effects)
         scopeEffectsDisabledInUnitTests = false
     }
 
     override class func tearDown() {
-        StatoscopeLogger.logEnabled = false
+        StatoscopeLogger.logLevel = Set()
         scopeEffectsDisabledInUnitTests = true
     }
 
@@ -96,12 +96,12 @@ class StoreOngoingEffectsPropertyTests: XCTestCase {
 class StoreEffectsCancellationTests: XCTestCase {
 
     override func setUp() async throws {
-        StatoscopeLogger.logEnabled = true
+        StatoscopeLogger.logLevel = Set(arrayLiteral: LogLevel.effects)
         scopeEffectsDisabledInUnitTests = false
     }
 
     override class func tearDown() {
-        StatoscopeLogger.logEnabled = false
+        StatoscopeLogger.logLevel = Set(arrayLiteral: LogLevel.effects)
         scopeEffectsDisabledInUnitTests = true
     }
 
@@ -231,12 +231,12 @@ class StoreeEffectsThrowingTests: XCTestCase {
     }
 
     override func setUp() async throws {
-        StatoscopeLogger.logEnabled = true
+        StatoscopeLogger.logLevel = Set(arrayLiteral: LogLevel.effects)
         scopeEffectsDisabledInUnitTests = false
     }
 
     override class func tearDown() {
-        StatoscopeLogger.logEnabled = false
+        StatoscopeLogger.logLevel = Set()
         scopeEffectsDisabledInUnitTests = true
     }
 
