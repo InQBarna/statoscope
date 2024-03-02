@@ -16,6 +16,27 @@ extension String {
     }
 }
 
+protocol WithFixedDebugDescription {
+    var fixedDebugDescription: String { get }
+}
+
+extension Published: WithFixedDebugDescription {
+    var fixedDebugDescription: String {
+        guard let storageValue = Mirror(reflecting: self)
+            .descendant("storage")
+            .map(Mirror.init)?.children
+            .first?.value else {
+            return String(describing: self)
+        }
+        if let value = (storageValue as? Publisher)
+            .map(Mirror.init)?.descendant("subject", "currentValue") {
+            return String(describing: value)
+        } else {
+            return String(describing: storageValue)
+        }
+    }
+}
+
 public extension Scope {
     var debugDescription: String {
         "\(type(of: self))(" +
@@ -26,7 +47,13 @@ public extension Scope {
                     guard let label = child.label else {
                         return nil
                     }
-                    return "\(label): \(child.value)".indentDumpedObject()
+                    let valueDescription: String
+                    if let fixedDescription = child.value as? WithFixedDebugDescription {
+                        valueDescription = fixedDescription.fixedDebugDescription
+                    } else {
+                        valueDescription = String(describing: child.value)
+                    }
+                    return "\(label): \(valueDescription)".indentDumpedObject()
                 }
                 .joined(separator: .newLine) +
             .newLine +

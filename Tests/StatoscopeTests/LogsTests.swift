@@ -9,6 +9,7 @@ import Foundation
 import XCTest
 @testable import Statoscope
 import StatoscopeTesting
+import Combine
 
 final class LogsTests: XCTestCase {
     
@@ -219,5 +220,61 @@ ScopeWithEffect(
             "[SCOPE]: Parent (0xF):  [STATE] [DIFF] -   loading: false",
             "[SCOPE]: Parent (0xF):  [STATE] [DIFF] +   loading: true"
         ])
+    }
+    
+    private enum PublishedLogs {
+        final class WithPublishedProperties: Statostore, ObservableObject {
+            @Published var loading: Bool = false
+            enum When {
+                case systemLoadedScope
+                case networkDidFinish
+            }
+            func update(_ when: When) throws {
+                switch when {
+                case .systemLoadedScope:
+                    loading = true
+                case .networkDidFinish:
+                    loading = false
+                }
+            }
+            var debugLoading: Bool { loading }
+        }
+    }
+    
+    func testPublishedPropertiesLogs() throws {
+        var logs: [String] = []
+        let regex: Regex = try Regex("(0x[0-9a-f]*)")
+        StatoscopeLogger.logReplacement = { level, log in
+            if level == .stateDiff {
+                logs.append(log.replacing(regex) { _ in "0xF"})
+            }
+        }
+        let sut = PublishedLogs.WithPublishedProperties()
+        sut.send(.systemLoadedScope)
+        XCTAssertEqual(logs, [
+            "[SCOPE]: WithPublishedProperties (0xF):  [STATE] [DIFF] -   _loading: false",
+            "[SCOPE]: WithPublishedProperties (0xF):  [STATE] [DIFF] +   _loading: true"
+        ])
+    }
+    
+    func testPublishedPropertiesLogsWithSink() throws {
+        var logs: [String] = []
+        let regex: Regex = try Regex("(0x[0-9a-f]*)")
+        StatoscopeLogger.logReplacement = { level, log in
+            if level == .stateDiff {
+                logs.append(log.replacing(regex) { _ in "0xF"})
+            }
+        }
+        let sut = PublishedLogs.WithPublishedProperties()
+        var cancellable: AnyCancellable? = sut.objectWillChange.sink { _ in
+            // to nothing
+        }
+        sut.send(.systemLoadedScope)
+        XCTAssertEqual(logs, [
+            "[SCOPE]: WithPublishedProperties (0xF):  [STATE] [DIFF] -   _loading: false",
+            "[SCOPE]: WithPublishedProperties (0xF):  [STATE] [DIFF] +   _loading: true"
+        ])
+        XCTAssertNotNil(cancellable, "shutting up compiler warnings")
+        cancellable = nil
     }
 }
