@@ -13,6 +13,9 @@ import Foundation
 public protocol InjectionTreeNodeProtocol {
     /// Returns the ancestor in the injection tree node
     var parentNode: InjectionTreeNodeProtocol? { get set }
+    // TODO: parentKeyPath and parentNode to be merged into a single property ?
+    /// Returns the ancestor keyPath to the current node
+    var parentKeyPath: AnyKeyPath? { get set }
     /// Returns the descendants in the injection tree node
     var childrenNodes: [InjectionTreeNodeProtocol] { get }
     /// Returns the root ancestor of the inection tree node
@@ -101,6 +104,18 @@ public extension InjectionTreeNode {
             weakParent?.anyLink = InjectionTreeNodeBox.map(expr: newValue)
         }
     }
+    
+    var parentKeyPath: AnyKeyPath? {
+        get {
+            weakParent?.parentKeyPath
+        }
+        set {
+            // parentNode and parentKeyPath needs a refactor so they are assigned alltogether
+            //  in the meantime... assert correct usage
+            assert(newValue == nil || weakParent != nil)
+            weakParent?.parentKeyPath = newValue
+        }
+    }
 
     @discardableResult
     func injectObject<T>(_ obj: T) -> Self {
@@ -180,21 +195,39 @@ extension InjectionTreeNode {
         }
         return node
     }
+    
+    var selfRootKeyPath: AnyKeyPath {
+        guard var node: InjectionTreeNode = weakParent?.anyLink,
+              let parentKeyPath else {
+            return \Self.self
+        }
+        
+        var keyPath: AnyKeyPath = parentKeyPath
+        while let weakParent = node.weakParent,
+              let weakParentLink = weakParent.anyLink {
+            node = weakParentLink
+            if let appendableKP = weakParent.parentKeyPath,
+               let newLKeyPath = appendableKP.appending(path: keyPath) {
+                keyPath = newLKeyPath
+            }
+        }
+        return keyPath
+    }
 
-    func assignChildOnPropertyWrapperGet<Value: InjectionTreeNodeProtocol>(_ value: Value?) {
+    func assignChildOnPropertyWrapperGet<Value: InjectionTreeNodeProtocol>(_ value: Value?, keyPath: AnyKeyPath) {
         if value?.parentNode != nil {
             return
         }
-        assignChildAndCleanupChain(value)
+        assignChildAndCleanupChain(value, keyPath: keyPath)
     }
 
-    func assignChildOnPropertyWrapperSet<Value: InjectionTreeNodeProtocol>(_ value: Value?) {
-        assignChildAndCleanupChain(value)
+    func assignChildOnPropertyWrapperSet<Value: InjectionTreeNodeProtocol>(_ value: Value?, keyPath: AnyKeyPath) {
+        assignChildAndCleanupChain(value, keyPath: keyPath)
     }
 
-    fileprivate func assignChildAndCleanupChain<Value: InjectionTreeNodeProtocol>(_ newValue: Value?) {
+    fileprivate func assignChildAndCleanupChain<Value: InjectionTreeNodeProtocol>(_ newValue: Value?, keyPath: AnyKeyPath) {
 
-        assignChild(newValue)
+        assignChild(newValue, keyPath: keyPath)
         cleanupChildren()
 
         // Debug
@@ -205,12 +238,13 @@ extension InjectionTreeNode {
         }
     }
 
-    fileprivate func assignChild<Value: InjectionTreeNodeProtocol>(_ child: Value?) {
+    fileprivate func assignChild<Value: InjectionTreeNodeProtocol>(_ child: Value?, keyPath: AnyKeyPath) {
         if var newInjTreeNode = child {
             if !children.contains(newInjTreeNode) {
                 children.add(InjectionTreeNodeBox(expr: newInjTreeNode))
             }
             newInjTreeNode.parentNode = self
+            newInjTreeNode.parentKeyPath = keyPath
         }
     }
 
@@ -300,6 +334,15 @@ extension Optional: InjectionTreeNodeProtocol where Wrapped: InjectionTreeNode {
         }
         set {
             self?.parentNode = newValue
+        }
+    }
+    
+    public var parentKeyPath: AnyKeyPath? {
+        get {
+            return self?.parentKeyPath
+        }
+        set {
+            self?.parentKeyPath = newValue
         }
     }
 

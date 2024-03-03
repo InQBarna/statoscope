@@ -222,6 +222,30 @@ ScopeWithEffect(
         ])
     }
     
+    func testChildStoreLogs() throws {
+        var logs: [String] = []
+        let regex: Regex = try Regex("(0x[0-9a-f]*)")
+        StatoscopeLogger.logReplacement = { _, log in
+            if log.contains(" Child ") {
+                logs.append(log.replacing(regex) { _ in "0xF"})
+            }
+        }
+        let sut = ParentChildImplemented.Parent()
+        sut.send(.navigateToChild)
+        sut.child?.send(.didAppear)
+        XCTAssertEqual(logs, [
+            "[SCOPE]: Child (0xF):  didAppear",
+            "[SCOPE]: Child (0xF):  [STATE] Child(",
+            "[SCOPE]: Child (0xF):  [STATE]   showingChild: false",
+            "[SCOPE]: Child (0xF):  [STATE] )",
+            "[SCOPE]: Child (0xF):  [STATE] Child(",
+            "[SCOPE]: Child (0xF):  [STATE]   showingChild: true",
+            "[SCOPE]: Child (0xF):  [STATE] )",
+            "[SCOPE]: Child (0xF):  [STATE] [DIFF] -   showingChild: false",
+            "[SCOPE]: Child (0xF):  [STATE] [DIFF] +   showingChild: true"
+        ])
+    }
+    
     private enum PublishedLogs {
         final class WithPublishedProperties: Statostore, ObservableObject {
             @Published var loading: Bool = false

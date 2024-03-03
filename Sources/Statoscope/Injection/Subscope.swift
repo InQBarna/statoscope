@@ -9,6 +9,8 @@ import Foundation
 import Combine
 
 public protocol IsSubscopeToMirror {}
+protocol IsOptionalType {}
+extension Optional: IsOptionalType {}
 
 //
 // A property wrapper
@@ -33,7 +35,12 @@ public struct Subscope<Value: InjectionTreeNodeProtocol>: CustomStringConvertibl
     ) -> Value {
         get {
             let val: Value = enclosingInstance[keyPath: storageKeyPath].storage
-            enclosingInstance.assignChildOnPropertyWrapperGet(val)
+            if nil != enclosingInstance.parentNode, enclosingInstance.parentNode is IsOptionalType {
+                let optionalWrappedKeyPath = (\T?.self! as KeyPath<T?, T>).appending(path: wrappedKeyPath)
+                enclosingInstance.assignChildOnPropertyWrapperGet(val, keyPath: optionalWrappedKeyPath)
+            } else {
+                enclosingInstance.assignChildOnPropertyWrapperGet(val, keyPath: wrappedKeyPath)
+            }
             return val
         }
         set {
@@ -48,7 +55,12 @@ public struct Subscope<Value: InjectionTreeNodeProtocol>: CustomStringConvertibl
             enclosingInstance[keyPath: storageKeyPath].storage = newValue
 
             // Children maintenance (for injection retrieval)
-            enclosingInstance.assignChildOnPropertyWrapperSet(newValue)
+            if nil != enclosingInstance.parentNode, enclosingInstance.parentNode is IsOptionalType {
+                let optionalWrappedKeyPath = (\T?.self! as KeyPath<T?, T>).appending(path: wrappedKeyPath)
+                enclosingInstance.assignChildOnPropertyWrapperGet(newValue, keyPath: optionalWrappedKeyPath)
+            } else {
+                enclosingInstance.assignChildOnPropertyWrapperSet(newValue, keyPath: wrappedKeyPath)
+            }
         }
     }
 

@@ -9,6 +9,7 @@ import Foundation
 
 class InjectionTreeNodeBox {
     weak var anyLink: InjectionTreeNode?
+    var parentKeyPath: AnyKeyPath?
     init(_ anyLink: InjectionTreeNode? = nil) {
         self.anyLink = anyLink
     }
@@ -46,31 +47,3 @@ extension InjectionTreeNodeBox: InjectionTreeNodeProtocol {
         anyLink?.rootNode
     }
 }
-
-/*
-fileprivate final class WeakChainLink<D: ChainLink>: AnyWeakChainLink, ChainLinkProtocol {
-    var chainParent: ChainLinkProtocol? {
-        get {
-            link?.chainParent
-        }
-        set {
-            link?.chainParent = newValue
-        }
-    }
-    
-    init(_ link: D) {
-        super.init(link)
-    }
-    static func == (lhs: WeakChainLink, rhs: WeakChainLink) -> Bool {
-        lhs.link === rhs.link
-    }
-    var link: D? {
-        get {
-            anyLink as? D
-        }
-        set {
-            anyLink = newValue
-        }
-    }
-}
-*/
