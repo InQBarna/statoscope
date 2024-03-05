@@ -32,15 +32,15 @@ private final class SampleStoreState:
 private final class SampleScope: StoreProtocol {
 
     typealias When = SampleStoreState.When
-    private(set) var _storeState = SampleStoreState()
+    private(set) var storeState = SampleStoreState()
 
     func update(_ when: SampleStoreState.When) throws {
         switch when {
         case .systemLoadsSampleScope, .retry:
-            _storeState.viewShowsLoadingMessage = "Loading..."
+            storeState.viewShowsLoadingMessage = "Loading..."
         case .networkRespondsWithContent(let newContent):
-            _storeState.viewShowsContent = newContent.mapError { _ in SampleError.someError }
-            _storeState.viewShowsLoadingMessage = nil
+            storeState.viewShowsContent = newContent.mapError { _ in SampleError.someError }
+            storeState.viewShowsLoadingMessage = nil
         }
     }
 }

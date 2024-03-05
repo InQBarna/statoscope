@@ -72,9 +72,12 @@ public final class StoreTestPlan<T: StoreProtocol> {
 
 internal extension StoreImplementation {
     @discardableResult
-    func when<Subscope: StoreProtocol>(childScope: Subscope,
-                                                   file: StaticString = #file, line: UInt = #line,
-                                                   _ whens: [Subscope.When]) throws -> Self {
+    func when<Subscope: StoreProtocol>(
+        childScope: Subscope,
+        file: StaticString = #file,
+        line: UInt = #line,
+        _ whens: [Subscope.When]
+    ) throws -> Self {
         // assertNoDeepEffects(file: file, line: line)
         try whens.forEach {
             childScope.effectsState.reset()

@@ -225,11 +225,12 @@ extension InjectionTreeNode {
         assignChildAndCleanupChain(value, keyPath: keyPath)
     }
 
-    fileprivate func assignChildAndCleanupChain<Value: InjectionTreeNodeProtocol>(_ newValue: Value?, keyPath: AnyKeyPath) {
-
+    fileprivate func assignChildAndCleanupChain<Value: InjectionTreeNodeProtocol>(
+        _ newValue: Value?,
+        keyPath: AnyKeyPath
+    ) {
         assignChild(newValue, keyPath: keyPath)
         cleanupChildren()
-
         // Debug
         // enclosingInstance.root.printRootTree()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak root = root] in

@@ -10,6 +10,7 @@ import XCTest
 @testable import Statoscope
 import StatoscopeTesting
 
+// swiftlint:disable nesting
 class EffectsPristineEqualsTests: XCTestCase {
 
     private struct Effect1: Effect, Equatable {
@@ -215,3 +216,4 @@ class EffectsRunBlockCall: XCTestCase {
         XCTAssertEqual(result, .success("result"))
     }
 }
+// swiftlint:enable nesting

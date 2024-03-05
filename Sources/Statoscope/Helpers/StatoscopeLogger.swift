@@ -16,15 +16,15 @@ public enum LogLevel {
 }
 
 public extension LogLevel {
-    static var basic: Set<LogLevel> = Set(arrayLiteral: .errors, .when)
-    static var all: Set<LogLevel> = Set(arrayLiteral: .errors, .when, .effects, .stateDiff)
-    static var verbose: Set<LogLevel> = Set(arrayLiteral: .errors, .when, .effects, .stateDiff, .state)
+    static var basic: Set<LogLevel> = [.errors, .when]
+    static var all: Set<LogLevel> = [.errors, .when, .effects, .stateDiff]
+    static var verbose: Set<LogLevel> = [.errors, .when, .effects, .stateDiff, .state]
 }
 
 public struct StatoscopeLogger {
 
     /// Enable or disable statoscope log with this global variable
-    public static var logLevel: Set<LogLevel> = Set(arrayLiteral: .errors)
+    public static var logLevel: Set<LogLevel> = [.errors]
 
     /// Overwrite statoscope logger method with this global variable
     public static var logReplacement: ((LogLevel, String) -> Void)?

@@ -38,11 +38,11 @@ extension Scope {
 }
 
 final public class DummyStore<State: Scope>: StoreProtocol {
-    public var _storeState: State
+    public var storeState: State
     public typealias When = State.When
 
     init(state: State) {
-        self._storeState = state
+        self.storeState = state
     }
 
     public func update(_ when: State.When) throws {

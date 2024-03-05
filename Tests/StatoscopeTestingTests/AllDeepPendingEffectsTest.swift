@@ -10,6 +10,7 @@ import Statoscope
 @testable import StatoscopeTesting
 import XCTest
 
+// swiftlint:disable nesting
 class AllDeepPendingEffectsTest: XCTestCase {
 
     enum SimpleParentChild {
@@ -120,3 +121,4 @@ class AllDeepPendingEffectsTest: XCTestCase {
     }
 
 }
+// swiftlint:enable nesting

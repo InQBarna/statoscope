@@ -39,7 +39,7 @@ extension StoreTestPlan {
         file: StaticString = #file, line: UInt = #line
     ) throws -> Self {
         addStep { supersut in
-            guard let sut = supersut._storeState[keyPath: keyPath] else {
+            guard let sut = supersut.storeState[keyPath: keyPath] else {
                 XCTFail("No subscope found on \(type(of: supersut)) of type \(Subscope.self): " +
                         "when looking for effects", file: file, line: line)
                 return
@@ -66,7 +66,7 @@ extension StoreTestPlan {
         file: StaticString = #file, line: UInt = #line
     ) throws -> Self {
         addStep { supersut in
-            let sut = supersut._storeState[keyPath: keyPath]
+            let sut = supersut.storeState[keyPath: keyPath]
             let correctYypeEffects = sut.effectsState.effects.filter { $0 is EffectType }
             guard correctYypeEffects.count > 0 else {
                 XCTFail("No effect of type \(EffectType.self) on sut \(type(of: sut)): \(correctYypeEffects)",

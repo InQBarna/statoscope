@@ -1,6 +1,6 @@
 //
 //  StatoscopeAccessControl.swift
-//  
+//
 //
 //  Created by Sergi Hernanz on 31/1/24.
 //
@@ -9,6 +9,7 @@ import Foundation
 import XCTest
 import Statoscope
 
+// swiftlint:disable nesting
 class StatoscopeAccessControl: XCTestCase {
 
     func testPrivateClasses() {
@@ -63,3 +64,4 @@ class StatoscopeAccessControl: XCTestCase {
         }
     }
 }
+// swiftlint:enable nesting

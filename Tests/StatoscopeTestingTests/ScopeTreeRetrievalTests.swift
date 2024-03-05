@@ -10,6 +10,7 @@ import Statoscope
 @testable import StatoscopeTesting
 import XCTest
 
+// swiftlint:disable nesting
 class ScopeTreeRetrievalTests: XCTestCase {
 
     enum SimpleParentChild {
@@ -67,3 +68,4 @@ class ScopeTreeRetrievalTests: XCTestCase {
     }
 
 }
+// swiftlint:enable nesting

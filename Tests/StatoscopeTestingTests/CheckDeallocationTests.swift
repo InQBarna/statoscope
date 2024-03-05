@@ -10,6 +10,7 @@ import Statoscope
 @testable import StatoscopeTesting
 import XCTest
 
+// swiftlint:disable nesting
 class CheckDeallocationTests: XCTestCase {
 
     enum SimpleParentChild {
@@ -45,3 +46,4 @@ class CheckDeallocationTests: XCTestCase {
         .runTest(assertRelease: true)
     }
 }
+// swiftlint:enable nesting

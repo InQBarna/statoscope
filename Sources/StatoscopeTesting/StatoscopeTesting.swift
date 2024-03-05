@@ -30,7 +30,7 @@ extension StoreTestPlan {
         _ with: @escaping (_ sut: Subscope) throws -> Void
     ) rethrows -> Self {
         addStep { sut in
-            try with(sut._storeState[keyPath: keyPath])
+            try with(sut.storeState[keyPath: keyPath])
         }
     }
 }

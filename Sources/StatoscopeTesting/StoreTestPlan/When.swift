@@ -86,7 +86,7 @@ extension StoreTestPlan {
     ) throws -> Self {
         addStep { sut in
             sut.effectsState.clear(clearEffects)
-            XCTAssertThrowsError(try sut._storeState[keyPath: keyPath].sendUnsafe(when), file: file, line: line)
+            XCTAssertThrowsError(try sut.storeState[keyPath: keyPath].sendUnsafe(when), file: file, line: line)
         }
     }
 
@@ -99,7 +99,7 @@ extension StoreTestPlan {
         _ when: Subscope.When
     ) throws -> Self {
         addStep { sut in
-            guard let childScope = sut._storeState[keyPath: keyPath] else {
+            guard let childScope = sut.storeState[keyPath: keyPath] else {
                 XCTFail("WHEN: Non existing model in first parameter: error unwrapping expecte non-nil subscope" +
                         " \(type(of: T.self)) : \(type(of: Subscope.self))",
                         file: file, line: line)
@@ -169,7 +169,7 @@ private extension StoreTestPlan {
         _ whens: [Subscope.When]
     ) throws -> Self {
         addStep { sut in
-            let child = sut._storeState[keyPath: keyPath]
+            let child = sut.storeState[keyPath: keyPath]
             child.effectsState.clear(clearEffects)
             try sut.when(childScope: child, file: file, line: line, whens)
         }
@@ -184,7 +184,7 @@ private extension StoreTestPlan {
         _ whens: [Subscope.When]
     ) throws -> Self {
         addStep { sut in
-            guard let childScope = sut._storeState[keyPath: keyPath] else {
+            guard let childScope = sut.storeState[keyPath: keyPath] else {
                 XCTFail("WHEN: Non existing model in first parameter: error unwrapping expecte non-nil subscope" +
                         " \(type(of: T.self)) : \(type(of: Subscope.self))",
                         file: file, line: line)

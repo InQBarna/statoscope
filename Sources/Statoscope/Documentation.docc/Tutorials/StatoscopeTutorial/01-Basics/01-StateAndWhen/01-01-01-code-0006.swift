@@ -12,7 +12,7 @@ private final class Counter: Scope {
     func update(_ when: When) throws {
         switch when {
         case .userTappedIncrementButton:
-            viewDisplaysTotalCount = viewDisplaysTotalCount + 1
+            viewDisplaysTotalCount += 1
         case .userTappedDecrementButton:
             viewDisplaysTotalCount = max(0, viewDisplaysTotalCount - 1)
         }

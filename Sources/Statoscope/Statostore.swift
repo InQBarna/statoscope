@@ -21,7 +21,7 @@ public protocol Statostore:
 
 public extension Statostore {
 
-    var _storeState: StoreState {
+    var storeState: StoreState {
         return self
     }
 

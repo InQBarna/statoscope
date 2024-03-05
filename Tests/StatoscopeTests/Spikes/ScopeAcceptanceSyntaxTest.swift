@@ -9,6 +9,7 @@ import XCTest
 import SwiftUI
 @testable import Statoscope
 
+// swiftlint:disable nesting
 private final class SampleScope: ObservableObject, Statostore {
 
     // Internal scope state has developer syntax, we have 2 variables which are
@@ -59,6 +60,7 @@ private final class SampleScope: ObservableObject, Statostore {
         }
     }
 }
+// swiftlint:enable nesting
 
 // We can create an "Acceptance" artifact, so we abstract Acceptance from
 //  underlying implementation

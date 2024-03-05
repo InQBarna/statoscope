@@ -9,6 +9,7 @@ import Foundation
 import XCTest
 @testable import Statoscope
 
+// swiftlint:disable nesting
 class SubscopeSuperscodePropertyWrapperTests: XCTestCase {
 
     enum SimpleParentChild {
@@ -315,3 +316,4 @@ class InjectObjectTests: XCTestCase {
     // Otras cosas a cubrir:
     //  Gestion de memoria para clases ?
 }
+// swiftlint:enable nesting

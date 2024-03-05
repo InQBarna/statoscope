@@ -15,18 +15,18 @@ extension StoreProtocol where Self: AnyObject {
     ) -> Binding<Bool> {
         guard let when = when else {
             return Binding(
-                get: { [weak self] in self?._storeState[keyPath: keyPath] != nil },
+                get: { [weak self] in self?.storeState[keyPath: keyPath] != nil },
                 set: { _ in return }
             )
         }
         return Binding(
-            get: { [weak self] in self?._storeState[keyPath: keyPath] != nil },
+            get: { [weak self] in self?.storeState[keyPath: keyPath] != nil },
             set: { [weak self] in self?.send(when($0)) }
         )
     }
     public func bindBool(_ keyPath: KeyPath<StoreState, Bool>) -> Binding<Bool> {
         return Binding(
-            get: { [weak self] in self?._storeState[keyPath: keyPath] ?? false },
+            get: { [weak self] in self?.storeState[keyPath: keyPath] ?? false },
             set: { _ in }
         )
     }
@@ -38,7 +38,7 @@ extension StoreProtocol where Self: AnyObject {
         _ when: @escaping (T) -> StoreState.When
     ) -> Binding<T> {
         Binding(
-            get: { self._storeState[keyPath: keyPath] },
+            get: { self.storeState[keyPath: keyPath] },
             set: { [weak self] in self?.send(when($0)) }
         )
     }
@@ -49,7 +49,7 @@ extension StoreProtocol where Self: AnyObject {
         defaultValue: T
     ) -> Binding<T> {
         Binding(
-            get: { [weak self] in self?._storeState[keyPath: keyPath] ?? defaultValue },
+            get: { [weak self] in self?.storeState[keyPath: keyPath] ?? defaultValue },
             set: { [weak self] in self?.send(when($0)) }
         )
     }

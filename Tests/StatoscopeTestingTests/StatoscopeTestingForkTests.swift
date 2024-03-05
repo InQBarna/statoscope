@@ -31,10 +31,10 @@ private final class SampleScope:
     func update(_ when: When) throws {
         switch when {
         case .systemLoadsSampleScope, .retry:
-            _storeState.viewShowsLoadingMessage = "Loading..."
+            storeState.viewShowsLoadingMessage = "Loading..."
         case .networkRespondsWithContent(let newContent):
-            _storeState.viewShowsContent = newContent.mapError { _ in SampleError.someError }
-            _storeState.viewShowsLoadingMessage = nil
+            storeState.viewShowsContent = newContent.mapError { _ in SampleError.someError }
+            storeState.viewShowsLoadingMessage = nil
         }
     }
 }

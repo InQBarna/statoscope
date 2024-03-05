@@ -17,7 +17,7 @@ public protocol StoreImplementation:
     /// The state object should implement the ``Scope`` protocol, providing
     /// * Usable inside injection tree
     /// * Member variables with the Scope's state
-    var _storeState: StoreState { get }
+    var storeState: StoreState { get }
 
     /// Implements the business logic for this scope of the state
     ///
@@ -43,7 +43,7 @@ public protocol StorePublicProtocol:
     /// The state object should implement the ``Scope`` protocol, providing
     /// * Usable inside injection tree
     /// * Member variables with the Scope's state
-    var _storeState: StoreState { get }
+    var storeState: StoreState { get }
 
     /// Public method to send events to the store
     ///
@@ -97,12 +97,12 @@ extension StoreProtocol {
         LOG(.when, "\(when)")
         assert(effectsState.enquedEffects.count == 0)
         assert(effectsState.cancelledEffects.count == 0)
-        let currentState = String(describing: _storeState)
+        let currentState = String(describing: storeState)
         for stateLine in currentState.split(separator: "\n") {
             LOG(.state, "[STATE] " + stateLine)
         }
         try updateUsingMiddlewares(when)
-        let newState = String(describing: _storeState)
+        let newState = String(describing: storeState)
         for stateLine in newState.split(separator: "\n") {
             LOG(.state, "[STATE] " + stateLine)
         }
@@ -125,7 +125,7 @@ extension StoreProtocol {
     }
 
     var logPrefix: String {
-        "\(type(of: _storeState)) (\(Unmanaged.passUnretained(_storeState).toOpaque())): "
+        "\(type(of: storeState)) (\(Unmanaged.passUnretained(storeState).toOpaque())): "
     }
 
     private func LOG(_ level: LogLevel, _ string: String) {
@@ -134,7 +134,7 @@ extension StoreProtocol {
 
     private func updateUsingMiddlewares(_ when: StoreState.When) throws {
         if let middleware = middleWare {
-            guard let mappedWhen = try middleware.middleWare(self._storeState, when) else {
+            guard let mappedWhen = try middleware.middleWare(self.storeState, when) else {
                 return
             }
             try update(mappedWhen)

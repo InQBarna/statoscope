@@ -81,7 +81,11 @@ fileprivate func buildPresentedView<S: ObservableObject & Statoscope>(
     _ statoscope: S,
     @ViewBuilder builder: @escaping (S.State, @escaping (S.When) -> Void) -> some View
 ) -> some View {
-    StatoscopeView(model: statoscope, presentedView: builder(statoscope.state(), { [weak statoscope] in statoscope?.send($0) }))
+    StatoscopeView(
+        model: statoscope,
+        presentedView: builder(statoscope.state(),
+        { [weak statoscope] in statoscope?.send($0) })
+    )
 }
 
 
@@ -191,7 +195,10 @@ fileprivate final class CounterWithEffects: Statostore, ObservableObject {
             let request = try buildURLRequestPosting(dto: DTO(count: state.viewDisplaysTotalCount))
             effects.enqueue(
                 AnyEffect {
-                    let resDTO = try JSONDecoder().decode(DTO.self, from: try await URLSession.shared.data(for: request).0)
+                    let resDTO = try JSONDecoder().decode(
+                        DTO.self,
+                        from: try await URLSession.shared.data(for: request).0
+                    )
                     return When.networkPostCompleted(resDTO)
                 }
             )
