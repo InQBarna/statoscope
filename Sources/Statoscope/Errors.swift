@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  Errors.swift
 //  
 //
 //  Created by Sergi Hernanz on 19/1/24.

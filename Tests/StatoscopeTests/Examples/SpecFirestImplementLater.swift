@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  SpecFirstTest.swift
 //  
 //
 //  Created by Sergi Hernanz on 16/2/24.
@@ -18,16 +18,16 @@ import StatoscopeTesting
 private final class SampleScope:
     Scope,
     ObservableObject {
-    
+
     @Published var viewShowsLoadingMessage: String?
     @Published var viewShowsContent: Result<String, SampleError>?
-    
+
     enum When {
         case systemLoadsSampleScope
         case networkRespondsWithContent(Result<String, Error>)
         case retry
     }
-    
+
     enum SampleError: String, Error, Equatable {
         case someError
         case noConnection

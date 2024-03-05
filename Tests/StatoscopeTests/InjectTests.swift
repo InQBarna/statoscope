@@ -30,7 +30,7 @@ class SubscopeSuperscodePropertyWrapperTests: XCTestCase {
         let parent = SimpleParentChild.Parent()
         XCTAssert(parent.child?.parent === parent)
     }
-    
+
     func testSimpleParentChildRoot() {
         let sut = SimpleParentChild.Parent()
         XCTAssert(sut.child?.root === sut)
@@ -68,19 +68,19 @@ class SubscopeSuperscodePropertyWrapperTests: XCTestCase {
         XCTAssert(parent.child?.grandson?.parent === parent)
         XCTAssert(parent2.child?.grandson?.parent === parent2)
     }
-    
+
     func testParentGrandSonRoot() {
         let sut = ParentChildGrandSon.Parent()
         XCTAssert(sut.child?.root === sut)
         XCTAssert(sut.child?.grandson?.root === sut)
     }
-    
+
     func testParentGrandSonRootKePath() {
         let sut = ParentChildGrandSon.Parent()
         XCTAssertEqual(sut.child?.selfRootKeyPath, \ParentChildGrandSon.Parent.child)
         XCTAssertEqual(sut.child?.grandson?.selfRootKeyPath, \ParentChildGrandSon.Parent.child!.grandson)
     }
-    
+
     enum TwoSubhierarchies {
         final class Parent: InjectionTreeNode, Injectable, ObservableObject {
             @Subscope var child1: Child? = Child()
@@ -109,8 +109,7 @@ class SubscopeSuperscodePropertyWrapperTests: XCTestCase {
         let child = SimpleParentChild.Child()
         XCTAssertEqual(child.parent.uuid, SimpleParentChild.Parent.defaultValue.uuid)
     }
-    
-    
+
     func testTwoSubhierarchiesRoot() {
         let sut = TwoSubhierarchies.Parent()
         XCTAssert(sut.child1?.root === sut)
@@ -118,7 +117,7 @@ class SubscopeSuperscodePropertyWrapperTests: XCTestCase {
         XCTAssert(sut.child2?.root === sut)
         XCTAssert(sut.child2?.grandson?.root === sut)
     }
-    
+
     func testTwoSubhierarchiesRootKePath() {
         let sut = TwoSubhierarchies.Parent()
         XCTAssertEqual(sut.child1?.selfRootKeyPath, \TwoSubhierarchies.Parent.child1)

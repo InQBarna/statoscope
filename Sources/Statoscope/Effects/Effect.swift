@@ -35,17 +35,17 @@ import Foundation
 /// 3. Use ``pristineEquals(_:)-5w9j1`` to search for exact effect instances.
 ///
 public protocol Effect {
-    
+
     /// The type returned by this effect,
     ///
     /// This is usually an enum of When cases to group effects inside a Store
     associatedtype ResultType: Sendable
-    
+
     /// The method to be executed when the Effects handler schedules this Effect
     ///
     ///  * returns: An object with the specified type, or throws an error
     func runEffect() async throws -> ResultType
-    
+
     /// Compares the current effect to another effect
     ///
     /// This comparison is provided for searching an effect inside an array of effect
@@ -65,9 +65,8 @@ public protocol Effect {
 }
 
 public extension Effect {
-    
-    func pristineEquals<ComparedEffect: Effect & Equatable>(_ other: ComparedEffect) -> Bool
-    {
+
+    func pristineEquals<ComparedEffect: Effect & Equatable>(_ other: ComparedEffect) -> Bool {
         if let anySelf = self as? AnyEffect<ResultType>,
            let typedSelf = anySelf.pristine as? ComparedEffect {
             return typedSelf == other
@@ -77,7 +76,7 @@ public extension Effect {
             return false
         }
     }
-    
+
     /// Type erasure helper
     func eraseToAnyEffect() -> AnyEffect<ResultType> {
         AnyEffect(effect: self)
@@ -114,7 +113,7 @@ public extension Effect {
             $0 as? ErrorType ?? error.unknownError
         }
     }
-    
+
     /// Maps the result of the effect to a result type with an untyped Error
     ///
     /// - Returns: An Effect with a new ReturnType Result<ReturnType, Error>
@@ -129,4 +128,3 @@ internal extension Effect {
             .replacingOccurrences(of: ".Type", with: "")
     }
 }
-

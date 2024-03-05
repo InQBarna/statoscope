@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  When.swift
 //  
 //
 //  Created by Sergi Hernanz on 6/2/24.
@@ -39,7 +39,7 @@ extension StoreTestPlan {
     ) throws -> Self {
         try privateWHEN(clearEffects: clearEffects, file: file, line: line, whens)
     }
-    
+
     @discardableResult
     public func WHEN<Subscope: StoreProtocol>(
         _ keyPath: KeyPath<T.StoreState, Subscope>,
@@ -61,7 +61,7 @@ extension StoreTestPlan {
     ) throws -> Self {
         try privateWHEN(keyPath, clearEffects: clearEffects, file: file, line: line, whens)
     }
-    
+
     @discardableResult
     public func throwsWHEN(
         clearEffects: ClearEffects = .all,
@@ -112,8 +112,7 @@ extension StoreTestPlan {
 }
 
 extension StoreTestPlan {
-    
-    
+
     @discardableResult
     public func AND(
         file: StaticString = #file,
@@ -145,7 +144,7 @@ extension StoreTestPlan {
 }
 
 private extension StoreTestPlan {
-    
+
     func privateWHEN(
         clearEffects: ClearEffects = .all,
         file: StaticString = #file,
@@ -195,5 +194,5 @@ private extension StoreTestPlan {
             try sut.when(childScope: childScope, file: file, line: line, whens)
         }
     }
-    
+
 }

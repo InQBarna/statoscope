@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  StoreTestPlan.swift
 //  
 //
 //  Created by Sergi Hernanz on 6/2/24.
@@ -16,7 +16,7 @@ public final class StoreTestPlan<T: StoreProtocol> {
         steps.append(step)
         return self
     }
-    
+
     public init(given: @escaping () throws -> T) {
         self.given = given
     }
@@ -25,9 +25,9 @@ public final class StoreTestPlan<T: StoreProtocol> {
         self.given = parent.given
         self.steps = parent.steps
     }
-    
+
     var snapshot: ((T) -> Void)?
-    
+
     // Possible parameters
     //  1.- Taking screenshots
     //   1.1.- Record screenshots
@@ -44,7 +44,7 @@ public final class StoreTestPlan<T: StoreProtocol> {
             try childFlow.runTest(file: file, line: line, assertRelease: assertRelease)
         }
     }
-    
+
     private func runAllSteps(
         file: StaticString,
         line: UInt,
@@ -58,7 +58,7 @@ public final class StoreTestPlan<T: StoreProtocol> {
             _ = try runAllSteps()
         }
     }
-    
+
     private func runAllSteps() throws -> T {
         let sut: T = try given()
         snapshot?(sut)

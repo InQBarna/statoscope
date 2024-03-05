@@ -25,7 +25,7 @@ public struct StatoscopeLogger {
 
     /// Enable or disable statoscope log with this global variable
     public static var logLevel: Set<LogLevel> = Set(arrayLiteral: .errors)
-    
+
     /// Overwrite statoscope logger method with this global variable
     public static var logReplacement: ((LogLevel, String) -> Void)?
 

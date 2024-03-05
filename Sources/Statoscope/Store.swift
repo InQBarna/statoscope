@@ -11,14 +11,14 @@ public protocol StoreImplementation:
     AnyObject {
     associatedtype When
     associatedtype StoreState: Scope where StoreState.When == When
-    
+
     /// The state handled by the store.
     ///
     /// The state object should implement the ``Scope`` protocol, providing
     /// * Usable inside injection tree
     /// * Member variables with the Scope's state
     var _storeState: StoreState { get }
-    
+
     /// Implements the business logic for this scope of the state
     ///
     /// Method responsible or receiving the current State of your app's scope
@@ -30,29 +30,28 @@ public protocol StoreImplementation:
     /// * Parameter when: the received event
     /// * Parameter effects: an EffectsState object to enqueue, query or cancel effects
     func update(_ when: StoreState.When) throws
-    
+
     func addMiddleWare(_ update: @escaping (StoreState, StoreState.When) throws -> StoreState.When?) -> Self
 }
 
 public protocol StorePublicProtocol:
-    Effectfull
-{
+    Effectfull {
     associatedtype StoreState: Scope
-    
+
     /// The state handled by the store.
     ///
     /// The state object should implement the ``Scope`` protocol, providing
     /// * Usable inside injection tree
     /// * Member variables with the Scope's state
     var _storeState: StoreState { get }
-    
+
     /// Public method to send events to the store
     ///
     /// Usually UI or system notitications send messages to stores using a When case
     /// * Parameter when: the typed event case to send to the store
     @discardableResult
     func send(_ when: StoreState.When) -> Self
-    
+
     /// Public method to send events to the store
     ///
     /// Usually UI or system notitications send messages to stores using a When case
@@ -79,7 +78,7 @@ public var scopeEffectsDisabledInUnitTests: Bool = nil != NSClassFromString("XCT
 let scopeEffectsDisabledInPreviews: Bool = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
 
 extension StoreProtocol {
-    
+
     @discardableResult
     public func send(_ when: StoreState.When) -> Self {
         do {
@@ -92,7 +91,7 @@ extension StoreProtocol {
 
     @discardableResult
     public func sendUnsafe(_ when: StoreState.When) throws -> Self {
-        
+
         // For Statoscope, we store the snapshot in effectsHandler
         //  during update process
         LOG(.when, "\(when)")
@@ -143,7 +142,7 @@ extension StoreProtocol {
             try update(when)
         }
     }
-    
+
     func completedEffect(_ uuid: UUID, _ effect: AnyEffect<StoreState.When>, _ when: StoreState.When?) {
         if let when {
             Task {
@@ -164,7 +163,7 @@ extension StoreProtocol {
         }
         send(when)
     }
-    
+
     internal func resetEffects() {
         effectsState.reset()
     }
@@ -202,5 +201,5 @@ extension StoreImplementation {
             associateOptionalObject(base: self, key: &middleWareHandlerStoreKey, value: newValue)
         }
     }
-    
+
 }

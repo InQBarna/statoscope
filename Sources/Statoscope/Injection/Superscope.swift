@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  Superscope.swift
 //  
 //
 //  Created by Sergi Hernanz on 18/1/24.
@@ -66,7 +66,7 @@ public struct Superscope<Value: Injectable & ObservableObject>: CustomStringConv
         get { fatalError() }
         set { fatalError("\(newValue)") }
     }
-    
+
     public var description: String {
         if let overwrittingValue {
             return "\(overwrittingValue)" // .removeOptionalDescription

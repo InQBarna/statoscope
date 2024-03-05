@@ -1,7 +1,7 @@
 import Statoscope
 import SwiftUI
 
-fileprivate struct CounterView: View {
+private struct CounterView: View {
     @ObservedObject var model = Counter()
     var body: some View {
         VStack {

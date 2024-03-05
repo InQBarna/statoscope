@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  LogsTests.swift
 //  
 //
 //  Created by Sergi Hernanz on 18/2/24.
@@ -12,7 +12,7 @@ import StatoscopeTesting
 import Combine
 
 final class LogsTests: XCTestCase {
-    
+
     private enum ParentChild {
         final class Parent: Statostore {
             var loading: Bool = false
@@ -20,14 +20,14 @@ final class LogsTests: XCTestCase {
             typealias When = Void
             func update(_ when: When) throws { }
         }
-        
+
         final class Child: Statostore {
             var showingChild: Bool = false
             typealias When = Void
             func update(_ when: Void) throws { }
         }
     }
-    
+
     func testLogState() throws {
         let sut = ParentChild.Parent()
         let expectedDescription = """
@@ -39,7 +39,7 @@ Parent(
         let description = String(describing: sut)
         XCTAssertEqual(description, expectedDescription)
     }
-    
+
     func testLogChildren() throws {
         let sut = ParentChild.Parent()
         sut.child = ParentChild.Child()
@@ -54,7 +54,7 @@ Parent(
         let description = String(describing: sut)
         XCTAssertEqual(description, expectedDescription)
     }
-    
+
     private enum ParentChildGrandSon {
         final class Parent: Statostore {
             var loading: Bool = false
@@ -62,21 +62,21 @@ Parent(
             typealias When = Void
             func update(_ when: Void) throws {}
         }
-        
+
         final class Child: Statostore {
             var showingChild: Bool = false
             @Subscope var grandson: GrandSon?
             typealias When = Void
             func update(_ when: Void) throws { }
         }
-        
+
         final class GrandSon: Statostore {
             var someVar: String = "someVarValue"
             typealias When = Void
             func update(_ when: Void) throws { }
         }
     }
-    
+
     func testLogChildrenGrandson() throws {
         let sut = ParentChildGrandSon.Parent()
         sut.child = ParentChildGrandSon.Child()
@@ -95,15 +95,14 @@ Parent(
         let description = String(describing: sut)
         XCTAssertEqual(description, expectedDescription)
     }
-    
-    
+
     private struct MyEffect: Effect, Equatable {
         let milliseconds: UInt64
         func runEffect() async throws {
             try await Task.sleep(nanoseconds: milliseconds * 1000_000)
         }
     }
-    
+
     final class ScopeWithEffect: Statostore {
         var loading: Bool = false
         enum When {
@@ -122,7 +121,7 @@ Parent(
             }
         }
     }
-    
+
     func testLogEffects() throws {
         let sut = ScopeWithEffect()
         XCTAssertEqual(
@@ -156,7 +155,7 @@ ScopeWithEffect(
 )
 """)
     }
-    
+
     private enum ParentChildImplemented {
         final class Parent: Statostore {
             var loading: Bool = false
@@ -184,7 +183,7 @@ ScopeWithEffect(
                 }
             }
         }
-        
+
         final class Child: Statostore {
             var showingChild: Bool = false
             enum When {
@@ -198,7 +197,7 @@ ScopeWithEffect(
             }
         }
     }
-    
+
     func testStoreLogs() throws {
         var logs: [String] = []
         let regex: Regex = try Regex("(0x[0-9a-f]*)")
@@ -221,7 +220,7 @@ ScopeWithEffect(
             "[SCOPE]: Parent (0xF):  [STATE] [DIFF] +   loading: true"
         ])
     }
-    
+
     func testChildStoreLogs() throws {
         var logs: [String] = []
         let regex: Regex = try Regex("(0x[0-9a-f]*)")
@@ -245,7 +244,7 @@ ScopeWithEffect(
             "[SCOPE]: Child (0xF):  [STATE] [DIFF] +   showingChild: true"
         ])
     }
-    
+
     private enum PublishedLogs {
         final class WithPublishedProperties: Statostore, ObservableObject {
             @Published var loading: Bool = false
@@ -264,7 +263,7 @@ ScopeWithEffect(
             var debugLoading: Bool { loading }
         }
     }
-    
+
     func testPublishedPropertiesLogs() throws {
         var logs: [String] = []
         let regex: Regex = try Regex("(0x[0-9a-f]*)")
@@ -280,7 +279,7 @@ ScopeWithEffect(
             "[SCOPE]: WithPublishedProperties (0xF):  [STATE] [DIFF] +   _loading: true"
         ])
     }
-    
+
     func testPublishedPropertiesLogsWithSink() throws {
         var logs: [String] = []
         let regex: Regex = try Regex("(0x[0-9a-f]*)")

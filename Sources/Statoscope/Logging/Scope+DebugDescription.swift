@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  Scope+DebugDescription.swift
 //  
 //
 //  Created by Sergi Hernanz on 22/2/24.
@@ -60,7 +60,7 @@ public extension Scope {
             self.effectsDescription() +
             ")"
     }
-    
+
     private func effectsDescription() -> String {
         guard let statostore = self as? (any StoreProtocol) else {
             return ""

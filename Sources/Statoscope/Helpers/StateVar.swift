@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  StateVar.swift
 //  
 //
 //  Created by Sergi Hernanz on 4/2/24.

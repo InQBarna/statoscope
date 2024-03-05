@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  EffectsState.swift
 //  
 //
 //  Created by Sergi Hernanz on 9/2/24.
@@ -12,22 +12,22 @@ import Foundation
 /// the appropriate effects. Simply defines the current ongoing effects providing an snapshot,
 /// and provides functions to enqueue new effects or cancel existing ones.
 public struct EffectsState<When: Sendable>: Sendable {
-    
+
     internal let snapshotEffects: [(UUID, AnyEffect<When>)]
     internal var currentRequestedEffects: [(UUID, AnyEffect<When>)]
     internal var enquedEffects: [(UUID, AnyEffect<When>)] = []
     internal var cancelledEffects: [(UUID, AnyEffect<When>)] = []
-    
+
     init(snapshotEffects: [(UUID, AnyEffect<When>)]) {
         self.snapshotEffects = snapshotEffects
         self.currentRequestedEffects = snapshotEffects
     }
-    
+
     /// List of effects expected to be ongoing. They may be already triggered or pending.
     public var effects: [any Effect] {
         currentRequestedEffects.map { $0.1.pristine }
     }
-    
+
     /// Enqueues an effect to be triggered. The provided effect must return a new When case
     ///
     ///  - Parameter effect: a container of an async operation to be executed.
@@ -72,7 +72,7 @@ public struct EffectsState<When: Sendable>: Sendable {
         enquedEffects.append((uuid, AnyEffect(effect: effect)))
         currentRequestedEffects.append((uuid, AnyEffect(effect: effect)))
     }
-    
+
     /// Cancels the effects that conform to the provided block.
     ///
     ///  - Parameter whereBlock: A closure that takes an ongoing effect as its argument and returns a
@@ -111,7 +111,7 @@ public struct EffectsState<When: Sendable>: Sendable {
         enquedEffects.removeAll()
         currentRequestedEffects.removeAll()
     }
-    
+
     /// Resets effects state to the original status previous to the update method
     ///
     /// This method is mostly meant for unit testing

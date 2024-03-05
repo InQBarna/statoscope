@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  StoreAndStateDifferentObjects.swift
 //  
 //
 //  Created by Sergi Hernanz on 16/2/24.
@@ -30,10 +30,10 @@ private final class SampleStoreState:
 }
 
 private final class SampleScope: StoreProtocol {
-    
+
     typealias When = SampleStoreState.When
     private(set) var _storeState = SampleStoreState()
-    
+
     func update(_ when: SampleStoreState.When) throws {
         switch when {
         case .systemLoadsSampleScope, .retry:

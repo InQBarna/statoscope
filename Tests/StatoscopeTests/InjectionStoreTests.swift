@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  InjectionStoreTests.swift
 //  
 //
 //  Created by Sergi Hernanz on 23/2/24.
@@ -10,7 +10,7 @@ import Foundation
 import XCTest
 
 final class InjectionStoreTests: XCTestCase {
-    
+
     func testRegisterResolveObject() throws {
         class InjectableObject {
             let param: String
@@ -24,7 +24,7 @@ final class InjectionStoreTests: XCTestCase {
         let resolved: InjectableObject = try sut.resolve()
         XCTAssert(injected === resolved)
     }
-    
+
     func testRegisterResolveObjectSecondOverwritesFirst() throws {
         class InjectableObject {
             let param: String
@@ -42,7 +42,7 @@ final class InjectionStoreTests: XCTestCase {
         let resolvedSecond: InjectableObject = try sut.resolve()
         XCTAssert(injectedSecond === resolvedSecond)
     }
-    
+
     func testResolveThrows() throws {
         class InjectableObject {
             let param: String
@@ -53,7 +53,7 @@ final class InjectionStoreTests: XCTestCase {
         let sut = InjectionStore()
         XCTAssertThrowsError(try sut.resolve() as InjectableObject)
     }
-    
+
     func testTreeDescription() {
         class MyInjectableObject: CustomStringConvertible {
             let param: String
@@ -72,7 +72,7 @@ final class InjectionStoreTests: XCTestCase {
             "+ MyInjectableObject:\tMyInjectableObject(Injected)"
         ]
         XCTAssertEqual(treeDescription, expectedDescription)
-        
+
         struct InjectableStruct: Equatable {
             let param: String
         }
@@ -84,7 +84,7 @@ final class InjectionStoreTests: XCTestCase {
         ]
         XCTAssertEqual(sut.treeDescription, expectedDescriptionSecond)
     }
-    
+
     func testRegisterResolveValue() throws {
         struct InjectableStruct: Equatable {
             let param: String
@@ -95,7 +95,7 @@ final class InjectionStoreTests: XCTestCase {
         let resolved: InjectableStruct = try sut.resolve()
         XCTAssertEqual(injected, resolved)
     }
-    
+
     func testRegisterResolveValueSecondOverwritesFirst() throws {
         struct InjectableStruct: Equatable {
             let param: String

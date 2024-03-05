@@ -24,7 +24,7 @@ private final class SampleScope:
         case networkRespondsWithContent(String)
         case retry
     }
-    
+
     func update(_ when: When) throws {
         viewShowsLoadingMessage = (viewShowsLoadingMessage ?? "") + "-"
     }
@@ -60,7 +60,7 @@ private struct SamplePresentedView: View, StoreViewProtocol {
 
 // And how it can be used with an ObservedObject == StoreView
 final class PresentedViewPatternTests: XCTestCase {
-    
+
     func testPresenterViewPatterns() {
         let willChangeObjectExp = expectation(description: "willChangeObject")
         willChangeObjectExp.assertForOverFulfill = false
@@ -89,4 +89,3 @@ final class PresentedViewPatternTests: XCTestCase {
         self.wait(for: [willChangeObjectExp], timeout: 1.0)
     }
 }
-

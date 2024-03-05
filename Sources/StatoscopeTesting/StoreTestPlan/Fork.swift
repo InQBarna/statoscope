@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  StoreTestPlan.swift
 //  
 //
 //  Created by Sergi Hernanz on 6/2/24.
@@ -24,4 +24,3 @@ extension StoreTestPlan {
     }
 
 }
-

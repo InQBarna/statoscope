@@ -104,7 +104,7 @@ public extension InjectionTreeNode {
             weakParent?.anyLink = InjectionTreeNodeBox.map(expr: newValue)
         }
     }
-    
+
     var parentKeyPath: AnyKeyPath? {
         get {
             weakParent?.parentKeyPath
@@ -195,13 +195,13 @@ extension InjectionTreeNode {
         }
         return node
     }
-    
+
     var selfRootKeyPath: AnyKeyPath {
         guard var node: InjectionTreeNode = weakParent?.anyLink,
               let parentKeyPath else {
             return \Self.self
         }
-        
+
         var keyPath: AnyKeyPath = parentKeyPath
         while let weakParent = node.weakParent,
               let weakParentLink = weakParent.anyLink {
@@ -336,7 +336,7 @@ extension Optional: InjectionTreeNodeProtocol where Wrapped: InjectionTreeNode {
             self?.parentNode = newValue
         }
     }
-    
+
     public var parentKeyPath: AnyKeyPath? {
         get {
             return self?.parentKeyPath

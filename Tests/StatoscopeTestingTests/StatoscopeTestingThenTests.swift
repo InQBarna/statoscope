@@ -73,7 +73,7 @@ private final class MyScope:
             child = nil
         }
     }
-    
+
     static var defaultValue: MyScope = MyScope()
 }
 
@@ -84,22 +84,22 @@ extension MyScope {
 private final class MyChildScope:
     Statostore,
     ObservableObject {
-    
+
     @Published var viewShowsDetail: String
     @Published var toggled: Bool
     @Superscope var myScope: MyScope
-    
+
     public init(viewShowsDetail: String) {
         self.viewShowsDetail = viewShowsDetail
         self.toggled = false
     }
-    
+
     enum When {
         case userTappedOnNavigateBack
         case toggle
         case throwAnError
     }
-    
+
     func update(_ when: When) throws {
         switch when {
         case .userTappedOnNavigateBack:
@@ -151,7 +151,7 @@ final class StatoscopeTestingThenTests: XCTestCase {
               .networkRespondsWithContent(.success("Result 2")))
         .runTest()
     }
-    
+
     func testAllWhenChildVariants() throws {
         try MyScope.GIVEN {
             MyScope()
@@ -177,7 +177,7 @@ final class StatoscopeTestingThenTests: XCTestCase {
         .throwsWHEN(\.nonOptionalChild, .userTappedOnNavigateBack)
         .runTest()
     }
-    
+
     func testAllWhenOptionalChildFailureWhen() throws {
         XCTExpectFailure("This should fail")
         try MyScope.GIVEN {
@@ -186,7 +186,7 @@ final class StatoscopeTestingThenTests: XCTestCase {
         .WHEN(\.child, .toggle)
         .runTest()
     }
-    
+
     func testAllWhenOptionalChildFailureThrowsWhen() throws {
         XCTExpectFailure("This should fail")
         try MyScope.GIVEN {
@@ -195,7 +195,7 @@ final class StatoscopeTestingThenTests: XCTestCase {
         .throwsWHEN(\.child, .toggle)
         .runTest()
     }
-    
+
     func testAllWhenOptionalChildFailureAND() throws {
         XCTExpectFailure("This should fail")
         try MyScope.GIVEN {

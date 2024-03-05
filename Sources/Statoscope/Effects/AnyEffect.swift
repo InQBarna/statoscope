@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  AnyEffect.swift
 //  
 //
 //  Created by Sergi Hernanz on 8/2/24.
@@ -18,8 +18,7 @@ public struct InvalidPristineResult: Error { }
 public struct AnyEffect<ResultType: Sendable>:
     Effect,
     CustomDebugStringConvertible,
-    Sendable
-{
+    Sendable {
 
     /// Originally typed effect. You can use this property and cast to your pristine Effect type
     public let pristine: any Effect & Sendable
@@ -33,7 +32,7 @@ public struct AnyEffect<ResultType: Sendable>:
     public var debugDescription: String {
         return "\(pristine): \(pristine.resultTypeDescription)"
     }
-    
+
     private struct EffectBox<BoxResultType>: Effect, CustomDebugStringConvertible {
         let runner: () async throws -> BoxResultType
         func runEffect() async throws -> BoxResultType {
@@ -92,4 +91,3 @@ public struct AnyEffect<ResultType: Sendable>:
         try await runner()
     }
 }
-

@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  StatoscopeAccessControl.swift
 //  
 //
 //  Created by Sergi Hernanz on 31/1/24.

@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  Given.swift
 //  
 //
 //  Created by Sergi Hernanz on 6/2/24.
@@ -18,7 +18,7 @@ public func GIVEN<Store: StoreProtocol>(
 public func GIVEN_spec<ScopeType: Scope>(
     _ builder: @escaping () throws -> ScopeType
 ) rethrows -> StoreTestPlan<DummyStore<ScopeType>> {
-    StoreTestPlan() {
+    StoreTestPlan {
         DummyStore(state: try builder())
     }
 }
@@ -31,7 +31,7 @@ extension StoreProtocol {
 
 extension Scope {
     public static func GIVEN_spec(_ builder: @escaping () throws -> Self) rethrows -> StoreTestPlan<DummyStore<Self>> {
-        StoreTestPlan() {
+        StoreTestPlan {
             DummyStore(state: try builder())
         }
     }
@@ -40,13 +40,13 @@ extension Scope {
 final public class DummyStore<State: Scope>: StoreProtocol {
     public var _storeState: State
     public typealias When = State.When
-    
+
     init(state: State) {
         self._storeState = state
     }
-    
+
     public func update(_ when: State.When) throws {
         XCTFail("not implemented")
     }
-    
+
 }

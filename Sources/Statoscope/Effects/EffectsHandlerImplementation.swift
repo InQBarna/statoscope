@@ -22,11 +22,11 @@ actor EffectsHandlerImplementation<When: Sendable> {
         self.logPrefix = logPrefix
         self.effectCompleted = effectCompleted
     }
-    
+
     func triggerNewEffectsState(
         newSnapshot: EffectsState<When>
     ) async throws {
-        
+
         removeCancelledEffectsAndCancelTasks(effects: newSnapshot.cancelledEffects)
         requestedEffects.append(contentsOf: newSnapshot.enquedEffects)
 
@@ -76,7 +76,7 @@ actor EffectsHandlerImplementation<When: Sendable> {
     func buildSnapshot() -> EffectsState<When> {
         EffectsState(snapshotEffects: requestedEffects)
     }
-    
+
     var effects: [any Effect] {
         requestedEffects.map { $0.1.pristine }
     }
@@ -115,7 +115,7 @@ actor EffectsHandlerImplementation<When: Sendable> {
             }
         }
     }
-    
+
     func cancelAllEffects() {
         requestedEffects
             .map { ($0.0, $0.1.pristine) }
@@ -125,7 +125,7 @@ actor EffectsHandlerImplementation<When: Sendable> {
         requestedEffects.removeAll()
         cancelAllTasks()
     }
-    
+
     private func cancelAllTasks() {
         let retainedTasks: [Task<When?, Error>] = Array(runningTasks.values)
         runningTasks.removeAll()
@@ -136,7 +136,7 @@ actor EffectsHandlerImplementation<When: Sendable> {
                 }
         })
     }
-    
+
     private func removeRequestedEffect(_ uuid: UUID) {
         if let idx = requestedEffects.firstIndex(where: { uuid == $0.0 }) {
             requestedEffects.remove(at: idx)

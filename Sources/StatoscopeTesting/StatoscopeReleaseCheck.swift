@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  StatoscopeReleaseCheck.swift
 //  
 //
 //  Created by Sergi Hernanz on 29/1/24.

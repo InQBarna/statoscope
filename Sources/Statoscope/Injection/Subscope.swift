@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  Subscope.swift
 //  
 //
 //  Created by Sergi Hernanz on 18/1/24.
@@ -72,7 +72,7 @@ public struct Subscope<Value: InjectionTreeNodeProtocol>: CustomStringConvertibl
         get { fatalError() }
         set { fatalError("\(newValue)") }
     }
-    
+
     public var description: String {
         "\(storage)".removeOptionalDescription
     }

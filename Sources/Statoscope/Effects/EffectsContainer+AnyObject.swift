@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  EffectsContainer+AnyObject.swift
 //  
 //
 //  Created by Sergi Hernanz on 2/2/24.
