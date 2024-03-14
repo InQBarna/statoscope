@@ -31,7 +31,7 @@ public var scopeEffectsDisabledInUnitTests: Bool = nil != NSClassFromString("XCT
 let scopeEffectsDisabledInPreviews: Bool = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
 
 extension ScopeImplementation {
-    
+
     @discardableResult
     func _scopeSend(_ when: When) -> Self {
         do {
@@ -41,10 +41,10 @@ extension ScopeImplementation {
             return self
         }
     }
-    
+
     @discardableResult
     public func _scopeSendUnsafe(_ when: When) throws -> Self {
-        
+
         // For Statoscope, we store the snapshot in effectsHandler
         //  during update process
         LOG(.when, "\(when)")
@@ -76,15 +76,15 @@ extension ScopeImplementation {
         }
         return self
     }
-    
+
     private func LOG(_ level: LogLevel, _ string: String) {
         StatoscopeLogger.LOG(level, prefix: logPrefix, string)
     }
-    
+
     private var logPrefix: String {
         "\(type(of: self)) (\(Unmanaged.passUnretained(self).toOpaque())): "
     }
-    
+
     private func updateUsingMiddlewares(_ when: When) throws {
         if let middleware = middleWare {
             guard let mappedWhen = try middleware.middleWare(self, when) else {
@@ -105,7 +105,7 @@ extension ScopeImplementation {
             }
         }
     }
-    
+
     @MainActor
     func safeMainActorSend(_ effect: AnyEffect<When>, _ when: When) {
         let count = effects.count

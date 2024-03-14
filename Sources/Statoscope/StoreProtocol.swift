@@ -43,7 +43,7 @@ extension StoreProtocol {
         scopeImpl._scopeSend(when)
         return self
     }
-    
+
     @discardableResult
     public func sendUnsafe(_ when: ScopeImpl.When) throws -> Self {
         try scopeImpl._scopeSendUnsafe(when)
