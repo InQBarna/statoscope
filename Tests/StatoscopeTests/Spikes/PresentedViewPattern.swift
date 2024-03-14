@@ -32,7 +32,7 @@ private final class SampleScope:
 
 // This is the "normal" view pattern
 private struct SampleView: View {
-    @ObservedObject var model = SampleScope().storeState
+    @ObservedObject var model = SampleScope().scopeImpl
     var body: some View {
         /* ... */
         EmptyView()

@@ -32,7 +32,7 @@ class InjectionTreeNodeBox {
 }
 
 extension InjectionTreeNodeBox: Equatable {
-    public static func == (lhs: InjectionTreeNodeBox, rhs: InjectionTreeNodeBox) -> Bool {
+    static func == (lhs: InjectionTreeNodeBox, rhs: InjectionTreeNodeBox) -> Bool {
         lhs.anyLink === rhs.anyLink
     }
 }

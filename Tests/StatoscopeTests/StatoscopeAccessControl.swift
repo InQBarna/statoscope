@@ -45,13 +45,13 @@ class StatoscopeAccessControl: XCTestCase {
             self.send(.delayFinished)
 
             // Does not compile
-            // _ = try self.sendUnsafe(.delayFinished)
+            // _ = try self._scopeSendUnsafe(.delayFinished)
 
             // TODO: it should better not compile does not make sense to update during update
             try self.update(.delayFinished)
 
             // TODO: it should better not compile does not make sense to addMiddleware
-            _ = self.addMiddleWare { _, _ in nil }
+            // _ = self.addMiddleWare { _, _ in nil }
 
             // This may compile... should be used only for debugging
             _ = self.parentNode

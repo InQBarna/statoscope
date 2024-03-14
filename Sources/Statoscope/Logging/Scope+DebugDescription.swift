@@ -62,15 +62,15 @@ public extension Scope {
     }
 
     private func effectsDescription() -> String {
-        guard let statostore = self as? (any StoreProtocol) else {
+        guard let statostore = self as? (any ScopeImplementation) else {
             return ""
         }
         return statostore.effectsDescription()
     }
 }
 
-public extension StoreProtocol {
-    fileprivate func effectsDescription() -> String {
+fileprivate extension ScopeImplementation {
+    func effectsDescription() -> String {
         guard effectsState.effects.count > 0 else {
             return ""
         }

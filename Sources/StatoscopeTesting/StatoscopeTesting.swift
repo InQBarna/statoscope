@@ -11,7 +11,7 @@ import Statoscope
 
 // OTher methods to be moved to the right files
 
-extension StoreProtocol {
+extension ScopeImplementation {
     @discardableResult
     func assertNoDeepEffects(_ message: String? = nil, file: StaticString = #file, line: UInt = #line) -> Self {
         let deepEffects = allDeepOngoingEffects().filter({ $0.value.count > 0 })
@@ -24,13 +24,13 @@ extension StoreProtocol {
 
 extension StoreTestPlan {
     @discardableResult
-    public func WITH<Subscope: StoreProtocol>(
-        _ keyPath: KeyPath<T.StoreState, Subscope>,
+    public func WITH<Subscope: ScopeImplementation>(
+        _ keyPath: KeyPath<T, Subscope>,
         file: StaticString = #file, line: UInt = #line,
         _ with: @escaping (_ sut: Subscope) throws -> Void
     ) rethrows -> Self {
         addStep { sut in
-            try with(sut.storeState[keyPath: keyPath])
+            try with(sut[keyPath: keyPath])
         }
     }
 }

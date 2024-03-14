@@ -33,13 +33,13 @@ extension StoreTestPlan {
     }
 
     @discardableResult
-    public func THEN_Enqued<EffectType: Effect & Equatable, Subscope: StoreProtocol>(
-        _ keyPath: KeyPath<T.StoreState, Subscope?>,
+    public func THEN_Enqued<EffectType: Effect & Equatable, Subscope: ScopeImplementation>(
+        _ keyPath: KeyPath<T, Subscope?>,
         effect: EffectType,
         file: StaticString = #file, line: UInt = #line
     ) throws -> Self {
         addStep { supersut in
-            guard let sut = supersut.storeState[keyPath: keyPath] else {
+            guard let sut = supersut[keyPath: keyPath] else {
                 XCTFail("No subscope found on \(type(of: supersut)) of type \(Subscope.self): " +
                         "when looking for effects", file: file, line: line)
                 return
@@ -60,13 +60,13 @@ extension StoreTestPlan {
     }
 
     @discardableResult
-    public func THEN_Enqued<EffectType: Effect & Equatable, Subscope: StoreProtocol>(
-        _ keyPath: KeyPath<T.StoreState, Subscope>,
+    public func THEN_Enqued<EffectType: Effect & Equatable, Subscope: ScopeImplementation>(
+        _ keyPath: KeyPath<T, Subscope>,
         effect: EffectType,
         file: StaticString = #file, line: UInt = #line
     ) throws -> Self {
         addStep { supersut in
-            let sut = supersut.storeState[keyPath: keyPath]
+            let sut = supersut[keyPath: keyPath]
             let correctYypeEffects = sut.effectsState.effects.filter { $0 is EffectType }
             guard correctYypeEffects.count > 0 else {
                 XCTFail("No effect of type \(EffectType.self) on sut \(type(of: sut)): \(correctYypeEffects)",
@@ -112,7 +112,7 @@ public func XCTAssertEffectsInclude<S, T2>(
     _ message: @autoclosure () -> String = "",
     file: StaticString = #filePath,
     line: UInt = #line
-) where S: StoreProtocol, T2: Effect & Equatable {
+) where S: ScopeImplementation, T2: Effect & Equatable {
     do {
         let sut = try expression1()
         let expected = try expression2()

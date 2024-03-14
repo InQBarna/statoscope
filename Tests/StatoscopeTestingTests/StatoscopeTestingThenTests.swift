@@ -103,7 +103,7 @@ private final class MyChildScope:
     func update(_ when: When) throws {
         switch when {
         case .userTappedOnNavigateBack:
-            try myScope.sendUnsafe(.detailTappedBack)
+            try myScope._scopeSendUnsafe(.detailTappedBack)
         case .toggle:
             toggled = !toggled
         case .throwAnError:

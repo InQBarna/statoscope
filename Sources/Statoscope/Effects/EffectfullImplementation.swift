@@ -10,11 +10,11 @@ import Foundation
 // StoreProtocol will handle events by
 //  1. synthesize an EffectsHandlerImplementation member instance to handle effects
 private var effectsHandlerStoreKey: UInt8 = 0
-extension StoreProtocol where Self: AnyObject {
+extension EffectfullImplementation where Self: AnyObject {
     var effectsHandler: EffectsHandlerImplementation<When> {
         return associatedObject(base: self, key: &effectsHandlerStoreKey, initialiser: {
-            EffectsHandlerImplementation<When>(logPrefix: logPrefix) { [weak self] uuid, effect, when in
-                self?.completedEffect(uuid, effect, when)
+            EffectsHandlerImplementation<When>(logPrefix: _logPrefix) { [weak self] uuid, effect, when in
+                self?._completedEffect(uuid, effect, when)
             }
         })
     }
@@ -32,7 +32,7 @@ private class DeinitObserver {
     }
 }
 
-internal extension StoreProtocol where Self: AnyObject {
+internal extension EffectfullImplementation where Self: AnyObject {
     fileprivate var deinitObserver: DeinitObserver? {
         get {
             optionalAssociatedObject(base: self, key: &deinitObserverStoreKey, initialiser: { nil })
@@ -63,7 +63,7 @@ private class AssociatedValue<T> {
 }
 
 private var effectsStateStoreKey: UInt8 = 0
-extension StoreProtocol where Self: AnyObject {
+extension EffectfullImplementation where Self: AnyObject {
     public var effectsState: EffectsState<Self.When> {
         get {
             associatedObject(base: self, key: &effectsStateStoreKey, initialiser: {

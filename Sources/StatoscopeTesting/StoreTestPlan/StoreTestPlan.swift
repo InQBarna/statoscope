@@ -8,7 +8,7 @@
 import Foundation
 import Statoscope
 
-public final class StoreTestPlan<T: StoreProtocol> {
+public final class StoreTestPlan<T: ScopeImplementation> {
     let given: () throws -> T
     internal var steps: [(T) throws -> Void] = []
     internal var forks: [StoreTestPlan<T>] = []
@@ -70,9 +70,9 @@ public final class StoreTestPlan<T: StoreProtocol> {
     }
 }
 
-internal extension StoreImplementation {
+internal extension ScopeImplementation {
     @discardableResult
-    func when<Subscope: StoreProtocol>(
+    func when<Subscope: ScopeImplementation>(
         childScope: Subscope,
         file: StaticString = #file,
         line: UInt = #line,
@@ -81,7 +81,7 @@ internal extension StoreImplementation {
         // assertNoDeepEffects(file: file, line: line)
         try whens.forEach {
             childScope.effectsState.reset()
-            try childScope.sendUnsafe($0)
+            try childScope._scopeSendUnsafe($0)
         }
         return self
     }

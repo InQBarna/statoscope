@@ -8,7 +8,7 @@
 import Foundation
 @testable import Statoscope
 
-extension StoreProtocol {
+extension ScopeImplementation {
 
     func allDeepOngoingEffects() -> [String: [any Effect]] {
         return Dictionary(

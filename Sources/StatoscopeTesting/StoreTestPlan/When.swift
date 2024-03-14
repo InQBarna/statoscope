@@ -41,8 +41,8 @@ extension StoreTestPlan {
     }
 
     @discardableResult
-    public func WHEN<Subscope: StoreProtocol>(
-        _ keyPath: KeyPath<T.StoreState, Subscope>,
+    public func WHEN<Subscope: ScopeImplementation>(
+        _ keyPath: KeyPath<T, Subscope>,
         clearEffects: ClearEffects = .all,
         file: StaticString = #file,
         line: UInt = #line,
@@ -52,8 +52,8 @@ extension StoreTestPlan {
     }
 
     @discardableResult
-    public func WHEN<Subscope: StoreProtocol>(
-        _ keyPath: KeyPath<T.StoreState, Subscope?>,
+    public func WHEN<Subscope: ScopeImplementation>(
+        _ keyPath: KeyPath<T, Subscope?>,
         clearEffects: ClearEffects = .all,
         file: StaticString = #file,
         line: UInt = #line,
@@ -72,13 +72,13 @@ extension StoreTestPlan {
         addStep { sut in
             // assertNoDeepEffects(file: file, line: line)
             sut.effectsState.clear(clearEffects)
-            XCTAssertThrowsError(try sut.sendUnsafe(when), file: file, line: line)
+            XCTAssertThrowsError(try sut._scopeSendUnsafe(when), file: file, line: line)
         }
     }
 
     @discardableResult
-    public func throwsWHEN<Subscope: StoreProtocol>(
-        _ keyPath: KeyPath<T.StoreState, Subscope>,
+    public func throwsWHEN<Subscope: ScopeImplementation>(
+        _ keyPath: KeyPath<T, Subscope>,
         clearEffects: ClearEffects = .all,
         file: StaticString = #file,
         line: UInt = #line,
@@ -86,27 +86,27 @@ extension StoreTestPlan {
     ) throws -> Self {
         addStep { sut in
             sut.effectsState.clear(clearEffects)
-            XCTAssertThrowsError(try sut.storeState[keyPath: keyPath].sendUnsafe(when), file: file, line: line)
+            XCTAssertThrowsError(try sut[keyPath: keyPath]._scopeSendUnsafe(when), file: file, line: line)
         }
     }
 
     @discardableResult
-    public func throwsWHEN<Subscope: StoreProtocol>(
-        _ keyPath: KeyPath<T.StoreState, Subscope?>,
+    public func throwsWHEN<Subscope: ScopeImplementation>(
+        _ keyPath: KeyPath<T, Subscope?>,
         clearEffects: ClearEffects = .all,
         file: StaticString = #file,
         line: UInt = #line,
         _ when: Subscope.When
     ) throws -> Self {
         addStep { sut in
-            guard let childScope = sut.storeState[keyPath: keyPath] else {
+            guard let childScope = sut[keyPath: keyPath] else {
                 XCTFail("WHEN: Non existing model in first parameter: error unwrapping expecte non-nil subscope" +
                         " \(type(of: T.self)) : \(type(of: Subscope.self))",
                         file: file, line: line)
                 return
             }
             childScope.effectsState.clear(clearEffects)
-            XCTAssertThrowsError(try childScope.sendUnsafe(when), file: file, line: line)
+            XCTAssertThrowsError(try childScope._scopeSendUnsafe(when), file: file, line: line)
         }
     }
 }
@@ -123,8 +123,8 @@ extension StoreTestPlan {
     }
 
     @discardableResult
-    public func AND<Subscope: StoreProtocol>(
-        _ keyPath: KeyPath<T.StoreState, Subscope>,
+    public func AND<Subscope: ScopeImplementation>(
+        _ keyPath: KeyPath<T, Subscope>,
         file: StaticString = #file,
         line: UInt = #line,
         _ whens: Subscope.When...
@@ -133,8 +133,8 @@ extension StoreTestPlan {
     }
 
     @discardableResult
-    public func AND<Subscope: StoreProtocol>(
-        _ keyPath: KeyPath<T.StoreState, Subscope?>,
+    public func AND<Subscope: ScopeImplementation>(
+        _ keyPath: KeyPath<T, Subscope?>,
         file: StaticString = #file,
         line: UInt = #line,
         _ whens: Subscope.When...
@@ -155,36 +155,36 @@ private extension StoreTestPlan {
             // assertNoDeepEffects(file: file, line: line)
             try whens.forEach {
                 sut.effectsState.clear(clearEffects)
-                try sut.sendUnsafe($0)
+                try sut._scopeSendUnsafe($0)
             }
         }
     }
 
     @discardableResult
-    func privateWHEN<Subscope: StoreProtocol>(
-        _ keyPath: KeyPath<T.StoreState, Subscope>,
+    func privateWHEN<Subscope: ScopeImplementation>(
+        _ keyPath: KeyPath<T, Subscope>,
         clearEffects: ClearEffects = .all,
         file: StaticString = #file,
         line: UInt = #line,
         _ whens: [Subscope.When]
     ) throws -> Self {
         addStep { sut in
-            let child = sut.storeState[keyPath: keyPath]
+            let child = sut[keyPath: keyPath]
             child.effectsState.clear(clearEffects)
             try sut.when(childScope: child, file: file, line: line, whens)
         }
     }
 
     @discardableResult
-    func privateWHEN<Subscope: StoreProtocol>(
-        _ keyPath: KeyPath<T.StoreState, Subscope?>,
+    func privateWHEN<Subscope: ScopeImplementation>(
+        _ keyPath: KeyPath<T, Subscope?>,
         clearEffects: ClearEffects = .all,
         file: StaticString = #file,
         line: UInt = #line,
         _ whens: [Subscope.When]
     ) throws -> Self {
         addStep { sut in
-            guard let childScope = sut.storeState[keyPath: keyPath] else {
+            guard let childScope = sut[keyPath: keyPath] else {
                 XCTFail("WHEN: Non existing model in first parameter: error unwrapping expecte non-nil subscope" +
                         " \(type(of: T.self)) : \(type(of: Subscope.self))",
                         file: file, line: line)

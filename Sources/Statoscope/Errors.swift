@@ -10,7 +10,7 @@ import Foundation
 /// Error to be thrown in an update method when the received When event
 /// should not be received given the current state
 ///
-/// See:  ``StoreImplementation/update(_:)``
+/// See:  ``ScopeImplementation/update(_:)``
 public struct InvalidStateError: Error, Equatable {
     public init() {}
 }
@@ -20,7 +20,7 @@ public struct InvalidStateError: Error, Equatable {
 /// It is catched internally, but should stop your debugger if Swift errors exception
 /// breakpoint is enabled
 ///
-/// See:  ``StoreImplementation/update(_:)``
+/// See:  ``ScopeImplementation/update(_:)``
 public struct NoInjectedValueFound: Error {
     let type: String
     let injectionTreeDescription: [String]?

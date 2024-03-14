@@ -17,5 +17,4 @@ public protocol Scope:
     InjectionTreeNode &
     CustomDebugStringConvertible &
     AnyObject {
-    associatedtype When: Sendable
 }

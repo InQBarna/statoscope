@@ -29,20 +29,21 @@ private final class SampleStoreState:
     }
 }
 
-private final class SampleScope: StoreProtocol {
-
-    typealias When = SampleStoreState.When
-    private(set) var storeState = SampleStoreState()
-
+extension SampleStoreState: ScopeImplementation {
     func update(_ when: SampleStoreState.When) throws {
         switch when {
         case .systemLoadsSampleScope, .retry:
-            storeState.viewShowsLoadingMessage = "Loading..."
+            viewShowsLoadingMessage = "Loading..."
         case .networkRespondsWithContent(let newContent):
-            storeState.viewShowsContent = newContent.mapError { _ in SampleError.someError }
-            storeState.viewShowsLoadingMessage = nil
+            viewShowsContent = newContent.mapError { _ in SampleError.someError }
+            viewShowsLoadingMessage = nil
         }
     }
+}
+
+private final class SampleScope: StoreProtocol {
+    typealias When = SampleStoreState.When
+    private(set) var scopeImpl = SampleStoreState()
 }
 
 final class StoreAndStateDifferentObjects: XCTestCase {
@@ -51,8 +52,8 @@ final class StoreAndStateDifferentObjects: XCTestCase {
         let forkCalled = expectation(description: "forkCalled")
         let mainCalled = expectation(description: "mainCalled")
 
-        try SampleScope.GIVEN {
-            SampleScope()
+        try SampleStoreState.GIVEN {
+            SampleStoreState()
         }
         .WHEN(.systemLoadsSampleScope)
         .THEN(\.viewShowsLoadingMessage, equals: "Loading...")
@@ -74,8 +75,8 @@ final class StoreAndStateDifferentObjects: XCTestCase {
     }
 
     func doSomething() throws {
-        try SampleScope.GIVEN {
-            SampleScope()
+        try SampleStoreState.GIVEN {
+            SampleStoreState()
         }
         .WHEN(.systemLoadsSampleScope)
         .THEN(\.viewShowsLoadingMessage, equals: "Loading...")
@@ -86,8 +87,8 @@ final class StoreAndStateDifferentObjects: XCTestCase {
         let fork2Called = expectation(description: "fork2Called")
         let mainCalled = expectation(description: "mainCalled")
 
-        try SampleScope.GIVEN {
-            SampleScope()
+        try SampleStoreState.GIVEN {
+            SampleStoreState()
         }
         .WHEN(.systemLoadsSampleScope)
         .THEN(\.viewShowsLoadingMessage, equals: "Loading...")

@@ -12,16 +12,17 @@ import Foundation
 /// The same class-type object, may provide all features in
 /// * State: Using member variables
 /// * When: forcing definition
-/// * NaiveReducer: forcing implementation of the update method
+/// * StoreImplementation: forcing implementation of the update method
 /// * InjectionTreeNode: Enabling communication with other statoscopes
 public protocol Statostore:
     Scope,
+    ScopeImplementation,
     StoreProtocol
-    where StoreState == Self { }
+    where ScopeImpl == Self { }
 
 public extension Statostore {
 
-    var storeState: StoreState {
+    var scopeImpl: ScopeImpl {
         return self
     }
 

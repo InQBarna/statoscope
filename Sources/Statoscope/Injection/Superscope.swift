@@ -8,6 +8,7 @@
 import Foundation
 import Combine
 
+// TODO: Decouple from ObservableObject
 @propertyWrapper
 public struct Superscope<Value: Injectable & ObservableObject>: CustomStringConvertible {
 

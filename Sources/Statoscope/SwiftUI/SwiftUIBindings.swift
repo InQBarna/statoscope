@@ -10,23 +10,23 @@ import SwiftUI
 
 extension StoreProtocol where Self: AnyObject {
     public func bindNotNilBool<T>(
-        _ keyPath: KeyPath<StoreState, T?>,
-        _ when: ((Bool) -> StoreState.When)? = nil
+        _ keyPath: KeyPath<ScopeImpl, T?>,
+        _ when: ((Bool) -> ScopeImpl.When)? = nil
     ) -> Binding<Bool> {
         guard let when = when else {
             return Binding(
-                get: { [weak self] in self?.storeState[keyPath: keyPath] != nil },
+                get: { [weak self] in self?.scopeImpl[keyPath: keyPath] != nil },
                 set: { _ in return }
             )
         }
         return Binding(
-            get: { [weak self] in self?.storeState[keyPath: keyPath] != nil },
+            get: { [weak self] in self?.scopeImpl[keyPath: keyPath] != nil },
             set: { [weak self] in self?.send(when($0)) }
         )
     }
-    public func bindBool(_ keyPath: KeyPath<StoreState, Bool>) -> Binding<Bool> {
+    public func bindBool(_ keyPath: KeyPath<ScopeImpl, Bool>) -> Binding<Bool> {
         return Binding(
-            get: { [weak self] in self?.storeState[keyPath: keyPath] ?? false },
+            get: { [weak self] in self?.scopeImpl[keyPath: keyPath] ?? false },
             set: { _ in }
         )
     }
@@ -34,22 +34,22 @@ extension StoreProtocol where Self: AnyObject {
 
 extension StoreProtocol where Self: AnyObject {
     public func bind<T>(
-        _ keyPath: KeyPath<StoreState, T>,
-        _ when: @escaping (T) -> StoreState.When
+        _ keyPath: KeyPath<ScopeImpl, T>,
+        _ when: @escaping (T) -> ScopeImpl.When
     ) -> Binding<T> {
         Binding(
-            get: { self.storeState[keyPath: keyPath] },
+            get: { self.scopeImpl[keyPath: keyPath] },
             set: { [weak self] in self?.send(when($0)) }
         )
     }
 
     public func weakBind<T>(
-        _ keyPath: KeyPath<StoreState, T>,
-        _ when: @escaping (T) -> StoreState.When,
+        _ keyPath: KeyPath<ScopeImpl, T>,
+        _ when: @escaping (T) -> ScopeImpl.When,
         defaultValue: T
     ) -> Binding<T> {
         Binding(
-            get: { [weak self] in self?.storeState[keyPath: keyPath] ?? defaultValue },
+            get: { [weak self] in self?.scopeImpl[keyPath: keyPath] ?? defaultValue },
             set: { [weak self] in self?.send(when($0)) }
         )
     }

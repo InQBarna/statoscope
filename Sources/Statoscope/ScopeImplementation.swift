@@ -7,17 +7,10 @@
 
 import Foundation
 
-public protocol StoreImplementation:
+public protocol ScopeImplementation:
+    EffectfullImplementation,
     AnyObject {
     associatedtype When
-    associatedtype StoreState: Scope where StoreState.When == When
-
-    /// The state handled by the store.
-    ///
-    /// The state object should implement the ``Scope`` protocol, providing
-    /// * Usable inside injection tree
-    /// * Member variables with the Scope's state
-    var storeState: StoreState { get }
 
     /// Implements the business logic for this scope of the state
     ///
@@ -29,80 +22,40 @@ public protocol StoreImplementation:
     /// * Parameter state: the current state of the scope
     /// * Parameter when: the received event
     /// * Parameter effects: an EffectsState object to enqueue, query or cancel effects
-    func update(_ when: StoreState.When) throws
+    func update(_ when: When) throws
 
-    func addMiddleWare(_ update: @escaping (StoreState, StoreState.When) throws -> StoreState.When?) -> Self
+    func addMiddleWare(_ update: @escaping (Self, When) throws -> When?) -> Self
 }
-
-public protocol StorePublicProtocol:
-    Effectfull {
-    associatedtype StoreState: Scope
-
-    /// The state handled by the store.
-    ///
-    /// The state object should implement the ``Scope`` protocol, providing
-    /// * Usable inside injection tree
-    /// * Member variables with the Scope's state
-    var storeState: StoreState { get }
-
-    /// Public method to send events to the store
-    ///
-    /// Usually UI or system notitications send messages to stores using a When case
-    /// * Parameter when: the typed event case to send to the store
-    @discardableResult
-    func send(_ when: StoreState.When) -> Self
-
-    /// Public method to send events to the store
-    ///
-    /// Usually UI or system notitications send messages to stores using a When case
-    ///
-    /// # Discussion
-    /// Different from ``send(_:)`` because this method throws any unexpected
-    /// exception. Use this method for debugging or unit testing
-    ///
-    /// * Parameter when: the typed event case to send to the store
-    @discardableResult
-    func sendUnsafe(_ when: StoreState.When) throws -> Self
-}
-
-/// The StoreProtocol defines the implementation of an scope of the app's state and business logic
-///
-/// It is made up of 2 different protocols
-/// * StorePublicProtocol: meant for Views that should only read the state and send When events
-/// * StoreImplementation: meant for developer's implementation logic
-public protocol StoreProtocol:
-    StorePublicProtocol,
-    StoreImplementation { }
 
 public var scopeEffectsDisabledInUnitTests: Bool = nil != NSClassFromString("XCTest")
 let scopeEffectsDisabledInPreviews: Bool = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
 
-extension StoreProtocol {
-
+extension ScopeImplementation {
+    
     @discardableResult
-    public func send(_ when: StoreState.When) -> Self {
+    func _scopeSend(_ when: When) -> Self {
         do {
-            return try sendUnsafe(when)
+            return try _scopeSendUnsafe(when)
         } catch {
             LOG(.errors, "‼️ Exception on send method: \(error)")
             return self
         }
     }
-
+    
     @discardableResult
-    public func sendUnsafe(_ when: StoreState.When) throws -> Self {
-
+    public func _scopeSendUnsafe(_ when: When) throws -> Self {
+        
         // For Statoscope, we store the snapshot in effectsHandler
         //  during update process
         LOG(.when, "\(when)")
         assert(effectsState.enquedEffects.count == 0)
         assert(effectsState.cancelledEffects.count == 0)
-        let currentState = String(describing: storeState)
+        let currentState = String(describing: self)
         for stateLine in currentState.split(separator: "\n") {
             LOG(.state, "[STATE] " + stateLine)
         }
         try updateUsingMiddlewares(when)
-        let newState = String(describing: storeState)
+        let newState = String(describing: self)
         for stateLine in newState.split(separator: "\n") {
             LOG(.state, "[STATE] " + stateLine)
         }
@@ -123,18 +76,18 @@ extension StoreProtocol {
         }
         return self
     }
-
-    var logPrefix: String {
-        "\(type(of: storeState)) (\(Unmanaged.passUnretained(storeState).toOpaque())): "
-    }
-
+    
     private func LOG(_ level: LogLevel, _ string: String) {
         StatoscopeLogger.LOG(level, prefix: logPrefix, string)
     }
-
-    private func updateUsingMiddlewares(_ when: StoreState.When) throws {
+    
+    private var logPrefix: String {
+        "\(type(of: self)) (\(Unmanaged.passUnretained(self).toOpaque())): "
+    }
+    
+    private func updateUsingMiddlewares(_ when: When) throws {
         if let middleware = middleWare {
-            guard let mappedWhen = try middleware.middleWare(self.storeState, when) else {
+            guard let mappedWhen = try middleware.middleWare(self, when) else {
                 return
             }
             try update(mappedWhen)
@@ -143,7 +96,7 @@ extension StoreProtocol {
         }
     }
 
-    func completedEffect(_ uuid: UUID, _ effect: AnyEffect<StoreState.When>, _ when: StoreState.When?) {
+    public func _completedEffect(_ uuid: UUID, _ effect: AnyEffect<When>, _ when: When?) {
         if let when {
             Task {
                 let newEffects = effectsState.currentRequestedEffects.filter { $0.0 != uuid }
@@ -152,16 +105,16 @@ extension StoreProtocol {
             }
         }
     }
-
+    
     @MainActor
-    func safeMainActorSend(_ effect: AnyEffect<StoreState.When>, _ when: StoreState.When) {
+    func safeMainActorSend(_ effect: AnyEffect<When>, _ when: When) {
         let count = effects.count
         if count > 0 {
             LOG(.effects, "🪃 ↩ \(effect) (ongoing \(count)x🪃)")
         } else {
             LOG(.effects, "🪃 ↩ \(effect)")
         }
-        send(when)
+        _scopeSend(when)
     }
 
     internal func resetEffects() {
@@ -170,16 +123,16 @@ extension StoreProtocol {
 }
 
 private var middleWareHandlerStoreKey: UInt8 = 0
-private final class MiddleWareHandler<S: StoreImplementation> {
-    let middleWare: ((S.StoreState, S.When) throws -> S.When?)
-    init(middleWare: @escaping (S.StoreState, S.When) throws -> S.When?) {
+private final class MiddleWareHandler<S: ScopeImplementation> {
+    let middleWare: ((S, S.When) throws -> S.When?)
+    init(middleWare: @escaping (S, S.When) throws -> S.When?) {
         self.middleWare = middleWare
     }
 }
 
-extension StoreImplementation {
+extension ScopeImplementation {
 
-    public func addMiddleWare(_ update: @escaping (StoreState, StoreState.When) throws -> StoreState.When?) -> Self {
+    public func addMiddleWare(_ update: @escaping (Self, When) throws -> When?) -> Self {
         if let existingMiddleware = middleWare {
             middleWare = MiddleWareHandler(middleWare: { state, when in
                 guard let mappedWhen = try update(state, when) else {
