@@ -24,7 +24,8 @@ public protocol ScopeImplementation:
     /// * Parameter effects: an EffectsState object to enqueue, query or cancel effects
     func update(_ when: When) throws
 
-    func addMiddleWare(_ update: @escaping (Self, When) throws -> When?) -> Self
+    @discardableResult
+    func addMiddleWare(_ update: @escaping (Self, When, (When) throws -> Void) throws -> Void) -> Self
 }
 
 public var scopeEffectsDisabledInUnitTests: Bool = nil != NSClassFromString("XCTest")
@@ -87,10 +88,9 @@ extension ScopeImplementation {
 
     private func updateUsingMiddlewares(_ when: When) throws {
         if let middleware = middleWare {
-            guard let mappedWhen = try middleware.middleWare(self, when) else {
-                return
+            try middleware.middleWare(self, when) { mappedWhen in
+                try update(mappedWhen)
             }
-            try update(mappedWhen)
         } else {
             try update(when)
         }
@@ -124,21 +124,21 @@ extension ScopeImplementation {
 
 private var middleWareHandlerStoreKey: UInt8 = 0
 private final class MiddleWareHandler<S: ScopeImplementation> {
-    let middleWare: ((S, S.When) throws -> S.When?)
-    init(middleWare: @escaping (S, S.When) throws -> S.When?) {
+    let middleWare: ((S, S.When, (S.When) throws -> Void) throws -> Void)
+    init(middleWare: @escaping (S, S.When, (S.When) throws -> Void) throws -> Void) {
         self.middleWare = middleWare
     }
 }
 
 extension ScopeImplementation {
 
-    public func addMiddleWare(_ update: @escaping (Self, When) throws -> When?) -> Self {
+    @discardableResult
+    public func addMiddleWare(_ update: @escaping (Self, When, (When) throws -> Void) throws -> Void) -> Self {
         if let existingMiddleware = middleWare {
-            middleWare = MiddleWareHandler(middleWare: { state, when in
-                guard let mappedWhen = try update(state, when) else {
-                    return nil
+            middleWare = MiddleWareHandler(middleWare: { state, when, updateClosure in
+                try update(state, when) { mappedWhen in
+                    try existingMiddleware.middleWare(state, mappedWhen, updateClosure)
                 }
-                return try existingMiddleware.middleWare(state, mappedWhen)
             })
         } else {
             middleWare = MiddleWareHandler(middleWare: update)
