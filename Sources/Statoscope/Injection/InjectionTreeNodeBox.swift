@@ -9,7 +9,7 @@ import Foundation
 
 class InjectionTreeNodeBox {
     weak var anyLink: InjectionTreeNode?
-    var parentKeyPath: AnyKeyPath?
+    var keyPathToSelfOnParent: AnyKeyPath?
     init(_ anyLink: InjectionTreeNode? = nil) {
         self.anyLink = anyLink
     }

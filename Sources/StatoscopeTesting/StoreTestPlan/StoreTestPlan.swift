@@ -81,7 +81,7 @@ internal extension ScopeImplementation {
         // assertNoDeepEffects(file: file, line: line)
         try whens.forEach {
             childScope.effectsState.reset()
-            try childScope._scopeSendUnsafe($0)
+            try childScope._unsafeSendImplementation($0)
         }
         return self
     }

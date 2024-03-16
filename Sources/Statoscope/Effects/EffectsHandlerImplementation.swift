@@ -7,6 +7,9 @@
 
 import Foundation
 
+public var scopeEffectsDisabledInUnitTests: Bool = nil != NSClassFromString("XCTest")
+let scopeEffectsDisabledInPreviews: Bool = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+
 // Internal actor to handle effects
 actor EffectsHandlerImplementation<When: Sendable> {
 

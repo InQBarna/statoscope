@@ -15,7 +15,7 @@ public protocol InjectionTreeNodeProtocol {
     var parentNode: InjectionTreeNodeProtocol? { get set }
     // TODO: parentKeyPath and parentNode to be merged into a single property ?
     /// Returns the ancestor keyPath to the current node
-    var parentKeyPath: AnyKeyPath? { get set }
+    var keyPathToSelfOnParent: AnyKeyPath? { get set }
     /// Returns the descendants in the injection tree node
     var childrenNodes: [InjectionTreeNodeProtocol] { get }
     /// Returns the root ancestor of the inection tree node
@@ -105,15 +105,15 @@ public extension InjectionTreeNode {
         }
     }
 
-    var parentKeyPath: AnyKeyPath? {
+    var keyPathToSelfOnParent: AnyKeyPath? {
         get {
-            weakParent?.parentKeyPath
+            weakParent?.keyPathToSelfOnParent
         }
         set {
             // parentNode and parentKeyPath needs a refactor so they are assigned alltogether
             //  in the meantime... assert correct usage
             assert(newValue == nil || weakParent != nil)
-            weakParent?.parentKeyPath = newValue
+            weakParent?.keyPathToSelfOnParent = newValue
         }
     }
 
@@ -198,15 +198,15 @@ extension InjectionTreeNode {
 
     var selfRootKeyPath: AnyKeyPath {
         guard var node: InjectionTreeNode = weakParent?.anyLink,
-              let parentKeyPath else {
+              let keyPathToSelfOnParent else {
             return \Self.self
         }
 
-        var keyPath: AnyKeyPath = parentKeyPath
+        var keyPath: AnyKeyPath = keyPathToSelfOnParent
         while let weakParent = node.weakParent,
               let weakParentLink = weakParent.anyLink {
             node = weakParentLink
-            if let appendableKP = weakParent.parentKeyPath,
+            if let appendableKP = weakParent.keyPathToSelfOnParent,
                let newLKeyPath = appendableKP.appending(path: keyPath) {
                 keyPath = newLKeyPath
             }
@@ -245,7 +245,7 @@ extension InjectionTreeNode {
                 children.add(InjectionTreeNodeBox(expr: newInjTreeNode))
             }
             newInjTreeNode.parentNode = self
-            newInjTreeNode.parentKeyPath = keyPath
+            newInjTreeNode.keyPathToSelfOnParent = keyPath
         }
     }
 
@@ -338,12 +338,12 @@ extension Optional: InjectionTreeNodeProtocol where Wrapped: InjectionTreeNode {
         }
     }
 
-    public var parentKeyPath: AnyKeyPath? {
+    public var keyPathToSelfOnParent: AnyKeyPath? {
         get {
-            return self?.parentKeyPath
+            return self?.keyPathToSelfOnParent
         }
         set {
-            self?.parentKeyPath = newValue
+            self?.keyPathToSelfOnParent = newValue
         }
     }
 

@@ -72,7 +72,7 @@ extension StoreTestPlan {
         addStep { sut in
             // assertNoDeepEffects(file: file, line: line)
             sut.effectsState.clear(clearEffects)
-            XCTAssertThrowsError(try sut._scopeSendUnsafe(when), file: file, line: line)
+            XCTAssertThrowsError(try sut._unsafeSendImplementation(when), file: file, line: line)
         }
     }
 
@@ -86,7 +86,7 @@ extension StoreTestPlan {
     ) throws -> Self {
         addStep { sut in
             sut.effectsState.clear(clearEffects)
-            XCTAssertThrowsError(try sut[keyPath: keyPath]._scopeSendUnsafe(when), file: file, line: line)
+            XCTAssertThrowsError(try sut[keyPath: keyPath]._unsafeSendImplementation(when), file: file, line: line)
         }
     }
 
@@ -106,7 +106,7 @@ extension StoreTestPlan {
                 return
             }
             childScope.effectsState.clear(clearEffects)
-            XCTAssertThrowsError(try childScope._scopeSendUnsafe(when), file: file, line: line)
+            XCTAssertThrowsError(try childScope._unsafeSendImplementation(when), file: file, line: line)
         }
     }
 }
@@ -155,7 +155,7 @@ private extension StoreTestPlan {
             // assertNoDeepEffects(file: file, line: line)
             try whens.forEach {
                 sut.effectsState.clear(clearEffects)
-                try sut._scopeSendUnsafe($0)
+                try sut._unsafeSendImplementation($0)
             }
         }
     }
