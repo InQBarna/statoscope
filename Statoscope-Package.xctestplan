@@ -38,6 +38,13 @@
         "identifier" : "StatoscopeTestingTests",
         "name" : "StatoscopeTestingTests"
       }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "StatoscopeMacrosTests",
+        "name" : "StatoscopeMacrosTests"
+      }
     }
   ],
   "version" : 1
