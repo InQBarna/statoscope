@@ -36,17 +36,26 @@ public struct EffectStructMacro: PeerMacro {
           throw StatoscopeMacroError.message("@EffectStructMacro only works on functions")
         }
 
-        // This only makes sense non-void functions
+        // This only makes sense non-void functions ??
+        /*
         guard let returnType = funcDecl.signature.returnClause?.type,
-              returnType.as(IdentifierTypeSyntax.self)?.name.text != "Void" else {
+            returnType.as(IdentifierTypeSyntax.self)?.name.text != "Void" else {
           throw StatoscopeMacroError.message(
             "@EffectStructMacro requires an function that returns a When"
           )
         }
+         */
 
         let parameterList = funcDecl.signature.parameterClause.parameters
         let newStructDeclaration = StructDeclSyntax(
             name: .identifier(funcDecl.name.text.firstCharCapitalized + "Effect"),
+            genericParameterClause: funcDecl.genericParameterClause,
+            inheritanceClause: InheritanceClauseSyntax(
+                inheritedTypes: InheritedTypeListSyntax {
+                    InheritedTypeSyntax(type: IdentifierTypeSyntax(name: "Effect"))
+                    InheritedTypeSyntax(type: IdentifierTypeSyntax(name: "Equatable"))
+                }
+            ),
             memberBlock: MemberBlockSyntax(
                 members: MemberBlockItemListSyntax {
                     for param in parameterList {

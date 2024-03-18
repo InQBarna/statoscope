@@ -43,3 +43,40 @@ public struct StatoscopeLogger {
         }
     }
 }
+
+private extension CollectionDifference.Change {
+    var offset: Int {
+        switch self {
+        case .remove(let offset, _, _): return offset
+        case .insert(let offset, _, _): return offset
+        }
+    }
+}
+
+extension ScopeImplementation {
+    func logState(describingSelf: String) {
+        for stateLine in describingSelf.split(separator: "\n") {
+            LOG(.state, "[STATE] " + stateLine)
+        }
+    }
+    
+    func logStateDiff(
+        previousDescribingSelf: String,
+        newDescribingSelf: String
+    ) {
+        let differences = newDescribingSelf
+            .split(separator: "\n")
+            .difference(from: previousDescribingSelf.split(separator: "\n"))
+            .sorted { lhs, rhs in
+                lhs.offset < rhs.offset
+            }
+        for difference in differences {
+            switch difference {
+            case .remove(_, let element, _):
+                LOG(.stateDiff, "[STATE] [DIFF] - " + element)
+            case .insert(_, let element, _):
+                LOG(.stateDiff, "[STATE] [DIFF] + " + element)
+            }
+        }
+    }
+}

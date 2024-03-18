@@ -20,6 +20,7 @@ let testMacros: [String: Macro.Type] = [
 #endif
 
 final class StatoscopeMacrosTests: XCTestCase {
+
     func testCreateEffectMacroWithNoArguments() throws {
         #if canImport(StatoscopeMacros)
         assertMacroExpansion(
@@ -37,7 +38,7 @@ final class StatoscopeMacrosTests: XCTestCase {
                     return 2
                 }
 
-                struct MethodNameEffect {
+                struct MethodNameEffect: Effect, Equatable {
                     func runEffect() async throws -> Int {
                         try await methodName()
                     }
@@ -50,6 +51,7 @@ final class StatoscopeMacrosTests: XCTestCase {
         throw XCTSkip("macros are only supported when running tests for the host platform")
         #endif
     }
+
     func testCreateEffectMacro() throws {
         #if canImport(StatoscopeMacros)
         assertMacroExpansion(
@@ -67,13 +69,41 @@ final class StatoscopeMacrosTests: XCTestCase {
                     return 2
                 }
 
-                struct CEffect {
+                struct CEffect: Effect, Equatable {
                     let a: Int
                     let b: String
                     let value: Double
                     func runEffect() async throws -> Int {
                         try await c(a: a, for : b, _ : value)
                     }
+                }
+            }
+            """#,
+            macros: testMacros
+        )
+        #else
+        throw XCTSkip("macros are only supported when running tests for the host platform")
+        #endif
+    }
+    
+    func testGenericReturnTypeMethod() throws {
+        #if canImport(StatoscopeMacros)
+        assertMacroExpansion(
+            #"""
+            @EffectStructMacro
+            func network<Response: Decodable>(request: URLRequest) async throws -> Response {
+                try JSONDecoder().decode(Response.self, from: try await URLSession.shared.data(for: request).0)
+            }
+            """#,
+            expandedSource: #"""
+            func network<Response: Decodable>(request: URLRequest) async throws -> Response {
+                try JSONDecoder().decode(Response.self, from: try await URLSession.shared.data(for: request).0)
+            }
+
+            struct NetworkEffect<Response: Decodable>: Effect, Equatable {
+                let request: URLRequest
+                func runEffect() async throws -> Response {
+                    try await network(request: request)
                 }
             }
             """#,

@@ -47,23 +47,11 @@ extension ScopeImplementation {
         assert(effectsState.enquedEffects.count == 0)
         assert(effectsState.cancelledEffects.count == 0)
         let currentState = String(describing: self)
-        for stateLine in currentState.split(separator: "\n") {
-            LOG(.state, "[STATE] " + stateLine)
-        }
+        logState(describingSelf: currentState)
         try updateUsingMiddlewares(when)
         let newState = String(describing: self)
-        for stateLine in newState.split(separator: "\n") {
-            LOG(.state, "[STATE] " + stateLine)
-        }
-        let differences = newState.split(separator: "\n").difference(from: currentState.split(separator: "\n"))
-        for difference in differences {
-            switch difference {
-            case .remove(_, let element, _):
-                LOG(.stateDiff, "[STATE] [DIFF] - " + element)
-            case .insert(_, let element, _):
-                LOG(.stateDiff, "[STATE] [DIFF] + " + element)
-            }
-        }
+        logState(describingSelf: newState)
+        logStateDiff(previousDescribingSelf: currentState, newDescribingSelf: newState)
         let copiedSnapshot = effectsState
         effectsState = EffectsState(snapshotEffects: effectsState.currentRequestedEffects)
         ensureSetupDeinitObserver()
@@ -72,7 +60,7 @@ extension ScopeImplementation {
         }
     }
 
-    private func LOG(_ level: LogLevel, _ string: String) {
+    internal func LOG(_ level: LogLevel, _ string: String) {
         StatoscopeLogger.LOG(level, prefix: logPrefix, string)
     }
 
