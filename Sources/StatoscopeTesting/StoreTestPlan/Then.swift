@@ -62,7 +62,9 @@ extension StoreTestPlan {
         equals expectedValue: AcceptableKP
     ) throws -> Self {
         addStep { sut in
-            XCTAssertEqual(sut[keyPath: keyPath], expectedValue, file: file, line: line)
+            if sut[keyPath: keyPath] != expectedValue {
+                XCTFail("[\(keyPath) != \(expectedValue)]", file: file, line: line)
+            }
             // assertNoDeepEffects(file: file, line: line)
             // sut.cancelAllEffects() // only cleared on next WHEN
         }

@@ -10,5 +10,6 @@ private final class Counter: Scope {
     }
 
     func update(_ when: When) throws {
+        // TODO
     }
 }

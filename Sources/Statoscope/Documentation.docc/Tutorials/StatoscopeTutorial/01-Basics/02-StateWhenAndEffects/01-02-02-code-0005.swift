@@ -1,24 +1,14 @@
 import StatoscopeTesting
 
-struct DTO: Codable {
-    let count: Int
-}
-
-final class CloudCounter: ScopeImplementation {
-    var viewDisplaysTotalCount: Int = 0
-    var viewShowsLoadingAndDisablesButtons: Bool = false
-    enum When {
-        case userTappedIncrementButton
-        case userTappedDecrementButton
-        case networkPostCompleted(DTO)
-    }
-
-    func update(_ when: When) throws {}
-}
-
 final class CloudCounterTest: XCTestCase {
 
     func testUserFlow() throws {
+        
+        var expectedNetworkRequest = URLRequest(url: try XCTUnwrap(URL(string: "http://statoscope.com")))
+        expectedNetworkRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        expectedNetworkRequest.httpMethod = "POST"
+        expectedNetworkRequest.httpBody = try JSONEncoder().encode(DTO(count: 0))
+        
         try CloudCounter.GIVEN {
             CloudCounter()
         }
@@ -28,9 +18,11 @@ final class CloudCounterTest: XCTestCase {
         .WHEN(.userTappedIncrementButton)
         .THEN(\.viewDisplaysTotalCount, equals: 1)
         .THEN(\.viewShowsLoadingAndDisablesButtons, equals: true)
+        .THEN_EnquedEffect(Network.Effect<DTO>(request: expectedNetworkRequest))
         .WHEN(.networkPostCompleted(DTO(count: 1)))
         .THEN(\.viewDisplaysTotalCount, equals: 1)
         .THEN(\.viewShowsLoadingAndDisablesButtons, equals: false)
+        .THEN { XCTAssertEqual($0.effects.count, 0) }
         // Decrement
         .WHEN(.userTappedDecrementButton)
         .THEN(\.viewDisplaysTotalCount, equals: 0)

@@ -53,6 +53,22 @@ final class InjectionStoreTests: XCTestCase {
         let sut = InjectionStore()
         XCTAssertThrowsError(try sut.resolve() as InjectableObject)
     }
+    
+    func testResolveThrowingError() throws {
+        class InjectableObject {
+            let param: String
+            init(param: String) {
+                self.param = param
+            }
+        }
+        let sut = InjectionStore()
+        do {
+            _ = try sut.resolve() as InjectableObject
+            XCTFail("Should have thrown an error")
+        } catch {
+            XCTAssertEqual(error.localizedDescription, "No injected value found: \"InjectableObject\"")
+        }
+    }
 
     func testTreeDescription() {
         class MyInjectableObject: CustomStringConvertible {

@@ -21,14 +21,14 @@ public struct InvalidStateError: Error, Equatable {
 /// breakpoint is enabled
 ///
 /// See:  ``ScopeImplementation/update(_:)``
-public struct NoInjectedValueFound: Error {
+public struct NoInjectedValueFound: Error, LocalizedError {
     let type: String
     let injectionTreeDescription: [String]?
     init<T>(_ type: T, injectionTreeDescription: [String]? = nil) {
         self.type = String(describing: type).removeOptionalDescription
         self.injectionTreeDescription = injectionTreeDescription
     }
-    var debugDescription: String {
+    public var errorDescription: String? {
         let msg = "No injected value found: \"\(type)\""
         // Add keypath if possible ... at: \"\(keyPath ?? String(describing: type(of: self)))\"")
         return [[msg], injectionTreeDescription ?? []]
