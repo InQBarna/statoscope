@@ -149,9 +149,9 @@ public protocol HierarchialScopeMiddleWare {
 }
 
 public struct WhenFromSubscope<When: Sendable> {
-    let subscopeKeyPath: AnyKeyPath
-    let subscope: () -> AnyScopeImplementation<When>
-    let when: When
+    public let subscopeKeyPath: AnyKeyPath
+    public let subscope: () -> AnyScopeImplementation<When>
+    public let when: When
 }
 
 public protocol _AnyScopeImplementation {

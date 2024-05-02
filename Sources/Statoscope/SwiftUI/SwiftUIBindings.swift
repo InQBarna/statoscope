@@ -24,22 +24,66 @@ extension StoreProtocol where Self: AnyObject {
             set: { [weak self] in self?.send(when($0)) }
         )
     }
-    public func bindBool(_ keyPath: KeyPath<ScopeImpl, Bool>) -> Binding<Bool> {
+    
+    /*
+    public func bindBool(
+        _ keyPath: KeyPath<ScopeImpl, Bool>,
+        _ when: ((Bool) -> ScopeImpl.When)? = nil
+    ) -> Binding<Bool> {
+        guard let when = when else {
+            return Binding(
+                get: { [weak self] in self?.scopeImpl[keyPath: keyPath] ?? false },
+                set: { _ in }
+            )
+        }
         return Binding(
             get: { [weak self] in self?.scopeImpl[keyPath: keyPath] ?? false },
-            set: { _ in }
+            set: { [weak self] in self?.send(when($0)) }
         )
     }
+    public func bindBool(
+        _ getter: @escaping (Self) -> Bool,
+        _ when: ((Bool) -> ScopeImpl.When)? = nil
+    ) -> Binding<Bool> {
+        guard let when = when else {
+            return Binding(
+                get: { [weak self] in
+                    guard let self else { return false }
+                    return getter(self)
+                },
+                set: { _ in }
+            )
+        }
+        return Binding(
+            get: { [weak self] in
+                guard let self else { return false }
+                return getter(self)
+            },
+            set: { [weak self] in self?.send(when($0)) }
+        )
+    }
+     */
+    
 }
 
 extension StoreProtocol where Self: AnyObject {
     public func bind<T>(
+        constant: T,
+        _ when: @escaping (T) -> ScopeImpl.When
+    ) -> Binding<T> {
+        bind(
+            { _ in constant },
+            when
+        )
+    }
+
+    public func bind<T>(
         _ keyPath: KeyPath<ScopeImpl, T>,
         _ when: @escaping (T) -> ScopeImpl.When
     ) -> Binding<T> {
-        Binding(
-            get: { self.scopeImpl[keyPath: keyPath] },
-            set: { [weak self] in self?.send(when($0)) }
+        bind(
+            { $0.scopeImpl[keyPath: keyPath] },
+            when
         )
     }
 
@@ -50,6 +94,20 @@ extension StoreProtocol where Self: AnyObject {
     ) -> Binding<T> {
         Binding(
             get: { [weak self] in self?.scopeImpl[keyPath: keyPath] ?? defaultValue },
+            set: { [weak self] in self?.send(when($0)) }
+        )
+    }
+    
+    public func bind<T>(
+        _ getter: @escaping (Self) -> T,
+        _ when: @escaping (T) -> ScopeImpl.When
+    ) -> Binding<T> {
+        let currentValue = getter(self)
+        return Binding(
+            get: { [weak self] in
+                guard let self else { return currentValue }
+                return getter(self)
+            },
             set: { [weak self] in self?.send(when($0)) }
         )
     }

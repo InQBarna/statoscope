@@ -50,3 +50,7 @@ extension StoreProtocol {
         return self
     }
 }
+
+struct Store<ScopeImpl: Scope> {
+    let scopeImpl: ScopeImpl
+}

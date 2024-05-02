@@ -23,4 +23,31 @@ extension StoreTestPlan {
         return self
     }
 
+    @discardableResult
+    public func FORK<Subscope: ScopeImplementation>(
+        file: StaticString = #file, line: UInt = #line,
+        _ keyPath: KeyPath<T, Subscope>,
+        _ elseWhen: Subscope.When,
+        _ elseFlow: (StoreTestPlan<T>) throws -> StoreTestPlan<T>
+    ) throws -> StoreTestPlan<T> {
+        let elseTestPlan = StoreTestPlan(parent: self)
+        forks.append(elseTestPlan)
+        try elseTestPlan.WHEN(keyPath, file: file, line: line, elseWhen)
+        _ = try elseFlow(elseTestPlan)
+        return self
+    }
+
+    @discardableResult
+    public func FORK<Subscope: ScopeImplementation>(
+        file: StaticString = #file, line: UInt = #line,
+        _ keyPath: KeyPath<T, Subscope?>,
+        _ elseWhen: Subscope.When,
+        _ elseFlow: (StoreTestPlan<T>) throws -> StoreTestPlan<T>
+    ) throws -> StoreTestPlan<T> {
+        let elseTestPlan = StoreTestPlan(parent: self)
+        forks.append(elseTestPlan)
+        try elseTestPlan.WHEN(keyPath, file: file, line: line, elseWhen)
+        _ = try elseFlow(elseTestPlan)
+        return self
+    }
 }

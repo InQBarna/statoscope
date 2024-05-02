@@ -26,6 +26,15 @@ public final class StoreTestPlan<T: ScopeImplementation> {
         self.steps = parent.steps
     }
 
+    internal init<FF: ScopeImplementation>(
+        parent: StoreTestPlan<FF>,
+        sut: FF,
+        keyPath: KeyPath<FF, T>
+    ) {
+        self.given = { sut[keyPath: keyPath] }
+        self.steps = []
+    }
+
     var snapshot: ((T) -> Void)?
 
     // Possible parameters
