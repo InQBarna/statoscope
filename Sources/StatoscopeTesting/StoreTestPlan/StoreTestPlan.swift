@@ -7,6 +7,11 @@
 
 import Foundation
 import Statoscope
+import XCTest
+
+enum TestPlanErrors: Error {
+    case unwrappingNonOptionalSubscope
+}
 
 public final class StoreTestPlan<T: ScopeImplementation> {
     let given: () throws -> T
@@ -32,6 +37,24 @@ public final class StoreTestPlan<T: ScopeImplementation> {
         keyPath: KeyPath<FF, T>
     ) {
         self.given = { sut[keyPath: keyPath] }
+        self.steps = []
+    }
+
+    internal init<FF: ScopeImplementation>(
+        parent: StoreTestPlan<FF>,
+        sut: FF,
+        keyPath: KeyPath<FF, T?>,
+        file: StaticString = #file, line: UInt = #line
+    ) {
+        self.given = {
+            guard let childScope: T = sut[keyPath: keyPath] else {
+                XCTFail("WITH: Non existing model in first parameter: error unwrapping expecte non-nil subscope" +
+                        " \(type(of: T.self)) : \(type(of: T.self))",
+                        file: file, line: line)
+                throw TestPlanErrors.unwrappingNonOptionalSubscope
+            }
+            return childScope
+        }
         self.steps = []
     }
 

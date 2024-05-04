@@ -15,7 +15,8 @@ import StatoscopeMacros
 
 let testMacros: [String: Macro.Type] = [
     "EffectStructMacro": EffectStructMacro.self,
-    "StateProtocol": StateProtocolMacro.self
+    "StateProtocol": StateProtocolMacro.self,
+    "CaseAssociatedGet": CaseAssociatedGetMacro.self
 ]
 #endif
 

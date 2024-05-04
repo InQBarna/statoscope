@@ -36,4 +36,18 @@ extension StoreTestPlan {
             try withTestPlan.runTest()
         }
     }
+
+    @discardableResult
+    public func WITH<Subscope: ScopeImplementation>(
+        _ keyPath: KeyPath<T, Subscope?>,
+        file: StaticString = #file, line: UInt = #line,
+        _ with: @escaping (_ sut: StoreTestPlan<Subscope>) throws -> Void
+    ) rethrows -> Self {
+        addStep { sut in
+            // TODO: WITH is not compatible with snapshot for now and other features of StoreTestPlan
+            let withTestPlan: StoreTestPlan<Subscope> = StoreTestPlan<Subscope>(parent: self, sut: sut, keyPath: keyPath)
+            try with(withTestPlan)
+            try withTestPlan.runTest()
+        }
+    }
 }

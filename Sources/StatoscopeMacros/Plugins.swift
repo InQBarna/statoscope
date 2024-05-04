@@ -14,6 +14,7 @@ import SwiftSyntaxMacros
 struct StatoscopeMacrosPlugin: CompilerPlugin {
     let providingMacros: [Macro.Type] = [
         EffectStructMacro.self,
-        StateProtocolMacro.self
+        StateProtocolMacro.self,
+        CaseAssociatedGetMacro.self
     ]
 }
