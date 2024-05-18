@@ -35,7 +35,6 @@ private final class MyScope:
 
     @Published var viewShowsLoadingMessage: String?
     @Published var viewShowsContent: Result<String, MyError>?
-    private var effectIndex: Int = 0
     @Subscope var child: MyChildScope?
     @Subscope var nonOptionalChild: MyChildScope = MyChildScope(viewShowsDetail: "Non optional")
 
@@ -51,13 +50,12 @@ private final class MyScope:
         switch when {
         case .systemLoadsSampleScope, .retry:
             let simultaneousEffects = effectsState.effects.count
-            viewShowsLoadingMessage = "Loading #\(effectIndex) (\(simultaneousEffects + 1))..."
+            viewShowsLoadingMessage = "Loading..."
             effectsState.enqueue(
-                MyEffect(milliseconds: 1000, result: "Result \(effectIndex)")
+                MyEffect(milliseconds: 1000, result: "Result")
                     .mapToResultWithErrorType(MyError.self)
                     .map(When.networkRespondsWithContent)
             )
-            effectIndex += 1
         case .networkRespondsWithContent(let newContent):
             viewShowsContent = newContent.mapError { _ in MyError.someError }
             viewShowsLoadingMessage = nil
@@ -123,32 +121,14 @@ final class StatoscopeTestingThenTests: XCTestCase {
         .THEN(\.viewShowsContent, equals: nil)
         .throwsWHEN(.detailTappedBack)
         .WHEN(.systemLoadsSampleScope)
-        .THEN(\.viewShowsLoadingMessage, equals: "Loading #0 (1)...")
+        .THEN(\.viewShowsLoadingMessage, equals: "Loading...")
         .THEN { sut in
             XCTAssertEqual(sut.effects.count, 1)
-            XCTAssertEffectsInclude(sut, MyEffect(milliseconds: 1000, result: "Result 0"))
+            XCTAssertEffectsInclude(sut, MyEffect(milliseconds: 1000, result: "Result"))
         }
-        .WHEN(.systemLoadsSampleScope)
-        .THEN(\.viewShowsLoadingMessage, equals: "Loading #1 (1)...")
-        .THEN { sut in
-            // Previous effect has been cleared
-            XCTAssertEqual(sut.effects.count, 1)
-            XCTAssertEffectsInclude(sut, MyEffect(milliseconds: 1000, result: "Result 1"))
-        }
-        .WHEN(clearEffects: .none, .systemLoadsSampleScope)
-        .THEN(\.viewShowsLoadingMessage, equals: "Loading #2 (2)...")
-        .THEN { sut in
-            // Previous effect has been cleared
-            XCTAssertEqual(sut.effects.count, 2)
-            XCTAssertEffectsInclude(sut, MyEffect(milliseconds: 1000, result: "Result 1"))
-            XCTAssertEffectsInclude(sut, MyEffect(milliseconds: 1000, result: "Result 2"))
-        }
-        .WHEN(clearEffects: .some({ ($0 as? MyEffect)?.result == "Result 1" }),
-              .networkRespondsWithContent(.success("Result 1")))
+        .WHEN(.networkRespondsWithContent(.success("Result")))
         .THEN(\.viewShowsLoadingMessage, equals: nil)
-        .THEN(\.viewShowsContent, equals: .success("Result 1"))
-        .WHEN(clearEffects: .some({ ($0 as? MyEffect)?.result == "Result 2" }),
-              .networkRespondsWithContent(.success("Result 2")))
+        .THEN(\.viewShowsContent, equals: .success("Result"))
         .runTest()
     }
 
@@ -157,7 +137,7 @@ final class StatoscopeTestingThenTests: XCTestCase {
             MyScope()
         }
         .WHEN(.systemLoadsSampleScope)
-        .AND(.networkRespondsWithContent(.success("Result 1")))
+        .AND(.networkRespondsWithContent(.success("Result")))
         .AND(.navigateToDetail)
         .THEN(\.child?.toggled, equals: false)
         .WHEN(\.child, .toggle)

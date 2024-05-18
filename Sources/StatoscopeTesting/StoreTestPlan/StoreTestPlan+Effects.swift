@@ -33,6 +33,19 @@ extension StoreTestPlan {
     }
 
     @discardableResult
+    public func THEN_NoEffects(
+        file: StaticString = #file, line: UInt = #line
+    ) throws -> Self {
+        addStep { sut in
+            let effs = sut.effectsState.effects
+            if effs.count > 0 {
+                XCTFail("Unexpected effects found on sut \(type(of: sut)): " +
+                        "\(effs)", file: file, line: line)
+            }
+        }
+    }
+
+    @discardableResult
     public func THEN_Enqued<EffectType: Effect & Equatable, Subscope: ScopeImplementation>(
         _ keyPath: KeyPath<T, Subscope?>,
         effect: EffectType,

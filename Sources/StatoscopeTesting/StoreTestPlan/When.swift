@@ -32,34 +32,31 @@ extension StoreTestPlan {
 
     @discardableResult
     public func WHEN(
-        clearEffects: ClearEffects = .all,
+        _ when: T.When,
         file: StaticString = #file,
-        line: UInt = #line,
-        _ whens: T.When...
+        line: UInt = #line
     ) throws -> Self {
-        try privateWHEN(clearEffects: clearEffects, file: file, line: line, whens)
+        try privateWHEN(when, file: file, line: line)
     }
 
     @discardableResult
     public func WHEN<Subscope: ScopeImplementation>(
         _ keyPath: KeyPath<T, Subscope>,
-        clearEffects: ClearEffects = .all,
+        _ when: Subscope.When,
         file: StaticString = #file,
-        line: UInt = #line,
-        _ whens: Subscope.When...
+        line: UInt = #line
     ) throws -> Self {
-        try privateWHEN(keyPath, clearEffects: clearEffects, file: file, line: line, whens)
+        try privateWHEN(keyPath, when, file: file, line: line)
     }
 
     @discardableResult
     public func WHEN<Subscope: ScopeImplementation>(
         _ keyPath: KeyPath<T, Subscope?>,
-        clearEffects: ClearEffects = .all,
+        _ when: Subscope.When,
         file: StaticString = #file,
-        line: UInt = #line,
-        _ whens: Subscope.When...
+        line: UInt = #line
     ) throws -> Self {
-        try privateWHEN(keyPath, clearEffects: clearEffects, file: file, line: line, whens)
+        try privateWHEN(keyPath, when, file: file, line: line)
     }
 
     @discardableResult
@@ -115,83 +112,81 @@ extension StoreTestPlan {
 
     @discardableResult
     public func AND(
+        _ when: T.When,
         file: StaticString = #file,
-        line: UInt = #line,
-        _ whens: T.When...
+        line: UInt = #line
     ) throws -> Self {
-        try privateWHEN(clearEffects: .none, file: file, line: line, whens)
+        try privateWHEN(when, file: file, line: line)
     }
 
     @discardableResult
     public func AND<Subscope: ScopeImplementation>(
         _ keyPath: KeyPath<T, Subscope>,
+        _ when: Subscope.When,
         file: StaticString = #file,
-        line: UInt = #line,
-        _ whens: Subscope.When...
+        line: UInt = #line
     ) throws -> Self {
-        try privateWHEN(keyPath, clearEffects: .none, file: file, line: line, whens)
+        try privateWHEN(keyPath, when, file: file, line: line)
     }
 
     @discardableResult
     public func AND<Subscope: ScopeImplementation>(
         _ keyPath: KeyPath<T, Subscope?>,
+        _ when: Subscope.When,
         file: StaticString = #file,
-        line: UInt = #line,
-        _ whens: Subscope.When...
+        line: UInt = #line
     ) throws -> Self {
-        try privateWHEN(keyPath, clearEffects: .none, file: file, line: line, whens)
+        try privateWHEN(keyPath, when, file: file, line: line)
     }
 }
 
 private extension StoreTestPlan {
 
     func privateWHEN(
-        clearEffects: ClearEffects = .all,
+        _ when: T.When,
         file: StaticString = #file,
-        line: UInt = #line,
-        _ whens: [T.When]
+        line: UInt = #line
     ) throws -> Self {
-        addStep { sut in
+        let clearEffectsOnWhen = self.clearEffectsOnWhen
+        return addStep { sut in
             // assertNoDeepEffects(file: file, line: line)
-            try whens.forEach {
-                sut.effectsState.clear(clearEffects)
-                try sut._unsafeSendImplementation($0)
-            }
+            sut.effectsState.clear(clearEffectsOnWhen)
+            try sut._unsafeSendImplementation(when)
         }
     }
 
     @discardableResult
     func privateWHEN<Subscope: ScopeImplementation>(
         _ keyPath: KeyPath<T, Subscope>,
-        clearEffects: ClearEffects = .all,
+        _ when: Subscope.When,
         file: StaticString = #file,
-        line: UInt = #line,
-        _ whens: [Subscope.When]
+        line: UInt = #line
     ) throws -> Self {
-        addStep { sut in
+        let clearEffectsOnWhen = self.clearEffectsOnWhen
+        return addStep { sut in
             let child = sut[keyPath: keyPath]
-            child.effectsState.clear(clearEffects)
-            try sut.when(childScope: child, file: file, line: line, whens)
+            child.effectsState.clear(clearEffectsOnWhen)
+            try sut.when(childScope: child, file: file, line: line, [when])
         }
     }
 
     @discardableResult
     func privateWHEN<Subscope: ScopeImplementation>(
         _ keyPath: KeyPath<T, Subscope?>,
-        clearEffects: ClearEffects = .all,
+        _ when: Subscope.When,
         file: StaticString = #file,
-        line: UInt = #line,
-        _ whens: [Subscope.When]
+        line: UInt = #line
     ) throws -> Self {
-        addStep { sut in
+        let clearEffectsOnWhen = self.clearEffectsOnWhen
+        return addStep { sut in
             guard let childScope = sut[keyPath: keyPath] else {
                 XCTFail("WHEN: Non existing model in first parameter: error unwrapping expecte non-nil subscope" +
                         " \(type(of: T.self)) : \(type(of: Subscope.self))",
                         file: file, line: line)
                 return
             }
-            childScope.effectsState.clear(clearEffects)
-            try sut.when(childScope: childScope, file: file, line: line, whens)
+            childScope.effectsState.clear(clearEffectsOnWhen)
+            try sut.when(childScope: childScope, file: file, line: line, [when])
         }
     }
 

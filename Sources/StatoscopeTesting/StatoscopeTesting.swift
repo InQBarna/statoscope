@@ -23,8 +23,10 @@ extension ScopeImplementation {
 }
 
 extension StoreTestPlan {
+    
+    /*
     @discardableResult
-    public func WITH<Subscope: ScopeImplementation>(
+    public func WITH_v0<Subscope: ScopeImplementation>(
         _ keyPath: KeyPath<T, Subscope>,
         file: StaticString = #file, line: UInt = #line,
         _ with: @escaping (_ sut: StoreTestPlan<Subscope>) throws -> Void
@@ -38,7 +40,7 @@ extension StoreTestPlan {
     }
 
     @discardableResult
-    public func WITH<Subscope: ScopeImplementation>(
+    public func WITH_v0<Subscope: ScopeImplementation>(
         _ keyPath: KeyPath<T, Subscope?>,
         file: StaticString = #file, line: UInt = #line,
         _ with: @escaping (_ sut: StoreTestPlan<Subscope>) throws -> Void
@@ -49,5 +51,28 @@ extension StoreTestPlan {
             try with(withTestPlan)
             try withTestPlan.runTest()
         }
+    }
+    */
+    
+    @discardableResult
+    public func WITH<Subscope: ScopeImplementation>(
+        _ keyPath: KeyPath<T, Subscope>,
+        file: StaticString = #file, line: UInt = #line
+    ) -> WithStoreTestPlan<Subscope, T> {
+        WithStoreTestPlan<Subscope, T>(
+            parent: self,
+            keyPath: keyPath
+        )
+    }
+
+    @discardableResult
+    public func WITH<Subscope: ScopeImplementation>(
+        _ keyPath: KeyPath<T, Subscope?>,
+        file: StaticString = #file, line: UInt = #line
+    ) -> WithOptStoreTestPlan<Subscope, T> {
+        WithOptStoreTestPlan<Subscope, T>(
+            parent: self,
+            keyPath: keyPath
+        )
     }
 }

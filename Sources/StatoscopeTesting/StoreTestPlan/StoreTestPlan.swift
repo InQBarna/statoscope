@@ -13,10 +13,11 @@ enum TestPlanErrors: Error {
     case unwrappingNonOptionalSubscope
 }
 
-public final class StoreTestPlan<T: ScopeImplementation> {
+public class StoreTestPlan<T: ScopeImplementation> {
     let given: () throws -> T
     internal var steps: [(T) throws -> Void] = []
     internal var forks: [StoreTestPlan<T>] = []
+    internal var clearEffectsOnWhen: ClearEffects = .all
     func addStep(_ step: @escaping (T) throws -> Void) -> Self {
         steps.append(step)
         return self
@@ -40,6 +41,7 @@ public final class StoreTestPlan<T: ScopeImplementation> {
         self.steps = []
     }
 
+    /*
     internal init<FF: ScopeImplementation>(
         parent: StoreTestPlan<FF>,
         sut: FF,
@@ -57,6 +59,7 @@ public final class StoreTestPlan<T: ScopeImplementation> {
         }
         self.steps = []
     }
+     */
 
     var snapshot: ((T) -> Void)?
 
@@ -75,6 +78,11 @@ public final class StoreTestPlan<T: ScopeImplementation> {
             childFlow.snapshot = snapshot
             try childFlow.runTest(file: file, line: line, assertRelease: assertRelease)
         }
+    }
+    
+    public func configure(clearEffects: ClearEffects) -> Self {
+        self.clearEffectsOnWhen = clearEffects
+        return self
     }
 
     private func runAllSteps(
@@ -116,5 +124,64 @@ internal extension ScopeImplementation {
             try childScope._unsafeSendImplementation($0)
         }
         return self
+    }
+}
+
+public class WithStoreTestPlan<W: ScopeImplementation, S: ScopeImplementation>: StoreTestPlan<W> {
+    public let keyPath: KeyPath<S, W>
+    public let parentPlan: StoreTestPlan<S>
+
+    internal init(parent: StoreTestPlan<S>, keyPath: KeyPath<S, W>) {
+        self.keyPath = keyPath
+        self.parentPlan = parent
+        super.init {
+            fatalError("This is never called")
+        }
+    }
+    
+    override func addStep(_ step: @escaping (W) throws -> Void) -> Self {
+        _ = parentPlan.addStep { [keyPath] sut in
+            try step(sut[keyPath: keyPath])
+        }
+        return self
+    }
+    
+    func POP() -> StoreTestPlan<S> {
+        return parentPlan
+    }
+}
+
+public class WithOptStoreTestPlan<W: ScopeImplementation, S: ScopeImplementation>: StoreTestPlan<W> {
+    public let keyPath: KeyPath<S, W?>
+    public let parentPlan: StoreTestPlan<S>
+
+    internal init(parent: StoreTestPlan<S>, keyPath: KeyPath<S, W?>) {
+        self.keyPath = keyPath
+        self.parentPlan = parent
+        super.init {
+            fatalError("This is never called")
+        }
+    }
+    
+    override func addStep(_ step: @escaping (W) throws -> Void) -> Self {
+        _ = parentPlan.addStep { [keyPath] sut in
+            guard let childScope: W = sut[keyPath: keyPath] else {
+                XCTFail("WITH: Non existing model in first parameter: error unwrapping expecte non-nil subscope" +
+                        " \(type(of: W.self)) : \(type(of: W.self))")
+                // TODO: correct file and line
+                // file: file, line: line)
+                throw TestPlanErrors.unwrappingNonOptionalSubscope
+            }
+            try step(childScope)
+        }
+        return self
+    }
+    
+    public func POP() -> StoreTestPlan<S> {
+        return parentPlan
+    }
+    
+    override public func runTest(file: StaticString = #file, line: UInt = #line, assertRelease: Bool = false) throws {
+        try parentPlan.runTest(file: file, line: line, assertRelease: assertRelease)
     }
 }

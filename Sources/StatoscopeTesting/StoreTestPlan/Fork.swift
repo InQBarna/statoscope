@@ -18,7 +18,7 @@ extension StoreTestPlan {
     ) throws -> StoreTestPlan<T> {
         let elseTestPlan = StoreTestPlan(parent: self)
         forks.append(elseTestPlan)
-        try elseTestPlan.WHEN(file: file, line: line, elseWhen)
+        try elseTestPlan.WHEN(elseWhen, file: file, line: line)
         _ = try elseFlow(elseTestPlan)
         return self
     }
@@ -32,7 +32,7 @@ extension StoreTestPlan {
     ) throws -> StoreTestPlan<T> {
         let elseTestPlan = StoreTestPlan(parent: self)
         forks.append(elseTestPlan)
-        try elseTestPlan.WHEN(keyPath, file: file, line: line, elseWhen)
+        try elseTestPlan.WHEN(keyPath, elseWhen, file: file, line: line)
         _ = try elseFlow(elseTestPlan)
         return self
     }
@@ -46,7 +46,7 @@ extension StoreTestPlan {
     ) throws -> StoreTestPlan<T> {
         let elseTestPlan = StoreTestPlan(parent: self)
         forks.append(elseTestPlan)
-        try elseTestPlan.WHEN(keyPath, file: file, line: line, elseWhen)
+        try elseTestPlan.WHEN(keyPath, elseWhen, file: file, line: line)
         _ = try elseFlow(elseTestPlan)
         return self
     }

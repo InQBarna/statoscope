@@ -22,7 +22,8 @@ public protocol ScopeImplementation:
     /// * Parameter when: the received event
     func update(_ when: When) throws
 
-    func addMiddleWare(_ update: @escaping (Self, When, (When) throws -> Void) throws -> Void)
+    @discardableResult
+    func addMiddleWare(_ update: @escaping (Self, When, (When) throws -> Void) throws -> Void) -> Self
 }
 
 extension ScopeImplementation {
@@ -105,7 +106,8 @@ private final class MiddleWareHandler<S: ScopeImplementation> {
 
 extension ScopeImplementation {
 
-    public func addMiddleWare(_ update: @escaping (Self, When, (When) throws -> Void) throws -> Void) {
+    @discardableResult
+    public func addMiddleWare(_ update: @escaping (Self, When, (When) throws -> Void) throws -> Void) -> Self {
         if let existingMiddleware = middleWare {
             middleWare = MiddleWareHandler(middleWare: { state, when, updateClosure in
                 try update(state, when) { mappedWhen in
@@ -115,6 +117,7 @@ extension ScopeImplementation {
         } else {
             middleWare = MiddleWareHandler(middleWare: update)
         }
+        return self
     }
 
     private var middleWare: MiddleWareHandler<Self>? {
