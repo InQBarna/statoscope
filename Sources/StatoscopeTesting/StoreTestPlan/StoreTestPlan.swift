@@ -14,52 +14,30 @@ enum TestPlanErrors: Error {
 }
 
 public class StoreTestPlan<T: ScopeImplementation> {
+    
     let given: () throws -> T
     internal var steps: [(T) throws -> Void] = []
     internal var forks: [StoreTestPlan<T>] = []
     internal var clearEffectsOnWhen: ClearEffects = .all
-    func addStep(_ step: @escaping (T) throws -> Void) -> Self {
-        steps.append(step)
-        return self
-    }
-
+    
     public init(given: @escaping () throws -> T) {
         self.given = given
     }
 
-    internal init(parent: StoreTestPlan<T>) {
+    func addStep(_ step: @escaping (T) throws -> Void) -> Self {
+        steps.append(step)
+        return self
+    }
+    
+    func buildLinkedFork() -> StoreTestPlan<T> {
+        let forkedPlan = StoreTestPlan(forkingParent: self)
+        forks.append(forkedPlan)
+        return forkedPlan
+    }
+    private init<F: StoreTestPlan<T>>(forkingParent parent: F) {
         self.given = parent.given
         self.steps = parent.steps
     }
-
-    internal init<FF: ScopeImplementation>(
-        parent: StoreTestPlan<FF>,
-        sut: FF,
-        keyPath: KeyPath<FF, T>
-    ) {
-        self.given = { sut[keyPath: keyPath] }
-        self.steps = []
-    }
-
-    /*
-    internal init<FF: ScopeImplementation>(
-        parent: StoreTestPlan<FF>,
-        sut: FF,
-        keyPath: KeyPath<FF, T?>,
-        file: StaticString = #file, line: UInt = #line
-    ) {
-        self.given = {
-            guard let childScope: T = sut[keyPath: keyPath] else {
-                XCTFail("WITH: Non existing model in first parameter: error unwrapping expecte non-nil subscope" +
-                        " \(type(of: T.self)) : \(type(of: T.self))",
-                        file: file, line: line)
-                throw TestPlanErrors.unwrappingNonOptionalSubscope
-            }
-            return childScope
-        }
-        self.steps = []
-    }
-     */
 
     var snapshot: ((T) -> Void)?
 
@@ -146,15 +124,28 @@ public class WithStoreTestPlan<W: ScopeImplementation, S: ScopeImplementation>: 
         return self
     }
     
+    override func buildLinkedFork() -> WithStoreTestPlan<W, S> {
+        let forkedPlan = self.parentPlan.buildLinkedFork()
+        return forkedPlan.WITH(self.keyPath)
+    }
+    
     func POP() -> StoreTestPlan<S> {
         return parentPlan
+    }
+    
+    override public func runTest(
+        file: StaticString = #file, line: UInt = #line,
+        assertRelease: Bool = false
+    ) throws {
+        try POP()
+            .runTest(file: file, line: line, assertRelease: assertRelease)
     }
 }
 
 public class WithOptStoreTestPlan<W: ScopeImplementation, S: ScopeImplementation>: StoreTestPlan<W> {
     public let keyPath: KeyPath<S, W?>
     public let parentPlan: StoreTestPlan<S>
-
+    
     internal init(parent: StoreTestPlan<S>, keyPath: KeyPath<S, W?>) {
         self.keyPath = keyPath
         self.parentPlan = parent
@@ -176,7 +167,12 @@ public class WithOptStoreTestPlan<W: ScopeImplementation, S: ScopeImplementation
         }
         return self
     }
-    
+        
+    override func buildLinkedFork() -> WithOptStoreTestPlan<W, S> {
+        let forkedPlan = self.parentPlan.buildLinkedFork()
+        return forkedPlan.WITH(self.keyPath)
+    }
+
     public func POP() -> StoreTestPlan<S> {
         return parentPlan
     }

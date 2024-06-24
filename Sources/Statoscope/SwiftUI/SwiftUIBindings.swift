@@ -8,6 +8,27 @@
 import Foundation
 import SwiftUI
 
+public func bind<VS: Sendable, T, When>(
+    viewShows: VS,
+    _ keyPath: KeyPath<VS, T>,
+    _ when: @escaping (T) -> When
+) -> Binding<T> {
+    Binding(
+        get: { viewShows[keyPath: keyPath] },
+        set: { _ = when($0) }
+    )
+}
+
+public func bind<VS: Sendable, When>(
+    viewShows: VS,
+    _ when: @escaping (VS) -> When
+) -> Binding<VS> {
+    Binding(
+        get: { viewShows },
+        set: { _ = when($0) }
+    )
+}
+
 extension StoreProtocol where Self: AnyObject {
     public func bindNotNilBool<T>(
         _ keyPath: KeyPath<ScopeImpl, T?>,
@@ -24,46 +45,6 @@ extension StoreProtocol where Self: AnyObject {
             set: { [weak self] in self?.send(when($0)) }
         )
     }
-    
-    /*
-    public func bindBool(
-        _ keyPath: KeyPath<ScopeImpl, Bool>,
-        _ when: ((Bool) -> ScopeImpl.When)? = nil
-    ) -> Binding<Bool> {
-        guard let when = when else {
-            return Binding(
-                get: { [weak self] in self?.scopeImpl[keyPath: keyPath] ?? false },
-                set: { _ in }
-            )
-        }
-        return Binding(
-            get: { [weak self] in self?.scopeImpl[keyPath: keyPath] ?? false },
-            set: { [weak self] in self?.send(when($0)) }
-        )
-    }
-    public func bindBool(
-        _ getter: @escaping (Self) -> Bool,
-        _ when: ((Bool) -> ScopeImpl.When)? = nil
-    ) -> Binding<Bool> {
-        guard let when = when else {
-            return Binding(
-                get: { [weak self] in
-                    guard let self else { return false }
-                    return getter(self)
-                },
-                set: { _ in }
-            )
-        }
-        return Binding(
-            get: { [weak self] in
-                guard let self else { return false }
-                return getter(self)
-            },
-            set: { [weak self] in self?.send(when($0)) }
-        )
-    }
-     */
-    
 }
 
 extension StoreProtocol where Self: AnyObject {

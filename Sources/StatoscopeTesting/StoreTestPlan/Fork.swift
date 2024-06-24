@@ -15,9 +15,8 @@ extension StoreTestPlan {
         file: StaticString = #file, line: UInt = #line,
         _ elseWhen: T.When,
         _ elseFlow: (StoreTestPlan<T>) throws -> StoreTestPlan<T>
-    ) throws -> StoreTestPlan<T> {
-        let elseTestPlan = StoreTestPlan(parent: self)
-        forks.append(elseTestPlan)
+    ) throws -> Self {
+        let elseTestPlan = buildLinkedFork()
         try elseTestPlan.WHEN(elseWhen, file: file, line: line)
         _ = try elseFlow(elseTestPlan)
         return self
@@ -29,9 +28,8 @@ extension StoreTestPlan {
         _ keyPath: KeyPath<T, Subscope>,
         _ elseWhen: Subscope.When,
         _ elseFlow: (StoreTestPlan<T>) throws -> StoreTestPlan<T>
-    ) throws -> StoreTestPlan<T> {
-        let elseTestPlan = StoreTestPlan(parent: self)
-        forks.append(elseTestPlan)
+    ) throws -> Self {
+        let elseTestPlan = buildLinkedFork()
         try elseTestPlan.WHEN(keyPath, elseWhen, file: file, line: line)
         _ = try elseFlow(elseTestPlan)
         return self
@@ -43,9 +41,8 @@ extension StoreTestPlan {
         _ keyPath: KeyPath<T, Subscope?>,
         _ elseWhen: Subscope.When,
         _ elseFlow: (StoreTestPlan<T>) throws -> StoreTestPlan<T>
-    ) throws -> StoreTestPlan<T> {
-        let elseTestPlan = StoreTestPlan(parent: self)
-        forks.append(elseTestPlan)
+    ) throws -> Self {
+        let elseTestPlan = buildLinkedFork()
         try elseTestPlan.WHEN(keyPath, elseWhen, file: file, line: line)
         _ = try elseFlow(elseTestPlan)
         return self
