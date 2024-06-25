@@ -16,7 +16,7 @@ extension StoreTestPlan {
         _ elseWhen: T.When,
         _ elseFlow: (StoreTestPlan<T>) throws -> StoreTestPlan<T>
     ) throws -> Self {
-        let elseTestPlan = buildLinkedFork()
+        let elseTestPlan = buildLinkedFork(file: file, line: line)
         try elseTestPlan.WHEN(elseWhen, file: file, line: line)
         _ = try elseFlow(elseTestPlan)
         return self
@@ -29,7 +29,7 @@ extension StoreTestPlan {
         _ elseWhen: Subscope.When,
         _ elseFlow: (StoreTestPlan<T>) throws -> StoreTestPlan<T>
     ) throws -> Self {
-        let elseTestPlan = buildLinkedFork()
+        let elseTestPlan = buildLinkedFork(file: file, line: line)
         try elseTestPlan.WHEN(keyPath, elseWhen, file: file, line: line)
         _ = try elseFlow(elseTestPlan)
         return self
@@ -42,7 +42,7 @@ extension StoreTestPlan {
         _ elseWhen: Subscope.When,
         _ elseFlow: (StoreTestPlan<T>) throws -> StoreTestPlan<T>
     ) throws -> Self {
-        let elseTestPlan = buildLinkedFork()
+        let elseTestPlan = buildLinkedFork(file: file, line: line)
         try elseTestPlan.WHEN(keyPath, elseWhen, file: file, line: line)
         _ = try elseFlow(elseTestPlan)
         return self

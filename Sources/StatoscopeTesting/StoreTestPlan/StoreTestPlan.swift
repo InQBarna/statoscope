@@ -29,7 +29,7 @@ public class StoreTestPlan<T: ScopeImplementation> {
         return self
     }
     
-    func buildLinkedFork() -> StoreTestPlan<T> {
+    func buildLinkedFork(file: StaticString = #file, line: UInt = #line) -> StoreTestPlan<T> {
         let forkedPlan = StoreTestPlan(forkingParent: self)
         forks.append(forkedPlan)
         return forkedPlan
@@ -106,12 +106,21 @@ internal extension ScopeImplementation {
 }
 
 public class WithStoreTestPlan<W: ScopeImplementation, S: ScopeImplementation>: StoreTestPlan<W> {
-    public let keyPath: KeyPath<S, W>
     public let parentPlan: StoreTestPlan<S>
+    public let keyPath: KeyPath<S, W>
+    public let file: StaticString
+    public let line: UInt
 
-    internal init(parent: StoreTestPlan<S>, keyPath: KeyPath<S, W>) {
-        self.keyPath = keyPath
+    internal init(
+        parent: StoreTestPlan<S>,
+        keyPath: KeyPath<S, W>,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) {
         self.parentPlan = parent
+        self.keyPath = keyPath
+        self.file = file
+        self.line = line
         super.init {
             fatalError("This is never called")
         }
@@ -124,8 +133,8 @@ public class WithStoreTestPlan<W: ScopeImplementation, S: ScopeImplementation>: 
         return self
     }
     
-    override func buildLinkedFork() -> WithStoreTestPlan<W, S> {
-        let forkedPlan = self.parentPlan.buildLinkedFork()
+    override func buildLinkedFork(file: StaticString = #file, line: UInt = #line) -> WithStoreTestPlan<W, S> {
+        let forkedPlan = self.parentPlan.buildLinkedFork(file: file, line: line)
         return forkedPlan.WITH(self.keyPath)
     }
     
@@ -143,24 +152,32 @@ public class WithStoreTestPlan<W: ScopeImplementation, S: ScopeImplementation>: 
 }
 
 public class WithOptStoreTestPlan<W: ScopeImplementation, S: ScopeImplementation>: StoreTestPlan<W> {
-    public let keyPath: KeyPath<S, W?>
     public let parentPlan: StoreTestPlan<S>
-    
-    internal init(parent: StoreTestPlan<S>, keyPath: KeyPath<S, W?>) {
+    public let keyPath: KeyPath<S, W?>
+    public let file: StaticString
+    public let line: UInt
+
+    internal init(
+        parent: StoreTestPlan<S>,
+        keyPath: KeyPath<S, W?>,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) {
         self.keyPath = keyPath
         self.parentPlan = parent
+        self.file = file
+        self.line = line
         super.init {
             fatalError("This is never called")
         }
     }
     
     override func addStep(_ step: @escaping (W) throws -> Void) -> Self {
-        _ = parentPlan.addStep { [keyPath] sut in
+        _ = parentPlan.addStep { [keyPath, file, line] sut in
             guard let childScope: W = sut[keyPath: keyPath] else {
                 XCTFail("WITH: Non existing model in first parameter: error unwrapping expecte non-nil subscope" +
-                        " \(type(of: W.self)) : \(type(of: W.self))")
-                // TODO: correct file and line
-                // file: file, line: line)
+                        " \(type(of: W.self)) : \(type(of: W.self))",
+                        file: file, line: line)
                 throw TestPlanErrors.unwrappingNonOptionalSubscope
             }
             try step(childScope)
@@ -168,8 +185,8 @@ public class WithOptStoreTestPlan<W: ScopeImplementation, S: ScopeImplementation
         return self
     }
         
-    override func buildLinkedFork() -> WithOptStoreTestPlan<W, S> {
-        let forkedPlan = self.parentPlan.buildLinkedFork()
+    override func buildLinkedFork(file: StaticString = #file, line: UInt = #line) -> WithOptStoreTestPlan<W, S> {
+        let forkedPlan = self.parentPlan.buildLinkedFork(file: file, line: line)
         return forkedPlan.WITH(self.keyPath)
     }
 
