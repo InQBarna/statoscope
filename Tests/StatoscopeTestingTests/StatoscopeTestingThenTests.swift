@@ -49,7 +49,6 @@ private final class MyScope:
     func update(_ when: When) throws {
         switch when {
         case .systemLoadsSampleScope, .retry:
-            let simultaneousEffects = effectsState.effects.count
             viewShowsLoadingMessage = "Loading..."
             effectsState.enqueue(
                 MyEffect(milliseconds: 1000, result: "Result")

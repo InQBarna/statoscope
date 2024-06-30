@@ -56,6 +56,7 @@ final class LogsTests: XCTestCase {
         }
     }
 
+    @available(iOS 16.0, *)
     func testStoreLogs() throws {
         var logs: [String] = []
         let regex: Regex = try Regex("(0x[0-9a-f]*)")
@@ -79,6 +80,7 @@ final class LogsTests: XCTestCase {
         ])
     }
 
+    @available(iOS 16.0, *)
     func testChildStoreLogs() throws {
         var logs: [String] = []
         let regex: Regex = try Regex("(0x[0-9a-f]*)")
@@ -122,6 +124,7 @@ final class LogsTests: XCTestCase {
         }
     }
 
+    @available(iOS 16.0, *)
     func testPublishedPropertiesLogs() throws {
         var logs: [String] = []
         let regex: Regex = try Regex("(0x[0-9a-f]*)")
@@ -138,6 +141,7 @@ final class LogsTests: XCTestCase {
         ])
     }
 
+    @available(iOS 16.0, *)
     func testPublishedPropertiesLogsWithSink() throws {
         var logs: [String] = []
         let regex: Regex = try Regex("(0x[0-9a-f]*)")

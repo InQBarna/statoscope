@@ -33,6 +33,16 @@ private final class SampleScope:
     }
 }
 
+private struct SampleView: View {
+    @ObservedObject var scope: SampleScope
+    var body: some View {
+        Text("I am at depth: \(scope.childDeptch)")
+        if let atChild = scope.atChild {
+            SampleView(scope: atChild)
+        }
+    }
+}
+
 final class StatoscopeTestingWithTests: XCTestCase {
 
     func testWithTestSyntax() throws {
@@ -66,5 +76,43 @@ final class StatoscopeTestingWithTests: XCTestCase {
         .WITH(\.atChild?.atChild)
         .THEN(\.childDeptch, equals: 2)
         .runTest()
+    }
+    
+    func testWithTestSnapshot() throws {
+        let snapshotCalled = expectation(description: "snapshot called")
+        snapshotCalled.assertForOverFulfill = false
+        try SampleScope.GIVEN {
+            SampleScope(childDepth: 0)
+        }
+        .configureViewSnapshot(self) {
+            snapshotCalled.fulfill()
+            return SampleView(scope: $0)
+        }
+        .WHEN(.navigateChild)
+        .WITH(\.atChild)
+        .THEN(\.childDeptch, equals: 1)
+        .POP()
+        .THEN(\.childDeptch, equals: 0)
+        .runTest()
+        wait(for: [snapshotCalled], timeout: 2)
+    }
+    
+    func TODO_testWithTestSnapshotOnChild() throws {
+        let snapshotCalled = expectation(description: "snapshot called")
+        snapshotCalled.assertForOverFulfill = false
+        try SampleScope.GIVEN {
+            SampleScope(childDepth: 0)
+        }
+        .WHEN(.navigateChild)
+        .WITH(\.atChild)
+        .configureViewSnapshot(self) {
+            snapshotCalled.fulfill()
+            return SampleView(scope: $0)
+        }
+        .THEN(\.childDeptch, equals: 1)
+        .POP()
+        .THEN(\.childDeptch, equals: 0)
+        .runTest()
+        wait(for: [snapshotCalled], timeout: 2)
     }
 }
