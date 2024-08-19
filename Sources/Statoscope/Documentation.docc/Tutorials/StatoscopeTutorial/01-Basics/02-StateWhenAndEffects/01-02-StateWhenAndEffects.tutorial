@@ -1,0 +1,106 @@
+@Tutorial(time: 30) {
+  @Intro(title: "State, When and Effects") {
+    Trigger effects that will get back to your scope as a new When event.
+  }
+  
+  @Section(title: "What is a side effect?") {
+    @ContentAndMedia {
+      Side effect is the name given to executed code that results in a later or unclear
+      behaviour. As developers, we expect these side effects to be as less as possible, except 
+      for a group of them that are fully expected: the asynchronous tasks. In the current
+      example we will work on the most common async tasks nowadays: network requests, and we 
+      will clearly state how they behave and adopt the Statoscope update protocol.
+    }
+    @Steps {
+        @Step {
+          Let's start by looking at the acceptance criteria to understand this new
+          example. We'll basically build a counter that is stored remotely via a
+          network API to save the current state of the counter.
+          We may solve the posting / synchronization in many different ways. We expect
+          the ACCEPTANCE AS CODE in CloudCounterTests to explain the behavoiur selected
+          for this example.
+          
+          Please not how a network call has been splitted into 2 different When events: the 
+          trigger and the resulting synchronous action "networkPostCompleted(DTO)". This
+          way we can continue to work on the synchrnous update + expect policy, core to
+          the Statoscope library.
+          
+          @Code(name: "CloudCounterTests.swift", file: 01-02-01-code-0001.swift)
+        }
+        
+      @Step {
+        We added the CloudCounter class in the acceptance definition for completeness.
+        Now move the CloudCounter to its own a file CloudCounter.swift.
+        
+        @Code(name: "CloudCounter.swift", file: 01-02-01-code-0002.swift)
+      }
+      
+      @Step {
+        Part of our business logic needs to make a post request to a network service.
+        As a first step we will build the synchronous logic and leave the postNewValueToNetwork
+        unimplemented.
+        
+        @Code(name: "CloudCounter.swift", file: 01-02-01-code-0003.swift)
+      }
+      
+      @Step {
+        And now add an effect by using the enqueue method in the ScopeImplementation protocol.
+        
+        We need to use the concurrency framework to connect Effects to the Statoscope
+        library. So implement your request using an async method that returns a new When case
+        as the asynchronous result of our effect
+        
+        @Code(name: "CloudCounter.swift", file: 01-02-01-code-0004.swift)
+      }
+      
+      Nice! We've created our first scope with effects.
+    }
+  }
+      
+  @Section(title: "Typed effects") {
+    @ContentAndMedia {
+      In the previous section, we enqueued and anonymous effect. However we strongly recommend
+      to work with typed effects in production code to achieve testability, cancellability and
+      observability. Let's dive into typed effects.
+    }
+    @Steps {
+      @Step {
+        Create an subclass of Effect that provides a network request execution.
+        
+        @Code(name: "NetworkEffect.swift", file: 01-02-02-code-0001.swift)
+      }
+      
+      @Step {
+        Now go back to our CloudCounter implementation.
+        
+        @Code(name: "CloudCounter.swift", file: 01-02-01-code-0004.swift)
+      }
+
+      @Step {
+        And change the anonymous enqueue to use the typed enqueuing.
+        
+        @Code(name: "CloudCounter.swift", file: 01-02-02-code-0002.swift)
+      }
+      
+      @Step {
+        NOW: you can benefit of observability and cancellation. Please see how we
+        can check if the effect is already running and (if desired) we can cancel it.
+        
+        @Code(name: "CloudCounter.swift", file: 01-02-02-code-0003.swift)
+      }
+      
+      @Step {
+        Let's go back to our testing code before ending this section
+        
+        @Code(name: "CloudCounterTests.swift", file: 01-02-02-code-0004.swift)
+      }
+      
+      @Step {
+        When Effects are typed, they can be included in our testing code, to check
+        which effects are being enqueued, as part of our checks.
+        
+        @Code(name: "CloudCounterTests.swift", file: 01-02-02-code-0005.swift)
+      }
+   }   
+  }
+}

@@ -1,0 +1,27 @@
+@Tutorial(time: 30) {
+    @Intro(title: "Single entry point and/or middlewares") {
+        Understand how the single entry point enables pretty interesting features
+    }
+        
+    @Section(title: "Logging middleware") {
+        @ContentAndMedia {
+                Logging is an important part of the code. Debugging is great, but sometimes the scheduler
+                is affected by our breakpoints, and having understandable logs may help us getting rid of
+                some bugs.
+        }
+        @Steps {
+            @Step {
+                Let's grab our first counter example
+                        
+                @Code(name: "Counter.swift", file: 01-03-01-code-0001.swift)
+            }
+            @Step {
+                Let's grab our first counter example
+                        
+                @Code(name: "Counter.swift", file: 01-03-01-code-0001.swift)
+            }
+                    
+            Poseso
+        }   
+    }
+}

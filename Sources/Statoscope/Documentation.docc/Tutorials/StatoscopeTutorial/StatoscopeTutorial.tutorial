@@ -1,0 +1,15 @@
+@Tutorials(name: "Statoscope Architecture") {
+  @Intro(title: "Statoscope basics") {
+      Statoscope is a small library to build apps with state management,
+      testing, effects management and dependency injection.
+  }
+  
+  @Chapter(name: "Tutorials") {
+    Jump into how state scopes are created, how to define When events,
+    write acceptance test, trigger side effects or inject params to subscopes.
+    
+    @TutorialReference(tutorial: "doc:01-01-StateAndWhen")
+    @TutorialReference(tutorial: "doc:01-02-StateWhenAndEffects")
+    @TutorialReference(tutorial: "doc:01-03-Middleware")
+  }
+}
