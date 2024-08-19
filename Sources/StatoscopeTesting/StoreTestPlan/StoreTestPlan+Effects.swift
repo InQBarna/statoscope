@@ -12,23 +12,46 @@ import XCTest
 extension StoreTestPlan {
 
     @discardableResult
-    public func THEN_EnquedEffect<EffectType: Effect & Equatable>(
+    public func THEN_NoEnquedEffect<EffectType: Effect>(
         file: StaticString = #file, line: UInt = #line,
-        _ enquedEffect: EffectType
+        _ expectedEffect: EffectType.Type
     ) throws -> Self {
         addStep { sut in
-            let correctYypeEffects = sut.effectsState.effects.filter { $0 is EffectType }
-            guard correctYypeEffects.count > 0 else {
-                XCTFail("No effect of type \(EffectType.self) on sut \(type(of: sut)): " +
-                        "\(correctYypeEffects)", file: file, line: line)
+            let correctTypeEffects = sut.effectsState.effects.filter { $0 is EffectType }
+            guard correctTypeEffects.count == 0 else {
+                XCTFail("Effect of type \(EffectType.self) on sut \(type(of: sut)): " +
+                        "\(correctTypeEffects)", file: file, line: line)
                 return
             }
-            guard let foundEffect = correctYypeEffects.first as? EffectType else {
+            if nil != correctTypeEffects.first as? EffectType {
+                XCTFail("Effect of type \(EffectType.self) on sut \(type(of: sut)): " +
+                        "\(correctTypeEffects)", file: file, line: line)
+            }
+        }
+    }
+
+    @discardableResult
+    public func THEN_EnquedEffect<EffectType: Effect & Equatable>(
+        file: StaticString = #file, line: UInt = #line,
+        _ expectedEffect: EffectType
+    ) throws -> Self {
+        addStep { sut in
+            let correctTypeEffects = sut.effectsState.effects.filter { $0 is EffectType }
+            guard correctTypeEffects.count > 0 else {
                 XCTFail("No effect of type \(EffectType.self) on sut \(type(of: sut)): " +
-                        "\(correctYypeEffects)", file: file, line: line)
+                        "\(correctTypeEffects)", file: file, line: line)
                 return
             }
-            XCTAssertEqual(enquedEffect, foundEffect, file: file, line: line)
+            guard let foundEffect = correctTypeEffects.first as? EffectType else {
+                XCTFail("No effect of type \(EffectType.self) on sut \(type(of: sut)): " +
+                        "\(correctTypeEffects)", file: file, line: line)
+                return
+            }
+#if true
+            try XCTAssertEqualDiff(foundEffect, expectedEffect, file: file, line: line)
+#else
+            XCTAssertEqual(foundEffect, expectedEffect, file: file, line: line)
+#endif
         }
     }
 
@@ -48,7 +71,7 @@ extension StoreTestPlan {
     @discardableResult
     public func THEN_Enqued<EffectType: Effect & Equatable, Subscope: ScopeImplementation>(
         _ keyPath: KeyPath<T, Subscope?>,
-        effect: EffectType,
+        effect expectedEffect: EffectType,
         file: StaticString = #file, line: UInt = #line
     ) throws -> Self {
         addStep { supersut in
@@ -57,41 +80,49 @@ extension StoreTestPlan {
                         "when looking for effects", file: file, line: line)
                 return
             }
-            let correctYypeEffects = sut.effectsState.effects.filter { $0 is EffectType }
-            guard correctYypeEffects.count > 0 else {
-                XCTFail("No effect of type \(EffectType.self) on sut \(type(of: sut)): \(correctYypeEffects)",
+            let correctTypeEffects = sut.effectsState.effects.filter { $0 is EffectType }
+            guard correctTypeEffects.count > 0 else {
+                XCTFail("No effect of type \(EffectType.self) on sut \(type(of: sut)): \(correctTypeEffects)",
                         file: file, line: line)
                 return
             }
-            guard let foundEffect = correctYypeEffects.first as? EffectType else {
-                XCTFail("No effect of type \(EffectType.self) on sut \(type(of: sut)): \(correctYypeEffects)",
+            guard let foundEffect = correctTypeEffects.first as? EffectType else {
+                XCTFail("No effect of type \(EffectType.self) on sut \(type(of: sut)): \(correctTypeEffects)",
                         file: file, line: line)
                 return
             }
-            XCTAssertEqual(effect, foundEffect, file: file, line: line)
+#if true
+            try XCTAssertEqualDiff(foundEffect, expectedEffect, file: file, line: line)
+#else
+            XCTAssertEqual(foundEffect, expectedEffect, file: file, line: line)
+#endif
         }
     }
 
     @discardableResult
     public func THEN_Enqued<EffectType: Effect & Equatable, Subscope: ScopeImplementation>(
         _ keyPath: KeyPath<T, Subscope>,
-        effect: EffectType,
+        effect expectedEffect: EffectType,
         file: StaticString = #file, line: UInt = #line
     ) throws -> Self {
         addStep { supersut in
             let sut = supersut[keyPath: keyPath]
-            let correctYypeEffects = sut.effectsState.effects.filter { $0 is EffectType }
-            guard correctYypeEffects.count > 0 else {
-                XCTFail("No effect of type \(EffectType.self) on sut \(type(of: sut)): \(correctYypeEffects)",
+            let correctTypeEffects = sut.effectsState.effects.filter { $0 is EffectType }
+            guard correctTypeEffects.count > 0 else {
+                XCTFail("No effect of type \(EffectType.self) on sut \(type(of: sut)): \(correctTypeEffects)",
                         file: file, line: line)
                 return
             }
-            guard let foundEffect = correctYypeEffects.first as? EffectType else {
-                XCTFail("No effect of type \(EffectType.self) on sut \(type(of: sut)): \(correctYypeEffects)",
+            guard let foundEffect = correctTypeEffects.first as? EffectType else {
+                XCTFail("No effect of type \(EffectType.self) on sut \(type(of: sut)): \(correctTypeEffects)",
                         file: file, line: line)
                 return
             }
-            XCTAssertEqual(effect, foundEffect, file: file, line: line)
+#if true
+            try XCTAssertEqualDiff(foundEffect, expectedEffect, file: file, line: line)
+#else
+            XCTAssertEqual(foundEffect, expectedEffect, file: file, line: line)
+#endif
         }
     }
 
@@ -102,19 +133,24 @@ extension StoreTestPlan {
         equals expectedValue: AcceptableKP
     ) throws -> Self {
         addStep { sut in
-            let correctYypeEffects = sut.effectsState.effects.filter { $0 is EffectType }
-            guard correctYypeEffects.count > 0 else {
-                XCTFail("No effect of type \(EffectType.self) on sut \(type(of: sut)): \(correctYypeEffects)",
+            let correctTypeEffects = sut.effectsState.effects.filter { $0 is EffectType }
+            guard correctTypeEffects.count > 0 else {
+                XCTFail("No effect of type \(EffectType.self) on sut \(type(of: sut)): \(correctTypeEffects)",
                         file: file, line: line)
                 return
             }
-            guard let foundEffect = correctYypeEffects.first as? EffectType else {
+            guard let foundEffect = correctTypeEffects.first as? EffectType else {
                 XCTFail("More than one effect of type \(EffectType.self) on sut \(type(of: sut)): " +
-                        "\(correctYypeEffects)",
+                        "\(correctTypeEffects)",
                         file: file, line: line)
                 return
             }
+#if true
+            try XCTAssertEqualDiff(foundEffect[keyPath: oneEffect], expectedValue, file: file, line: line)
+#else
             XCTAssertEqual(foundEffect[keyPath: oneEffect], expectedValue, file: file, line: line)
+#endif
+
         }
     }
 }
@@ -142,4 +178,39 @@ public func XCTAssertEffectsInclude<S, T2>(
     } catch {
         XCTFail("Thrown \(error)", file: file, line: line)
     }
+}
+
+public func XCTAssertEqualDiff<T>(
+    _ expression1: @autoclosure () throws -> T,
+    _ expression2: @autoclosure () throws -> T,
+    _ message: @autoclosure () -> String = "",
+    file: StaticString = #filePath,
+    line: UInt = #line
+) throws where T : Equatable {
+    let val1 = try expression1()
+    let val2 = try expression2()
+    if val1 == val2 {
+        return
+    }
+    var expected: String = ""
+    dump(val1, to: &expected)
+    var described2: String = ""
+    dump(val2, to: &described2)
+    let differences = expected
+        .split(separator: "\n")
+        .difference(from: described2.split(separator: "\n"))
+        .sorted { lhs, rhs in
+            lhs.offset < rhs.offset
+        }
+    XCTFail(message() + "\n" + differences
+        .map {
+            switch $0 {
+            case .remove(_, let element, _):
+                return " [DIFF] - " + element
+            case .insert(_, let element, _):
+                return " [DIFF] + " + element
+            }
+        }
+        .joined(separator: "\n"),
+        file: file, line: line)
 }

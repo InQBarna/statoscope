@@ -44,7 +44,7 @@ public struct StatoscopeLogger {
     }
 }
 
-private extension CollectionDifference.Change {
+public extension CollectionDifference.Change {
     var offset: Int {
         switch self {
         case .remove(let offset, _, _): return offset
