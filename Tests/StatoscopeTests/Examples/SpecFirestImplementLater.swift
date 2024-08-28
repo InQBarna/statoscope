@@ -48,14 +48,6 @@ extension SampleScope: Statostore {
 }
 #endif
 
-// TODO: Part of the library!
-protocol DummyScopeImplementation: ScopeImplementation { }
-extension DummyScopeImplementation {
-    func update(_ when: When) throws {
-        XCTFail("Not implemented")
-    }
-}
-
 extension SampleScope: DummyScopeImplementation { }
 
 final class SpecFirstTest: XCTestCase {

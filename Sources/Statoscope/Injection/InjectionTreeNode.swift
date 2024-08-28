@@ -142,7 +142,7 @@ public extension InjectionTreeNode {
                 return foundInAncestor
             }
         }
-        throw NoInjectedValueFound(T.self, injectionTreeDescription: self.getPrintRootTree())
+        throw NoInjectedValueFound(T.self, injectionTreeDescription: self.rootTreeDescription())
     }
 
     var rootNode: InjectionTreeNodeProtocol? {
@@ -267,10 +267,15 @@ extension InjectionTreeNode {
 // Debugging
 extension InjectionTreeNode {
 
-    public var treeDescription: [String] {
+    public var injectedTreeDescription: String {
+        injectedTree
+            .joined(separator: "\n")
+    }
+
+    public var injectedTree: [String] {
         [
             [
-                "NODE: <\(Unmanaged.passUnretained(self).toOpaque()): \(self)>"
+                "NODE: <\(Unmanaged.passUnretained(self).toOpaque()): \(type(of: self))>"
                 // String(describing: self).removeOptionalDescription,
             ],
             injectionStore.treeDescription.map { "  " + $0 }
@@ -278,25 +283,13 @@ extension InjectionTreeNode {
             .flatMap { $0 }
     }
 
-    func printRootTree(whitespaces: Int = 0) {
-        getPrintRootTree().forEach {
-            print($0)
-        }
+    func rootTreeDescription(whitespaces: Int = 0) -> [String] {
+        root.treeDescription(whitespaces: whitespaces)
     }
 
-    func getPrintRootTree(whitespaces: Int = 0) -> [String] {
-        root.getPrintTree(whitespaces: whitespaces)
-    }
-
-    func printTree(whitespaces: Int = 0) {
-        getPrintTree().forEach {
-            print($0)
-        }
-    }
-
-    func getPrintTree(whitespaces: Int = 0) -> [String] {
+    func treeDescription(whitespaces: Int = 0) -> [String] {
         let whitespacesString = (0...whitespaces).map { _ in " " }.joined()
-        let selfAndDepsDescription = treeDescription
+        let selfAndDepsDescription = injectedTree
             .map { whitespacesString + $0 }
             .joined(separator: "\n")
         let childTree = children
@@ -304,7 +297,7 @@ extension InjectionTreeNode {
                 guard let treeNode = child as? InjectionTreeNodeBox else {
                     return []
                 }
-                return treeNode.anyLink?.getPrintTree(whitespaces: whitespaces + 4) ?? []
+                return treeNode.anyLink?.treeDescription(whitespaces: whitespaces + 4) ?? []
             }
             .flatMap {
                 $0

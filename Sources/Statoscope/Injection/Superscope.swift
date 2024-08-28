@@ -28,6 +28,7 @@ public struct Superscope<Value: Injectable & ObservableObject>: CustomStringConv
         get {
             // Debug value
             if let overwrite = enclosingInstance[keyPath: storageKeyPath].overwrittingValue {
+                print("overwirte sent")
                 return overwrite
             }
 

@@ -7,7 +7,7 @@
   
   @Section(title: "Create a scope") {
     @ContentAndMedia {
-      Blah blah
+      TODO Blah blah
     }
     @Steps {
       @Step {

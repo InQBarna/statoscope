@@ -237,7 +237,8 @@ class InjectObjectTests: XCTestCase {
     }
 
     func testInjectPtotocol() {
-        // TODO: Protocols can't be injected, create protocolwitness macro
+        // TODO: Protocols can't be injected, solution for now is to create protocolwitness
+        //  we may create a protocol witness macro to facilitate this
     }
 
     enum ParentChildGrandSon {

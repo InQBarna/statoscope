@@ -21,8 +21,7 @@ public struct Inject<Value: Injectable> {
     ) -> Value {
         get {
             (try? enclosingInstance.resolveUnsafe()) ??
-            enclosingInstance[keyPath: storageKeyPath].initialValue ??
-            Value.defaultValue
+            enclosingInstance[keyPath: storageKeyPath].initialValue
         }
         set {
             enclosingInstance.injectObject(newValue)

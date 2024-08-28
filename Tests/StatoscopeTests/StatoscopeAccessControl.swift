@@ -47,10 +47,10 @@ class StatoscopeAccessControl: XCTestCase {
             // Does not compile
             // _ = try self._scopeSendUnsafe(.delayFinished)
 
-            // TODO: it should better not compile does not make sense to update during update
+            // TODO: obfuscate/make method private so it is not used. It does not make sense to call update during update
             try self.update(.delayFinished)
 
-            // TODO: it should better not compile does not make sense to addMiddleware
+            // TODO: obfuscate/make method private so it is not used. It does not make sense to call addMiddleware during update
             // _ = self.addMiddleWare { _, _ in nil }
 
             // This may compile... should be used only for debugging
