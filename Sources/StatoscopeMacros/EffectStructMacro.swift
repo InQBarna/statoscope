@@ -73,6 +73,14 @@ public struct EffectStructMacro: PeerMacro {
                     }
                     MemberBlockItemSyntax(
                         decl: FunctionDeclSyntax(
+                            attributes: funcDecl.attributes.filter {
+                                switch $0 {
+                                case .attribute(let at):
+                                    return at.attributeName.description != "EffectStructMacro"
+                                case .ifConfigDecl:
+                                    return true
+                                }
+                            },
                             name: "runEffect",
                             signature: FunctionSignatureSyntax(
                                 parameterClause: FunctionParameterClauseSyntax {},

@@ -114,4 +114,37 @@ final class StatoscopeMacrosTests: XCTestCase {
         throw XCTSkip("macros are only supported when running tests for the host platform")
         #endif
     }
+    
+    func testCreateEffectMacroWithActorAnnotation() throws {
+        #if canImport(StatoscopeMacros)
+        assertMacroExpansion(
+            #"""
+            enum SomeNamespace {
+                @EffectStructMacro
+                @MainActor
+                func methodName() -> Int {
+                    return 2
+                }
+            }
+            """#,
+            expandedSource: #"""
+            enum SomeNamespace {
+                @MainActor
+                func methodName() -> Int {
+                    return 2
+                }
+
+                struct MethodNameEffect: Effect, Equatable {
+                    @MainActor func runEffect() async throws -> Int {
+                        try await methodName()
+                    }
+                }
+            }
+            """#,
+            macros: testMacros
+        )
+        #else
+        throw XCTSkip("macros are only supported when running tests for the host platform")
+        #endif
+    }
 }
