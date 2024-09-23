@@ -94,7 +94,10 @@ Parent(
 )
 """
         let description = String(describing: sut)
-        XCTAssertEqual(description, expectedDescription)
+        try XCTAssertEqualDiff(
+            description.split(separator: "\n"),
+            expectedDescription.split(separator: "\n")
+        )
     }
 
     private struct MyEffect: Effect, Equatable {
@@ -139,7 +142,9 @@ ScopeWithEffect(
 ScopeWithEffect(
   loading: true
   effects: [
-  MyEffect(milliseconds: 1000)
+  MyEffect(
+    milliseconds: 1000
+  )
   ]
 )
 """)
@@ -150,8 +155,12 @@ ScopeWithEffect(
 ScopeWithEffect(
   loading: true
   effects: [
-  MyEffect(milliseconds: 1000)
-  MyEffect(milliseconds: 1000)
+  MyEffect(
+    milliseconds: 1000
+  )
+  MyEffect(
+    milliseconds: 1000
+  )
   ]
 )
 """)

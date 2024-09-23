@@ -8,7 +8,7 @@ Statoscope enables the app developer to focus on the overall design of the app's
 
 * **State management**
 
-    State and mutation of state using synchronous events is implemented by the Store with a single entry point: When events.
+    State and mutation of state using synchronous events is implemented by the Store with a single entry point using `When` events.
 
 * **Effects**
 

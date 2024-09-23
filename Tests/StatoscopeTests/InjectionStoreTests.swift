@@ -7,6 +7,7 @@
 
 import Foundation
 @testable import Statoscope
+import StatoscopeTesting
 import XCTest
 
 final class InjectionStoreTests: XCTestCase {
@@ -70,7 +71,7 @@ final class InjectionStoreTests: XCTestCase {
         }
     }
 
-    func testTreeDescription() {
+    func testTreeDescription() throws {
         class MyInjectableObject: CustomStringConvertible {
             let param: String
             init(param: String) {
@@ -85,7 +86,7 @@ final class InjectionStoreTests: XCTestCase {
         sut.register(injected)
         let treeDescription = sut.treeDescription
         let expectedDescription = [
-            "+ MyInjectableObject:\tMyInjectableObject(Injected)"
+            "💉 MyInjectableObject:\tMyInjectableObject(Injected)"
         ]
         XCTAssertEqual(treeDescription, expectedDescription)
 
@@ -94,11 +95,15 @@ final class InjectionStoreTests: XCTestCase {
         }
         let injectedStruct = InjectableStruct(param: "Injected")
         sut.registerValue(injectedStruct)
-        let expectedDescriptionSecond = [
-            "+ MyInjectableObject:\tMyInjectableObject(Injected)",
-            "+++ InjectableStruct"
-        ]
-        XCTAssertEqual(sut.treeDescription, expectedDescriptionSecond)
+        try XCTAssertEqualDiff(
+            sut.treeDescription,
+            """
+            💉 MyInjectableObject:\tMyInjectableObject(Injected)
+            💉 InjectableStruct
+            """
+                .split(separator: String.newLine)
+                .map { String($0) }
+        )
     }
 
     func testRegisterResolveValue() throws {

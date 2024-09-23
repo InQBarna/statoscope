@@ -13,13 +13,30 @@ import Combine
 
 // swiftlint:disable nesting
 final class LogsTests: XCTestCase {
+    
+    struct ExpLog: Equatable {
+        let level: LogLevel
+        let message: String
+        init(_ level: LogLevel, _ message: String) {
+            self.level = level
+            self.message = message
+        }
+    }
+    
+    struct MissingInjectable: Injectable {
+        static var defaultValue = LogsTests.MissingInjectable()
+        let id: UUID = UUID()
+    }
 
     private enum ParentChildImplemented {
         final class Parent: Statostore {
             var loading: Bool = false
             enum When {
                 case systemLoadedScope
-                case networkDidFinish
+                struct DTO {
+                    let message: String
+                }
+                case networkDidFinish(DTO)
                 case navigateToChild
                 case childAppeared(Bool)
             }
@@ -46,11 +63,15 @@ final class LogsTests: XCTestCase {
             var showingChild: Bool = false
             enum When {
                 case didAppear
+                case checkMissingInjection
             }
+            @Injected var missing: MissingInjectable
             func update(_ when: When) throws {
                 switch when {
                 case .didAppear:
                     showingChild = true
+                case .checkMissingInjection:
+                    _ = String(describing: missing)
                 }
             }
         }
@@ -58,25 +79,34 @@ final class LogsTests: XCTestCase {
 
     @available(iOS 16.0, *)
     func testStoreLogs() throws {
-        var logs: [String] = []
+        var logs: [ExpLog] = []
         let regex: Regex = try Regex("(0x[0-9a-f]*)")
-        StatoscopeLogger.logReplacement = { _, log in
-            logs.append(log.replacing(regex) { _ in "0xF"})
+        StatoscopeLogger.logReplacement = { level, log in
+            logs.append(
+                ExpLog(level, log.replacing(regex) { _ in "0xF"})
+            )
         }
         let sut = ParentChildImplemented.Parent()
         sut.send(.systemLoadedScope)
-        XCTAssertEqual(logs, [
-            "[SCOPE]: Parent (0xF):  systemLoadedScope",
-            "[SCOPE]: Parent (0xF):  [STATE] Parent(",
-            "[SCOPE]: Parent (0xF):  [STATE]   loading: false",
-            "[SCOPE]: Parent (0xF):  [STATE]   _child: nil",
-            "[SCOPE]: Parent (0xF):  [STATE] )",
-            "[SCOPE]: Parent (0xF):  [STATE] Parent(",
-            "[SCOPE]: Parent (0xF):  [STATE]   loading: true",
-            "[SCOPE]: Parent (0xF):  [STATE]   _child: nil",
-            "[SCOPE]: Parent (0xF):  [STATE] )",
-            "[SCOPE]: Parent (0xF):  [STATE] [DIFF] -   loading: false",
-            "[SCOPE]: Parent (0xF):  [STATE] [DIFF] +   loading: true"
+        try XCTAssertEqualDiff(logs, [
+            ExpLog(.when, "Parent (0xF): systemLoadedScope"),
+            ExpLog(.state, """
+            Parent (0xF): Parent(
+              loading: false
+              _child: nil
+            )
+            """),
+            ExpLog(.state, """
+            Parent (0xF): Parent(
+              loading: true
+              _child: nil
+            )
+            """),
+            ExpLog(.stateDiff, """
+            Parent (0xF):
+            -   loading: false
+            +   loading: true
+            """)
         ])
     }
 
@@ -85,23 +115,50 @@ final class LogsTests: XCTestCase {
         var logs: [String] = []
         let regex: Regex = try Regex("(0x[0-9a-f]*)")
         StatoscopeLogger.logReplacement = { _, log in
-            if log.contains(" Child ") {
-                logs.append(log.replacing(regex) { _ in "0xF"})
-            }
+            logs.append(log.replacing(regex) { _ in "0xF"})
         }
         let sut = ParentChildImplemented.Parent()
         sut.send(.navigateToChild)
         sut.child?.send(.didAppear)
-        XCTAssertEqual(logs, [
-            "[SCOPE]: Child (0xF):  didAppear",
-            "[SCOPE]: Child (0xF):  [STATE] Child(",
-            "[SCOPE]: Child (0xF):  [STATE]   showingChild: false",
-            "[SCOPE]: Child (0xF):  [STATE] )",
-            "[SCOPE]: Child (0xF):  [STATE] Child(",
-            "[SCOPE]: Child (0xF):  [STATE]   showingChild: true",
-            "[SCOPE]: Child (0xF):  [STATE] )",
-            "[SCOPE]: Child (0xF):  [STATE] [DIFF] -   showingChild: false",
-            "[SCOPE]: Child (0xF):  [STATE] [DIFF] +   showingChild: true"
+        try XCTAssertEqualDiff(logs, [
+            "Parent (0xF): navigateToChild",
+            """
+            Parent (0xF): Parent(
+              loading: false
+              _child: nil
+            )
+            """,
+            """
+            Parent (0xF): Parent(
+              loading: false
+              _child: Child(
+                showingChild: false
+              )
+            )
+            """,
+            """
+            Parent (0xF):
+            -   _child: nil
+            +   _child: Child(
+            +     showingChild: false
+            +   )
+            """,
+            "Child (0xF): didAppear",
+            """
+            Child (0xF): Child(
+              showingChild: false
+            )
+            """,
+            """
+            Child (0xF): Child(
+              showingChild: true
+            )
+            """,
+            """
+            Child (0xF):
+            -   showingChild: false
+            +   showingChild: true
+            """
         ])
     }
 
@@ -135,9 +192,12 @@ final class LogsTests: XCTestCase {
         }
         let sut = PublishedLogs.WithPublishedProperties()
         sut.send(.systemLoadedScope)
-        XCTAssertEqual(logs, [
-            "[SCOPE]: WithPublishedProperties (0xF):  [STATE] [DIFF] -   _loading: false",
-            "[SCOPE]: WithPublishedProperties (0xF):  [STATE] [DIFF] +   _loading: true"
+        try XCTAssertEqualDiff(logs, [
+            """
+            WithPublishedProperties (0xF):
+            -   _loading: false
+            +   _loading: true
+            """
         ])
     }
 
@@ -155,12 +215,61 @@ final class LogsTests: XCTestCase {
             // to nothing
         }
         sut.send(.systemLoadedScope)
-        XCTAssertEqual(logs, [
-            "[SCOPE]: WithPublishedProperties (0xF):  [STATE] [DIFF] -   _loading: false",
-            "[SCOPE]: WithPublishedProperties (0xF):  [STATE] [DIFF] +   _loading: true"
+        try XCTAssertEqualDiff(logs, [
+            """
+            WithPublishedProperties (0xF):
+            -   _loading: false
+            +   _loading: true
+            """
         ])
         XCTAssertNotNil(cancellable, "shutting up compiler warnings")
         cancellable = nil
+    }
+    
+    @available(iOS 16.0, *)
+    func testStoreWhenAssociatedValueLogs() throws {
+        var logs: [String] = []
+        let regex: Regex = try Regex("(0x[0-9a-f]*)")
+        StatoscopeLogger.logReplacement = { level, log in
+            if level == .when {
+                logs.append(log.replacing(regex) { _ in "0xF"})
+            }
+        }
+        let sut = ParentChildImplemented.Parent()
+        sut.send(.networkDidFinish(ParentChildImplemented.Parent.When.DTO(message: "message")))
+        try XCTAssertEqualDiff(logs, [
+            """
+            Parent (0xF): 
+              networkDidFinish: DTO(
+                message: message
+              )
+            """
+        ])
+    }
+    
+    @available(iOS 16.0, *)
+    func testMisingInjectionLogs() throws {
+        var logs: [String] = []
+        let regex: Regex = try Regex("(0x[0-9a-f]*)")
+        StatoscopeLogger.logReplacement = { level, log in
+            if level == .errors {
+                logs.append(log.replacing(regex) { _ in "0xF"})
+            }
+        }
+        let sut = ParentChildImplemented.Parent()
+        sut.send(.navigateToChild)
+        sut.child?.send(.checkMissingInjection)
+        XCTAssertEqual(logs.count, 1)
+        let firstLog = try XCTUnwrap(logs.first)
+        try XCTAssertEqualDiff(
+            firstLog.split(separator: String.newLine),
+            """
+            Child (0xF): 💉 MissingInjectable dependency failed in tree:
+             Parent (0xF)
+               Child (0xF) ⁉️ \\Child._missing
+            ⚠️ Please note Injected properties can\'t be accessed until assigned to a tree
+            """.split(separator: String.newLine)
+        )
     }
 }
 // swiftlint:enable nesting

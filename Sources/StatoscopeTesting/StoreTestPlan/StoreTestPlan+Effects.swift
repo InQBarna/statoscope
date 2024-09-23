@@ -206,9 +206,9 @@ public func XCTAssertEqualDiff<T>(
         .map {
             switch $0 {
             case .remove(_, let element, _):
-                return " [DIFF] - " + element
+                return "- " + element
             case .insert(_, let element, _):
-                return " [DIFF] + " + element
+                return "+ " + element
             }
         }
         .joined(separator: "\n"),

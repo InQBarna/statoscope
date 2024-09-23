@@ -7,7 +7,7 @@ import CompilerPluginSupport
 let package = Package(
     name: "Statoscope",
     platforms: [
-      .iOS(.v13),
+      .iOS(.v14),
       .macOS(.v12),
       .tvOS(.v13),
       .watchOS(.v6)

@@ -91,3 +91,13 @@ public struct AnyEffect<ResultType: Sendable>:
         try await runner()
     }
 }
+
+internal protocol IsAnyEffectToMirror {
+    var objectToBeDescribed: Any { get }
+}
+
+extension AnyEffect: IsAnyEffectToMirror {
+    var objectToBeDescribed: Any {
+        pristine
+    }
+}

@@ -47,9 +47,9 @@ actor EffectsHandlerImplementation<When: Sendable> {
             let (uuid, effect) = toEnqueueEffects.removeFirst()
             let newCount = currentCount + enqueued
             if newCount > 1 {
-                StatoscopeLogger.LOG(.effects, prefix: logPrefix, "🪃 ↗ \(effect) (ongoing \(newCount)x🪃)")
+                StatoscopeLogger.LOG(.effects, prefix: logPrefix, "🪃 ↗ (x\(newCount))\t\(describeObject(effect))")
             } else {
-                StatoscopeLogger.LOG(.effects, prefix: logPrefix, "🪃 ↗ \(effect)")
+                StatoscopeLogger.LOG(.effects, prefix: logPrefix, "🪃 ↗ \t\(describeObject(effect))")
             }
             enqueued += 1
             let task = await buildEffectTask(logPrefix: logPrefix, effect: effect)
@@ -63,13 +63,13 @@ actor EffectsHandlerImplementation<When: Sendable> {
                     guard !Task.isCancelled else {
                         assertionFailure("Can we ever get here ? I don't think so. Delete if never fails?")
                         StatoscopeLogger.LOG(.effects, prefix: logPrefix,
-                                             "🪃 🚫 CANCELLED \(effect) (right before sending result)")
+                                             "🪃 🚫 CANCELLED (right before sending result)\n\(describeObject(effect))")
                         throw CancellationError()
                     }
                     effectCompleted(uuid, effect, when)
                 case .failure(let error):
                     StatoscopeLogger.LOG(.effects, prefix: logPrefix,
-                                         "🪃 💥 Unhandled throw (use mapToResult to handle): \(effect): \(error).")
+                                         "🪃 💥 Unhandled throw (use mapToResult to handle)\n \(describeObject(effect))\nError: \(error).")
                     effectCompleted(uuid, effect, nil)
                 }
             }
@@ -87,14 +87,23 @@ actor EffectsHandlerImplementation<When: Sendable> {
     func buildEffectTask(logPrefix: String, effect: AnyEffect<When>) async -> Task<When?, Error> {
         let newTask: Task<When?, Error> = Task { [weak self] in
             guard nil != self else {
-                StatoscopeLogger.LOG(.effects, prefix: logPrefix, "🪃 🚫 CANCELLED \(effect) (not even started)")
+                StatoscopeLogger.LOG(
+                    .effects,
+                    prefix: logPrefix,
+                    "🪃 🚫 CANCELLED (not even started)" + .newLine + "\(describeObject(effect))"
+                )
                 throw CancellationError()
             }
             let result = try await effect.runEffect()
             if Task.isCancelled {
-                StatoscopeLogger.LOG(.effects, prefix: logPrefix,
-                                     "🪃 🚫 CANCELLED \(effect) (completely executed though, " +
-                                     "cancelled right before sending result back to scope)")
+                StatoscopeLogger.LOG(
+                    .effects,
+                    prefix: logPrefix,
+                    "🪃 🚫 CANCELLED (completely executed though, " +
+                    "cancelled right before sending result back to scope)" +
+                        .newLine +
+                    "\(describeObject(effect))"
+                )
                 return nil
             }
             return result
@@ -110,7 +119,7 @@ actor EffectsHandlerImplementation<When: Sendable> {
             !cancellableUUIDs.contains(currentlyRequested.0)
         }
         effects.forEach { effect in
-            StatoscopeLogger.LOG(.effects, prefix: logPrefix, "🪃 ✋ CANCELLING \(effect)")
+            StatoscopeLogger.LOG(.effects, prefix: logPrefix, "🪃 ✋ CANCELLING\n\(describeObject(effect))")
         }
         for cancellable in effects {
             if let (_, task) = runningTasks.first(where: { (taskUuid, _) in taskUuid == cancellable.0 }) {
@@ -123,7 +132,7 @@ actor EffectsHandlerImplementation<When: Sendable> {
         requestedEffects
             .map { ($0.0, $0.1.pristine) }
             .forEach { effect in
-                StatoscopeLogger.LOG(.effects, prefix: logPrefix, "🪃 ✋ CANCELLING \(effect)")
+                StatoscopeLogger.LOG(.effects, prefix: logPrefix, "🪃 ✋ CANCELLING\n\(describeObject(effect))")
             }
         requestedEffects.removeAll()
         cancelAllTasks()

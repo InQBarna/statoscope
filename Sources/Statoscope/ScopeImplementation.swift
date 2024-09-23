@@ -44,9 +44,10 @@ extension ScopeImplementation {
 
         // For Statoscope, we store the snapshot in effectsHandler
         //  during update process
-        LOG(.when, "\(when)")
+        LOG(.when, describing: when)
         assert(effectsState.enquedEffects.count == 0)
         assert(effectsState.cancelledEffects.count == 0)
+        // TODO: describing should only be called if logs enabled
         let currentState = String(describing: self)
         logState(describingSelf: currentState)
         try updateUsingMiddlewares(when)
@@ -61,12 +62,16 @@ extension ScopeImplementation {
         }
     }
 
+    internal func LOG(_ level: LogLevel, describing: Any) {
+        StatoscopeLogger.LOG(level, prefix: logPrefix, describing: describing)
+    }
+    
     internal func LOG(_ level: LogLevel, _ string: String) {
         StatoscopeLogger.LOG(level, prefix: logPrefix, string)
     }
 
     private var logPrefix: String {
-        "\(type(of: self)) (\(Unmanaged.passUnretained(self).toOpaque())): "
+        "\(type(of: self)) (\(Unmanaged.passUnretained(self).toOpaque())):"
     }
 
     public func _completedEffect(_ uuid: UUID, _ effect: AnyEffect<When>, _ when: When?) {
@@ -83,9 +88,9 @@ extension ScopeImplementation {
     private func safeMainActorSend(_ effect: AnyEffect<When>, _ when: When) {
         let count = effects.count
         if count > 0 {
-            LOG(.effects, "🪃 ↩ \(effect) (ongoing \(count)x🪃)")
+            LOG(.effects, "🪃 ↩ (x\(count))\t\(describeObject(effect))")
         } else {
-            LOG(.effects, "🪃 ↩ \(effect)")
+            LOG(.effects, "🪃 ↩ \t\(describeObject(effect))")
         }
         _sendImplementation(when)
     }

@@ -39,26 +39,7 @@ extension Published: WithFixedDebugDescription {
 
 public extension Scope {
     var debugDescription: String {
-        "\(type(of: self))(" +
-            .newLine +
-            Mirror(reflecting: self)
-                .children
-                .compactMap { (child) in
-                    guard let label = child.label else {
-                        return nil
-                    }
-                    let valueDescription: String
-                    if let fixedDescription = child.value as? WithFixedDebugDescription {
-                        valueDescription = fixedDescription.fixedDebugDescription
-                    } else {
-                        valueDescription = String(describing: child.value)
-                    }
-                    return "\(label): \(valueDescription)".indentDumpedObject()
-                }
-                .joined(separator: .newLine) +
-            .newLine +
-            self.effectsDescription() +
-            ")"
+        describeObject(self, appending: self.effectsDescription())
     }
 
     private func effectsDescription() -> String {
@@ -78,12 +59,57 @@ fileprivate extension ScopeImplementation {
             .newLine +
             effectsState.effects
                 .map { effect in
-                    String(describing: effect)
+                    describeObject(effect)
                 }
-                .joined(separator: String.newLine) +
+                .joined(separator: .newLine) +
             .newLine +
             "]"
         return description.indentDumpedObject() +
             .newLine
+    }
+}
+
+func describeObject(_ object: Any, appending: String = "") -> String {
+    let mirror = Mirror(reflecting: object)
+    let mirrorChildren = mirror.children
+    if mirror.displayStyle == .optional && mirror.children.isEmpty {
+        return "nil"
+    } else if mirrorChildren.count == 0 {
+        return String(describing: object) + appending
+    } else if let anyEffect = object as? IsAnyEffectToMirror {
+        return describeObject(anyEffect.objectToBeDescribed)
+    } else {
+        let childrenDescribed: [String] = mirrorChildren
+            .compactMap { (child) in
+                guard !(child.value is IsInjectedToMirror) else {
+                    return nil
+                }
+                guard let label = child.label else {
+                    return describeObject(child.value)
+                }
+                let valueDescription: String
+                if let fixedDescription = child.value as? WithFixedDebugDescription {
+                    valueDescription = fixedDescription.fixedDebugDescription
+                } else if child.value is IsSubscopeToMirror {
+                    valueDescription = String(describing: child.value)
+                } else if let anyEffect = child.value as? IsAnyEffectToMirror {
+                    valueDescription = describeObject(anyEffect.objectToBeDescribed)
+                } else {
+                    valueDescription = describeObject(child.value)
+                }
+                return "\(label): \(valueDescription)".indentDumpedObject()
+            }
+        if let firstDescribed = childrenDescribed.first,
+           childrenDescribed.count == 1, mirror.displayStyle == .enum {
+            // return "\(type(of: object))(\(firstDescribed))" + appending
+            return .newLine + firstDescribed + appending
+        } else {
+            return "\(type(of: object))(" +
+                .newLine +
+                childrenDescribed.joined(separator: .newLine) +
+                .newLine +
+                appending +
+            ")"
+        }
     }
 }

@@ -86,12 +86,12 @@ public protocol InjectionTreeNode: InjectionTreeNodeProtocol, AnyObject {
     ///
     /// Method will search first in ad-hoc injected objects and later up in the injection tree.
     /// * Returns The found injected value or default value if not found
-    func resolve<T: Injectable>() -> T
+    func resolve<T: Injectable>(appendingLog: String) -> T
     /// Searches and returns the requested type inside the injection store or up to the injection tree
     ///
     /// Method will search first in ad-hoc injected objects and later up in the injection tree.
     /// * Returns The found injected value or throws ``NoInjectedValueFound`` if not found
-    func resolveUnsafe<T>() throws -> T
+    func resolveUnsafe<T>(appendingLog: String) throws -> T
 }
 
 public extension InjectionTreeNode {
@@ -123,15 +123,15 @@ public extension InjectionTreeNode {
         return self
     }
 
-    func resolve<T: Injectable>() -> T {
+    func resolve<T: Injectable>(appendingLog: String = "") -> T {
         do {
-            return try resolveUnsafe()
+            return try resolveUnsafe(appendingLog: appendingLog)
         } catch {
             return T.defaultValue
         }
     }
 
-    func resolveUnsafe<T>() throws -> T {
+    func resolveUnsafe<T>(appendingLog: String = "") throws -> T {
         var node: InjectionTreeNode? = self
         while let iterator = node {
             node = iterator.weakParent?.anyLink
@@ -142,6 +142,16 @@ public extension InjectionTreeNode {
                 return foundInAncestor
             }
         }
+        StatoscopeLogger.LOG(
+            .errors,
+            "\(type(of: self)) (\(Unmanaged.passUnretained(self).toOpaque())): " +
+            "💉 \(T.self) dependency failed in tree:" +
+            .newLine +
+            self.rootTreeDescription().joined(separator: .newLine) +
+            " ⁉️ \(appendingLog)" +
+            .newLine +
+            "⚠️ Please note Injected properties can't be accessed until assigned to a tree"
+        )
         throw NoInjectedValueFound(T.self, injectionTreeDescription: self.rootTreeDescription())
     }
 
@@ -275,8 +285,7 @@ extension InjectionTreeNode {
     public var injectedTree: [String] {
         [
             [
-                "NODE: <\(Unmanaged.passUnretained(self).toOpaque()): \(type(of: self))>"
-                // String(describing: self).removeOptionalDescription,
+                "\(type(of: self)) (\(Unmanaged.passUnretained(self).toOpaque()))"
             ],
             injectionStore.treeDescription.map { "  " + $0 }
         ]
@@ -297,7 +306,7 @@ extension InjectionTreeNode {
                 guard let treeNode = child as? InjectionTreeNodeBox else {
                     return []
                 }
-                return treeNode.anyLink?.treeDescription(whitespaces: whitespaces + 4) ?? []
+                return treeNode.anyLink?.treeDescription(whitespaces: whitespaces + 2) ?? []
             }
             .flatMap {
                 $0

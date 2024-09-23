@@ -52,10 +52,10 @@ extension InjectionStore {
             guard let dep = value.dependency else {
                 return nil
             }
-            return "+ \(key):\t\(String(describing: dep))"
+            return "💉 \(key):\t\(String(describing: dep))"
         }
         if injectedByValueDescription.count > 0 {
-            let objects = "+++ " + injectedByValueDescription.keys.joined(separator: ", ")
+            let objects = "💉 " + injectedByValueDescription.keys.joined(separator: ", ")
             return classes + [objects]
         } else {
             return classes

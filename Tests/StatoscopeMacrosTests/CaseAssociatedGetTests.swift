@@ -20,6 +20,7 @@ final class CaseAssociatedGetTests: XCTestCase {
                 case associatedBool(Bool)
                 case associatedTuple(Bool, Int, String)
                 case associatedObject(SomeObjectType)
+                case associatedWithSomeLabels(Bool, intLabel: Int, String)
                 case associatedWithLabels(boolLabel: Bool, intLabel: Int, stringLabel: String)
                 case nonAssociatedCase
             }
@@ -29,6 +30,7 @@ final class CaseAssociatedGetTests: XCTestCase {
                 case associatedBool(Bool)
                 case associatedTuple(Bool, Int, String)
                 case associatedObject(SomeObjectType)
+                case associatedWithSomeLabels(Bool, intLabel: Int, String)
                 case associatedWithLabels(boolLabel: Bool, intLabel: Int, stringLabel: String)
                 case nonAssociatedCase
             
@@ -43,8 +45,8 @@ final class CaseAssociatedGetTests: XCTestCase {
             
                 var associatedTuple: (Bool, Int, String)? {
                     switch self {
-                        case .associatedTuple(let associatedValue):
-                        return associatedValue
+                        case .associatedTuple(let param0, let param1, let param2):
+                        return (param0, param1, param2)
                         default:
                         return nil
                     }
@@ -59,10 +61,19 @@ final class CaseAssociatedGetTests: XCTestCase {
                     }
                 }
             
-                var associatedWithLabels: (Bool, Int, String)? {
+                var associatedWithSomeLabels: (Bool, intLabel: Int, String)? {
                     switch self {
-                        case .associatedWithLabels(let associatedValue):
-                        return associatedValue
+                        case .associatedWithSomeLabels(let param0, let intLabel, let param2):
+                        return (param0, intLabel: intLabel, param2)
+                        default:
+                        return nil
+                    }
+                }
+
+                var associatedWithLabels: (boolLabel: Bool, intLabel: Int, stringLabel: String)? {
+                    switch self {
+                        case .associatedWithLabels(let boolLabel, let intLabel, let stringLabel):
+                        return (boolLabel: boolLabel, intLabel: intLabel, stringLabel: stringLabel)
                         default:
                         return nil
                     }

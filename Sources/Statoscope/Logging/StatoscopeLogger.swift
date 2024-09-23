@@ -6,13 +6,26 @@
 //
 
 import Foundation
+import OSLog
 
-public enum LogLevel {
+public enum LogLevel: String, CaseIterable {
     case errors
     case when
     case effects
     case stateDiff
     case state
+}
+
+extension LogLevel {
+    var osLog: OSLogType {
+        switch self {
+        case .effects: return .debug
+        case .errors: return .error
+        case .stateDiff: return .debug
+        case .state: return .info
+        case .when: return .debug
+        }
+    }
 }
 
 public extension LogLevel {
@@ -28,18 +41,47 @@ public struct StatoscopeLogger {
 
     /// Overwrite statoscope logger method with this global variable
     public static var logReplacement: ((LogLevel, String) -> Void)?
+    
+    private static var loggers: [LogLevel: OSLog] = Dictionary(uniqueKeysWithValues: LogLevel
+        .allCases
+        .map {
+            ($0, OSLog(subsystem: "com.inqbarna.statoscope", category: $0.rawValue))
+        }
+    )
 
     static func LOG(_ level: LogLevel, _ string: String) {
-        if Self.logLevel.contains(level) {
-            print("[SCOPE]: \(string)")
+        if let logReplacement {
+            logReplacement(level, "\(string)")
+        } else if Self.logLevel.contains(level) {
+            if #available(iOS 14.0, *), let logger = loggers[level] {
+                os_log(level.osLog, log: logger, "\(string)")
+            } else {
+                print("\(string)")
+            }
         }
     }
 
+    static func LOG(_ level: LogLevel, prefix: String, describing: Any) {
+        if let logReplacement {
+            logReplacement(level, "\(prefix) \(describeObject(describing))")
+        } else if Self.logLevel.contains(level) {
+            if #available(iOS 14.0, *), let logger = loggers[level] {
+                os_log(.debug, log: logger, "\(prefix) \(describeObject(describing))")
+            } else {
+                print("\(prefix) \(describeObject(describing))")
+            }
+        }
+    }
+    
     static func LOG(_ level: LogLevel, prefix: String, _ string: String) {
         if let logReplacement {
-            logReplacement(level, "[SCOPE]: \(prefix) \(string)")
+            logReplacement(level, "\(prefix) \(string)")
         } else if Self.logLevel.contains(level) {
-            print("[SCOPE]: \(prefix) \(string)")
+            if #available(iOS 14.0, *), let logger = loggers[level] {
+                os_log(.debug, log: logger, "\(prefix) \(string)")
+            } else {
+                print("\(prefix) \(string)")
+            }
         }
     }
 }
@@ -55,9 +97,7 @@ public extension CollectionDifference.Change {
 
 extension ScopeImplementation {
     func logState(describingSelf: String) {
-        for stateLine in describingSelf.split(separator: "\n") {
-            LOG(.state, "[STATE] " + stateLine)
-        }
+        LOG(.state, describingSelf)
     }
     
     func logStateDiff(
@@ -70,13 +110,18 @@ extension ScopeImplementation {
             .sorted { lhs, rhs in
                 lhs.offset < rhs.offset
             }
-        for difference in differences {
-            switch difference {
-            case .remove(_, let element, _):
-                LOG(.stateDiff, "[STATE] [DIFF] - " + element)
-            case .insert(_, let element, _):
-                LOG(.stateDiff, "[STATE] [DIFF] + " + element)
+        StatoscopeLogger.LOG(
+            .stateDiff,
+            "\(type(of: self)) (\(Unmanaged.passUnretained(self).toOpaque())):\n" +
+            differences.map { difference in
+                switch difference {
+                case .remove(_, let element, _):
+                    return "- " + element
+                case .insert(_, let element, _):
+                    return "+ " + element
+                }
             }
-        }
+                .joined(separator: "\n")
+        )
     }
 }

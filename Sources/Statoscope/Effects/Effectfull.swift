@@ -29,6 +29,6 @@ extension Effectfull {
 
 extension Effectfull where Self: AnyObject {
     public var _logPrefix: String {
-        "\(type(of: self)) (\(Unmanaged.passUnretained(self).toOpaque())): "
+        "\(type(of: self)) (\(Unmanaged.passUnretained(self).toOpaque())):"
     }
 }
