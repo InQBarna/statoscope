@@ -11,17 +11,46 @@
         }
         @Steps {
             @Step {
-                Let's grab our first counter example
+                Let's grab our first counter example adding some error throwing to illustrate the current example.
                         
                 @Code(name: "Counter.swift", file: 01-03-01-code-0001.swift)
             }
             @Step {
-                Let's grab our first counter example
+                And the CounterView with no protection to avoid the throw.
                         
-                @Code(name: "Counter.swift", file: 01-03-01-code-0001.swift)
+                @Code(name: "CounterView.swift", file: 01-03-01-code-0002.swift)
             }
-                    
-            Poseso
+            @Step {
+                A middleware can be added to trap all events in the scope. Logging is straightforward,
+                either for terminal logging, analytics, or crash reports. 
+                        
+                @Code(name: "CounterView.swift", file: 01-03-01-code-0003.swift)
+            }
+            
+            Having a comprehensive crash and analytics reporting is mandatory in production apps. 
+            A single entry point/middleware enables easy implementation for these features.
+        }   
+    }
+        
+    @Section(title: "Built-in Library logging") {
+        @ContentAndMedia {
+                The error reporting added in the previous step is great. Terminal logging however is unnecessary.
+                Statoscope has a built in feature for logging. See how to use it.
+        }
+        @Steps {
+            @Step {
+                Enable the logging globally inyour app.
+                        
+                @Code(name: "App.swift", file: 01-03-01-code-0004.swift)
+            }
+            @Step {
+                This is the output of the terminal when playing around with the app.
+                        
+                @Code(name: "console.txt", file: 01-03-01-code-0005.txt)
+            }
+            
+            The single entry point enables Statoscope to build many of its features internally.
+            A middleware can be added to the Statostore so user can also benefit from the single entry point.
         }   
     }
 }

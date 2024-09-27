@@ -120,6 +120,7 @@ public extension InjectionTreeNode {
     @discardableResult
     func injectObject<T>(_ obj: T) -> Self {
         injectionStore.registerValue(obj)
+        logInjectionTree()
         return self
     }
 
@@ -144,13 +145,17 @@ public extension InjectionTreeNode {
         }
         StatoscopeLogger.LOG(
             .errors,
-            "\(type(of: self)) (\(Unmanaged.passUnretained(self).toOpaque())): " +
-            "💉 \(T.self) dependency failed in tree:" +
-            .newLine +
-            self.rootTreeDescription().joined(separator: .newLine) +
-            " ⁉️ \(appendingLog)" +
-            .newLine +
-            "⚠️ Please note Injected properties can't be accessed until assigned to a tree"
+            "💉 ⁉️ Injection failed at " +
+                "\(type(of: self)) (\(Unmanaged.passUnretained(self).toOpaque())) " +
+                appendingLog +
+                ": \(T.self)" +
+                .newLine +
+                "⚠️ Please note Injected properties from ancestor scopes can't be accessed until Scope is assigned to a Subscope property wrapper" +
+                .newLine +
+                .newLine +
+                "🌳" +
+                .newLine +
+                self.rootTreeDescription().joined(separator: .newLine)
         )
         throw NoInjectedValueFound(T.self, injectionTreeDescription: self.rootTreeDescription())
     }
@@ -231,21 +236,26 @@ extension InjectionTreeNode {
         assignChildAndCleanupChain(value, keyPath: keyPath)
     }
 
-    func assignChildOnPropertyWrapperSet<Value: InjectionTreeNodeProtocol>(_ value: Value?, keyPath: AnyKeyPath) {
-        assignChildAndCleanupChain(value, keyPath: keyPath)
+    func assignChildOnPropertyWrapperSet<Value: InjectionTreeNodeProtocol>(_ value: Value?, keyPath: AnyKeyPath, isOptional: Bool) {
+        if isOptional, value?.parentNode != nil {
+            (value as? InjectionTreeNode ?? self).logInjectionTree()
+            return
+        }
+        assignChildAndCleanupChain(value, keyPath: keyPath) { [weak objValue = value as? InjectionTreeNode, weak self] in
+            (objValue ?? self)?.logInjectionTree()
+        }
     }
 
     fileprivate func assignChildAndCleanupChain<Value: InjectionTreeNodeProtocol>(
         _ newValue: Value?,
-        keyPath: AnyKeyPath
+        keyPath: AnyKeyPath,
+        _ completion: (() -> Void)? = nil
     ) {
         assignChild(newValue, keyPath: keyPath)
         cleanupChildren()
-        // Debug
-        // enclosingInstance.root.printRootTree()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak root = root] in
             root?.cleanupChildren()
-            // root?.printRootTree()
+            completion?()
         }
     }
 
@@ -312,6 +322,13 @@ extension InjectionTreeNode {
                 $0
             }
         return [[selfAndDepsDescription], childTree].flatMap { $0 }
+    }
+        
+    internal func logInjectionTree() {
+        StatoscopeLogger.LOG(
+            .injection,
+            self.rootTreeDescription().joined(separator: .newLine)
+        )
     }
 }
 

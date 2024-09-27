@@ -10,7 +10,7 @@ import XCTest
 import StatoscopeTesting
 @testable import Statoscope
 
-// This file demonstrates hot to design first the
+// This file demonstrates how to design first the
 //  feature and the acceptance criteria, later you
 //  can conform to Statostore and implement the
 //  business logic

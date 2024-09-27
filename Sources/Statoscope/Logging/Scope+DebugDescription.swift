@@ -78,6 +78,8 @@ func describeObject(_ object: Any, appending: String = "") -> String {
         return String(describing: object) + appending
     } else if let anyEffect = object as? IsAnyEffectToMirror {
         return describeObject(anyEffect.objectToBeDescribed)
+    } else if mirror.displayStyle == .collection || mirror.displayStyle == .dictionary {
+        return String(describing: object) + appending
     } else {
         let childrenDescribed: [String] = mirrorChildren
             .compactMap { (child) in
@@ -85,6 +87,10 @@ func describeObject(_ object: Any, appending: String = "") -> String {
                     return nil
                 }
                 guard let label = child.label else {
+                    // Be carefull calling describeObject here
+                    //  it creates an infinite recursion.
+                    // For example for [AnyCancellabl]
+                    // Fixed in displayStyle .collection or .dictionary above
                     return describeObject(child.value)
                 }
                 let valueDescription: String

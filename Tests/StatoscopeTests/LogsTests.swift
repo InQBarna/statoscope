@@ -264,12 +264,53 @@ final class LogsTests: XCTestCase {
         try XCTAssertEqualDiff(
             firstLog.split(separator: String.newLine),
             """
-            Child (0xF): 💉 MissingInjectable dependency failed in tree:
+            💉 ⁉️ Injection failed at Child (0xF) \\Child._missing: MissingInjectable
+            ⚠️ Please note Injected properties from ancestor scopes can\'t be accessed until Scope is assigned to a Subscope property wrapper
+            🌳
              Parent (0xF)
-               Child (0xF) ⁉️ \\Child._missing
-            ⚠️ Please note Injected properties can\'t be accessed until assigned to a tree
+               Child (0xF)
+            """.split(separator: String.newLine)
+        )
+    }
+    
+    @available(iOS 16.0, *)
+    func testInjectedAddedLog() throws {
+        var logs: [String] = []
+        let regex: Regex = try Regex("(0x[0-9a-f]*)")
+        StatoscopeLogger.logReplacement = { level, log in
+            if level == .injection {
+                logs.append(log.replacing(regex) { _ in "0xF"})
+            }
+        }
+        let sut = ParentChildImplemented.Parent()
+            .injectObject(MissingInjectable())
+        sut.send(.navigateToChild)
+        sut.child?.send(.checkMissingInjection)
+        XCTAssertEqual(logs.count, 1)
+        let firstLog = try XCTUnwrap(logs.first)
+        try XCTAssertEqualDiff(
+            firstLog.split(separator: String.newLine),
+            """
+             Parent (0xF)
+               💉 MissingInjectable
+            """.split(separator: String.newLine)
+        )
+        
+        let sut2 = ParentChildImplemented.Parent()
+        sut2.send(.navigateToChild)
+        sut2.child?.send(.checkMissingInjection)
+        sut2.injectObject(MissingInjectable())
+        XCTAssertEqual(logs.count, 2)
+        let firstLog2 = try XCTUnwrap(logs.last)
+        try XCTAssertEqualDiff(
+            firstLog2.split(separator: String.newLine),
+            """
+             Parent (0xF)
+               💉 MissingInjectable
+               Child (0xF)
             """.split(separator: String.newLine)
         )
     }
 }
 // swiftlint:enable nesting
+

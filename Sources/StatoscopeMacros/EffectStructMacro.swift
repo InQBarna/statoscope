@@ -76,7 +76,7 @@ public struct EffectStructMacro: PeerMacro {
                             attributes: funcDecl.attributes.filter {
                                 switch $0 {
                                 case .attribute(let at):
-                                    return at.attributeName.description != "EffectStructMacro"
+                                    return !at.attributeName.description.contains("EffectStruct")
                                 case .ifConfigDecl:
                                     return true
                                 }

@@ -1,0 +1,74 @@
+@Tutorial(time: 30) {
+    @Intro(title: "Dependency injection") {
+        Learn how to easily design dependencies and inject them into your scopes
+    }
+        
+    @Section(title: "Designing a dependency") {
+        @ContentAndMedia {
+            External dependencies include system libraries, environmental factors, and third-party services that your app relies on, such as System Locale and Date formatting, Network responses, file system access or user defaults / keychain. They make great examples for mandatory dependency abstraction.
+        }
+        @Steps {
+            @Step {
+                Let's build a simple example to illustrate the problem to be solved. See the State of our sinple news feed app:
+                
+                @Code(name: "NewsFeed.swift", file: 01-04-01-code-0001.swift)
+            }
+            @Step {
+                Before continuing implementing our scope, let's write our acceptance criteria using the StatoscopeTesting library. Hopefully the test declaration is self-explanatory
+                
+                @Code(name: "NewsFeedTests.swift", file: 01-04-01-code-0002.swift)
+            }
+            @Step {
+                Running this test fails with an error. The date of the favorites does not match.
+                @Code(name: "NewsFeedTests.swift", file: 01-04-01-code-0002.swift)
+            }
+            @Step {
+                Furthermore, if we want to write a test to get sure favorites are persisted for subsequent runs... we can't'
+                
+                @Code(name: "NewsFeedTests.swift", file: 01-04-01-code-0003.swift)
+            }
+            @Step {
+                Let's go back to our scope to add injected dependencies to solve this problem
+                
+                @Code(name: "NewsFeed.swift", file: 01-04-01-code-0004.swift)
+            }
+            @Step {
+                Let's add the dependencies definition, first one for date retrieval
+                
+                @Code(name: "NewsFeed.swift", file: 01-04-01-code-0005.swift)
+            }
+            @Step {
+                Another one for persistence
+                
+                @Code(name: "NewsFeed.swift", file: 01-04-01-code-0006.swift)
+            }
+            @Step {
+                See how we'd implement the update method without dependencies
+                
+                @Code(name: "NewsFeed.swift", file: 01-04-01-code-0007.swift)
+            }
+            @Step {
+                Now you can add the annotation in the scope that this injection will be used
+                
+                @Code(name: "NewsFeed.swift", file: 01-04-01-code-0008.swift)
+            }
+            @Step {
+                And use the injected properties appropriately
+                
+                @Code(name: "NewsFeed.swift", file: 01-04-01-code-0009.swift)
+            }
+            @Step {
+                Let's go back to our tests
+                
+                @Code(name: "NewsFeedTests.swift", file: 01-04-01-code-0003.swift)
+            }
+            @Step {
+                And there we can see how to inject the dependency
+                
+                @Code(name: "NewsFeedTests.swift", file: 01-04-01-code-0010.swift)
+            }
+            
+            By properly injecting external dependencies and defining clear boundaries between your business logic and third-party libraries, you can create a more maintainable, testable, and flexible codebase. Decoupling these dependencies allows you to focus on building robust business logic while safely leveraging external functionality
+        }   
+    }
+}

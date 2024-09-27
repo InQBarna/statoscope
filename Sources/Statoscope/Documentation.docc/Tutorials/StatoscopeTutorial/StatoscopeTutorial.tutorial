@@ -11,5 +11,6 @@
     @TutorialReference(tutorial: "doc:01-01-StateAndWhen")
     @TutorialReference(tutorial: "doc:01-02-StateWhenAndEffects")
     @TutorialReference(tutorial: "doc:01-03-Middleware")
+    @TutorialReference(tutorial: "doc:01-04-Injection")
   }
 }

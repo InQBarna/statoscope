@@ -9,8 +9,14 @@ import Foundation
 import Combine
 
 public protocol IsSubscopeToMirror {}
-protocol IsOptionalType {}
-extension Optional: IsOptionalType {}
+protocol IsOptionalType {
+    var isNil: Bool { get }
+}
+extension Optional: IsOptionalType {
+    var isNil: Bool {
+        self != nil
+    }
+}
 
 //
 // A property wrapper
@@ -44,6 +50,12 @@ public struct Subscope<Value: InjectionTreeNodeProtocol>: CustomStringConvertibl
             return val
         }
         set {
+            if let storageOpt = enclosingInstance[keyPath: storageKeyPath].storage as? IsOptionalType,
+               let newOptValue = newValue as? IsOptionalType,
+               storageOpt.isNil && newOptValue.isNil {
+                return
+            }
+            
             // Enclosing ObservableObject will be notified when assigned:
             if let enclosingObservable = enclosingInstance as? (any ObservableObject) {
                 let publisher = enclosingObservable.objectWillChange as any Publisher
@@ -57,9 +69,17 @@ public struct Subscope<Value: InjectionTreeNodeProtocol>: CustomStringConvertibl
             // Children maintenance (for injection retrieval)
             if nil != enclosingInstance.parentNode, enclosingInstance.parentNode is IsOptionalType {
                 let optionalWrappedKeyPath = (\T?.self! as KeyPath<T?, T>).appending(path: wrappedKeyPath)
-                enclosingInstance.assignChildOnPropertyWrapperGet(newValue, keyPath: optionalWrappedKeyPath)
+                enclosingInstance.assignChildOnPropertyWrapperSet(
+                    newValue,
+                    keyPath: optionalWrappedKeyPath,
+                    isOptional: true
+                )
             } else {
-                enclosingInstance.assignChildOnPropertyWrapperSet(newValue, keyPath: wrappedKeyPath)
+                enclosingInstance.assignChildOnPropertyWrapperSet(
+                    newValue,
+                    keyPath: wrappedKeyPath,
+                    isOptional: false
+                )
             }
         }
     }

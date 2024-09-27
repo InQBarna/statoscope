@@ -14,6 +14,7 @@ public enum LogLevel: String, CaseIterable {
     case effects
     case stateDiff
     case state
+    case injection
 }
 
 extension LogLevel {
@@ -24,14 +25,15 @@ extension LogLevel {
         case .stateDiff: return .debug
         case .state: return .info
         case .when: return .debug
+        case .injection: return .debug
         }
     }
 }
 
 public extension LogLevel {
     static var basic: Set<LogLevel> = [.errors, .when]
-    static var all: Set<LogLevel> = [.errors, .when, .effects, .stateDiff]
-    static var verbose: Set<LogLevel> = [.errors, .when, .effects, .stateDiff, .state]
+    static var all: Set<LogLevel> = [.errors, .when, .effects, .stateDiff, .injection]
+    static var verbose: Set<LogLevel> = [.errors, .when, .effects, .stateDiff, .injection, .state]
 }
 
 public struct StatoscopeLogger {
