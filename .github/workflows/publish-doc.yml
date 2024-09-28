@@ -32,9 +32,10 @@ jobs:
           --hosting-base-path /statoscope/"$TAG";
         sudo chown -R $USER docs;
 
-    - name: Publish documentation to GitHub Pages
-      uses: JamesIves/github-pages-deploy-action@4.1.7
+    - name: Deploy documentation to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v4
       with:
-        branch: gh-pages
-        folder: docs
-        single-commit: true
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: docs
+        publish_branch: gh-pages
+        keep_files: true

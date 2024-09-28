@@ -31,4 +31,4 @@ Statoscope enables the app developer to focus on the overall design of the app's
 ### Tutorials
 
 - <doc:Overview-article>
-
+- <doc:StatoscopeTutorial>
