@@ -30,6 +30,7 @@ jobs:
           --output-path docs/"$TAG" \
           --transform-for-static-hosting \
           --hosting-base-path /statoscope/"$TAG"
+        sudo chown -R $USER docs
 
     - name: Publish documentation to GitHub Pages
       uses: JamesIves/github-pages-deploy-action@4.1.7
