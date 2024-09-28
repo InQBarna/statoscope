@@ -30,6 +30,6 @@ jobs:
           --hosting-base-path /statoscope/"$TAG"
 
     - name: Publish documentation to GitHub Pages
-      uses: JamesIves/github-pages-deploy-action@4
+      uses: JamesIves/github-pages-deploy-action@4.6.7
       with:
         folder: docs
