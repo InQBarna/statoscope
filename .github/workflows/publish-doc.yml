@@ -20,17 +20,17 @@ jobs:
 
     - name: Build documentation
       run: >
-        rm -rf docs
-        mkdir docs
-        TAG=`git describe --tags --abbrev=0`
+        rm -rf docs;
+        mkdir docs;
+        TAG=`git describe --tags --abbrev=0`;
         swift package \
           --allow-writing-to-directory docs/"$TAG" \
           generate-documentation \
           --target Statoscope \
           --output-path docs/"$TAG" \
           --transform-for-static-hosting \
-          --hosting-base-path /statoscope/"$TAG"
-        sudo chown -R $USER docs
+          --hosting-base-path /statoscope/"$TAG";
+        sudo chown -R $USER docs;
 
     - name: Publish documentation to GitHub Pages
       uses: JamesIves/github-pages-deploy-action@4.1.7
