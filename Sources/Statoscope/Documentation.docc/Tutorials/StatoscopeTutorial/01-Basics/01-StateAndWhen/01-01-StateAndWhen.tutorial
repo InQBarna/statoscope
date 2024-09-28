@@ -1,76 +1,83 @@
 @Tutorial(time: 20) { 
   @Intro(title: "Create a simple Scope") {
-    Define an scope object with state member variables representing 
-    a part of your app status, define the events that may affect 
-    this state and create a view to display the state
+    Define a scope object with state member variables representing 
+    a part of your app's status, define the events that may affect 
+    this state, and create a view to display the state.
   }
   
   @Section(title: "Create a scope") {
     @ContentAndMedia {
-      TODO Blah blah
+      Scopes in Statoscope represent self-contained sections of your app's logic, managing state and reacting to user or system-driven events. Each scope contains its own member variables to track state, an `update` function to handle the defined events (called `When` cases), and can communicate with views or other components. 
+
+      A simple use case is a counter, where we want to display the count value and allow the user to increment or decrement it by tapping buttons.
     }
     @Steps {
       @Step {
-        Create a file Counter.swift and import the Statoscope library.
-        
+        Create a file `Counter.swift` and import the Statoscope library. This is the first step towards creating your counter scope. 
+        Statoscope helps in defining your app’s state as a separate, modular component that can easily be tested.
+
         @Code(name: "Counter.swift", file: 01-01-01-code-0001.swift)
       }
       
       @Step {
         Define your state using member variables.
-        
-        Use sentence-like namings if the vars are suitable for acceptance testing.
-        
+
+        We suggest using clear, sentence-like naming for state variables. This will make your code more readable and also simplify acceptance testing.
+
+        In this case, `viewDisplaysTotalCount` will store the current counter value, which we will update later when a user interacts with the UI.
+
         @Code(name: "Counter.swift", file: 01-01-01-code-0002.swift)
       }
       
       @Step {
-        Add the When events that can occur in your scope.
-        
-        Use sentence-like namings again for acceptance testing.
-        
+        Add the `When` events that can occur in your scope.
+
+        The `When` cases represent the events that trigger state changes. Again, using sentence-like names for these events ensures that your code is both readable and self-explanatory in tests.
+
         @Code(name: "Counter.swift", file: 01-01-01-code-0003.swift)
       }
       
       @Step {
-        Finally, define the update method that will contain your business logic.
-        
-        Wait for the next step before implemting the method!
-        
+        Finally, define the `update` method that will contain your business logic.
+
+        This method will be responsible for managing how your state evolves when events occur. For now, leave the method skeleton in place — we’ll return to it later.
+
         @Code(name: "Counter.swift", file: 01-01-01-code-0004.swift)
       }
       
       @Step {
-        Before building the real scope implementation via the update method,
+        Before building the real scope implementation via the `update` method,
         let's take a look at how we can write acceptance tests for the 
         current state's scope.
-        
-        One of the main goals of the statoscope architecture is to achieve
-        ACCEPTANCE AS CODE. This example shows how using sentence-like
-        state variables and When cases, the test description matches an 
-        acceptance criteria definition.
-        
+
+        One of the main goals of the Statoscope architecture is to achieve
+        **ACCEPTANCE AS CODE**. This means your tests will closely align with the user’s acceptance criteria, making the testing process more intuitive and reflective of real user scenarios.
+
+        In this example, notice how using sentence-like state variables and `When` cases results in a test description that mirrors an acceptance criteria definition.
+
         @Code(name: "CounterTests.swift", file: 01-01-01-code-0005.swift)
       }
 
       @Step {
-        You can try running the test now, but it will fail until we really implement
-        our update method in the scope.
-        
+        You can try running the test now, but it will fail until we implement
+        the actual logic in the `update` method.
+
         @Code(name: "Counter.swift", file: 01-01-01-code-0004.swift)
       }
       
       @Step {
-        The update method contains the state maintenance and business logic of your
-        current app state scope.
-        
+        Now it’s time to implement the `update` method, which contains the state maintenance and business logic of your app’s scope.
+
+        For this counter example, the logic involves updating the count when the user taps either the increment or decrement button, ensuring that the count never drops below zero.
+
         @Code(name: "Counter.swift", file: 01-01-01-code-0006.swift)
       }
       
       @Step {
-        We'll soon create our view to display the state. Since we'll be 
-        using SwiftUI, adopt the ObservableObject protocol and Published state member vars.
-        
+        We will soon create a view to display the state. Since we’ll be 
+        using SwiftUI, adopt the `ObservableObject` protocol and use `@Published` 
+        for the state variables that the view will observe and reflect.
+
         @Code(name: "Counter.swift", file: 01-01-01-code-0007.swift)
       }
     }
@@ -78,18 +85,20 @@
       
   @Section(title: "Create your view") {
     @ContentAndMedia {
-      Blah blah
+      Now that we’ve set up the scope, it's time to build the view that will interact with this state. Using SwiftUI, we will create a simple view that displays the current count and provides buttons to increment or decrement the value. This will allow the user to interact with the scope's state.
+
+      The view will automatically update when the state changes, thanks to the `ObservableObject` protocol and `@Published` properties.
     }
     @Steps {
       @Step {
-        Nice! Let's create our view. We expect source code to be easy ans self-explanatory.
-        
+        Let’s create our view. SwiftUI's declarative syntax will help you define this easily and make your source code straightforward.
+
         @Code(name: "CounterView.swift", file: 01-01-01-code-0008.swift)
       }
       
-      So far so good, we've built our first scope implementing a simple counter.
-      Move to the next chapters to understand Effects and Scope composition.
-      
+      So far so good, we've built our first scope implementing a simple counter. The scope manages the state, the view displays it, and the user interacts with the scope through the UI.
+
+      Move to the next chapters to understand **Effects** and **Scope composition**, where we'll expand the functionality and connect multiple scopes together for more complex app features.
    }   
   }
 }

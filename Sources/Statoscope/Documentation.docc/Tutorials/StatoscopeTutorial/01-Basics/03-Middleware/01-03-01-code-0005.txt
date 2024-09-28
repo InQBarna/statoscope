@@ -1,8 +1,10 @@
-[SCOPE]: Counter (0x00e4dec0): userTappedIncrementButton
-[SCOPE]: Counter (0x00e4dec0): [STATE] [DIFF] -  _viewDisplaysTotalCount: 0
-[SCOPE]: Counter (0x00e4dec0): [STATE] [DIFF] +  _viewDisplaysTotalCount: 1
-[SCOPE]: Counter (0x00e4dec0): userTappedDecrementButton
-[SCOPE]: Counter (0x00e4dec0): [STATE] [DIFF] -  _viewDisplaysTotalCount: 1
-[SCOPE]: Counter (0x00e4dec0): [STATE] [DIFF] +  _viewDisplaysTotalCount: 0
-[SCOPE]: Counter (0x00e4dec0): userTappedDecrementButton
-[SCOPE]: Counter (0x00e4dec0): ‼️ Exception on send method: InvalidStateError()
+Counter (0x00006000037d1d00): userTappedIncrementButton
+Counter (0x00006000037d1d00):
+-   viewDisplaysTotalCount: 0
++   viewDisplaysTotalCount: 1
+Counter (0x00006000037d1d00): userTappedDecrementButton
+Counter (0x00006000037d1d00):
+-   viewDisplaysTotalCount: 1
++   viewDisplaysTotalCount: 0
+Counter (0x00006000037d1d00): userTappedDecrementButton
+Counter (0x00e4dec0): ‼️ Exception on send method: InvalidStateError()

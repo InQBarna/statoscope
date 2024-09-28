@@ -1,74 +1,75 @@
 @Tutorial(time: 30) {
-    @Intro(title: "Dependency injection") {
-        Learn how to easily design dependencies and inject them into your scopes
+    @Intro(title: "Dependency Injection") {
+        Learn how to easily design dependencies and inject them into your scopes. Dependency injection simplifies the structure of your code by externalizing the management of dependencies, making your code more modular, testable, and flexible. In this tutorial, we will demonstrate dependency injection using an example of a simple news feed application.
     }
-        
-    @Section(title: "Designing a dependency") {
+
+    @Section(title: "Designing a Dependency") {
         @ContentAndMedia {
-            External dependencies include system libraries, environmental factors, and third-party services that your app relies on, such as System Locale and Date formatting, Network responses, file system access or user defaults / keychain. They make great examples for mandatory dependency abstraction.
+            External dependencies include system libraries, environmental factors, and third-party services that your app relies on. Examples include System Locale and Date formatting, Network responses, file system access, or user defaults and keychain data storage. These external services can vary in behavior, especially during testing, making them prime candidates for dependency abstraction and injection.
         }
         @Steps {
             @Step {
-                Let's build a simple example to illustrate the problem to be solved. See the State of our sinple news feed app:
-                
+                Let's build a simple example to illustrate the problem we want to solve. Consider the current state of our news feed app. The app displays a list of news articles, and users can mark some as favorites. However, the app directly interacts with the system's date and persistence mechanisms, making testing difficult and inconsistent.
+
                 @Code(name: "NewsFeed.swift", file: 01-04-01-code-0001.swift)
             }
             @Step {
-                Before continuing implementing our scope, let's write our acceptance criteria using the StatoscopeTesting library. Hopefully the test declaration is self-explanatory
-                
+                Before continuing with implementation, let's define our acceptance criteria. We'll use the StatoscopeTesting library to write tests that specify the expected behavior. Writing tests before implementation allows us to clearly define the behavior we expect, and helps prevent regressions in the future.
+
                 @Code(name: "NewsFeedTests.swift", file: 01-04-01-code-0002.swift)
             }
             @Step {
-                Running this test fails with an error. The date of the favorites does not match.
+                Running the test results in a failure. The error occurs because the date of the saved favorite articles does not match the expected value. This happens because the system date is directly used within the business logic, making it hard to control during testing.
+
                 @Code(name: "NewsFeedTests.swift", file: 01-04-01-code-0002.swift)
             }
             @Step {
-                Furthermore, if we want to write a test to get sure favorites are persisted for subsequent runs... we can't'
-                
+                Additionally, if we want to write a test to ensure that favorites persist across multiple app runs, we face another problem. The current implementation directly interacts with UserDefaults for persistence, making it difficult to isolate and test this functionality without actually reading from or writing to the system's storage.
+
                 @Code(name: "NewsFeedTests.swift", file: 01-04-01-code-0003.swift)
             }
             @Step {
-                Let's go back to our scope to add injected dependencies to solve this problem
-                
+                To solve these problems, we'll refactor our code to inject dependencies for both date retrieval and persistence. By injecting these dependencies, we can control their behavior during tests, leading to more predictable and testable code.
+
                 @Code(name: "NewsFeed.swift", file: 01-04-01-code-0004.swift)
             }
             @Step {
-                Let's add the dependencies definition, first one for date retrieval
-                
+                Let's start by defining our first dependency: a date provider. Instead of directly using `Date()`, we'll inject a `DateProvider`. This will allow us to mock the current date in tests, making date-based logic easier to verify.
+
                 @Code(name: "NewsFeed.swift", file: 01-04-01-code-0005.swift)
             }
             @Step {
-                Another one for persistence
-                
+                Next, we'll define a persistence provider to handle saving and loading favorite articles. This provider will abstract the interaction with UserDefaults, allowing us to inject a mock persistence layer during testing.
+
                 @Code(name: "NewsFeed.swift", file: 01-04-01-code-0006.swift)
             }
             @Step {
-                See how we'd implement the update method without dependencies
-                
+                Without using dependencies, the `update` method of the news feed would directly interact with the system for date and persistence. This tightly couples the business logic to system APIs, making the code less flexible and harder to test.
+
                 @Code(name: "NewsFeed.swift", file: 01-04-01-code-0007.swift)
             }
             @Step {
-                Now you can add the annotation in the scope that this injection will be used
-                
+                Now that we've defined the dependencies, we can inject them into our `NewsFeedList` class. We use annotations like `@Injected` to tell the system that these dependencies will be injected, rather than directly instantiated.
+
                 @Code(name: "NewsFeed.swift", file: 01-04-01-code-0008.swift)
             }
             @Step {
-                And use the injected properties appropriately
-                
+                With the dependencies injected, we can now modify the code to use the injected properties for date and persistence. This decouples the business logic from the system APIs and makes the code more modular and easier to test.
+
                 @Code(name: "NewsFeed.swift", file: 01-04-01-code-0009.swift)
             }
             @Step {
-                Let's go back to our tests
-                
+                Let's revisit our tests to ensure that the changes solve the original issues. We'll rerun the same tests, now with mock dependencies for the date and persistence layers, and confirm that the app behaves as expected.
+
                 @Code(name: "NewsFeedTests.swift", file: 01-04-01-code-0003.swift)
             }
             @Step {
-                And there we can see how to inject the dependency
-                
+                Finally, we inject the date and persistence dependencies into our tests. This allows us to control the behavior of these dependencies during the test, ensuring that we can simulate various scenarios, such as a specific date or pre-existing favorites in the system.
+
                 @Code(name: "NewsFeedTests.swift", file: 01-04-01-code-0010.swift)
             }
-            
-            By properly injecting external dependencies and defining clear boundaries between your business logic and third-party libraries, you can create a more maintainable, testable, and flexible codebase. Decoupling these dependencies allows you to focus on building robust business logic while safely leveraging external functionality
-        }   
+
+            By properly injecting external dependencies and defining clear boundaries between your business logic and third-party libraries, you can create a more maintainable, testable, and flexible codebase. Decoupling these dependencies allows you to focus on building robust business logic while safely leveraging external functionality.
+        }
     }
 }
