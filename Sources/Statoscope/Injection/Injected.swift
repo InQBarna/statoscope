@@ -37,7 +37,7 @@ public struct Injected<Value: Injectable> {
             enclosingInstance[keyPath: storageKeyPath].cachedValue  = result
             return result
 #else
-            return enclosingInstance.resolve(appendingLog: String(describing: storageKeyPath))
+            return enclosingInstance._resolve(appendingLog: String(describing: storageKeyPath))
 #endif
         }
         set {

@@ -12,7 +12,7 @@ extension ScopeImplementation {
 
     func allDeepOngoingEffects() -> [String: [any Effect]] {
         return Dictionary(
-            allChildScopes().compactMap {
+            _allChildScopes().compactMap {
                 let effects = $0.effects
                 guard effects.count > 0 else {
                     return nil
@@ -24,7 +24,7 @@ extension ScopeImplementation {
     }
 
     func cancellAllDeepEffects() {
-        allChildScopes()
+        _allChildScopes()
             .forEach { $0.resetEffects() }
     }
 }

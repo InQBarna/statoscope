@@ -20,7 +20,7 @@ public protocol ScopeImplementation:
     /// Runs allways on the main thread.
     ///
     /// * Parameter when: the received event
-    func update(_ when: When) throws
+    @_spi(Internal) func update(_ when: When) throws
 
     @discardableResult
     func addMiddleWare(_ update: @escaping (Self, When, (When) throws -> Void) throws -> Void) -> Self
@@ -193,7 +193,7 @@ private extension ScopeImplementation {
             if let iteratorIsHierarchialMiddleware = iterator as? HierarchialScopeMiddleWare {
                 return iteratorIsHierarchialMiddleware
             }
-            iterator = iterator?.parentNode
+            iterator = iterator?._parentNode
         }
         return nil
     }
@@ -205,7 +205,7 @@ private extension ScopeImplementation {
             return nil
         }
         /// this is an internal method so it should be safe if retaining some scopes
-        let selfKeyPathOnParent = selfAsInjectionNode.keyPathToSelfOnParent ?? \Self.self
+        let selfKeyPathOnParent = selfAsInjectionNode._keyPathToSelfOnParent ?? \Self.self
         let whenFromSubscope = WhenFromSubscope(
             subscopeKeyPath: selfKeyPathOnParent,
             subscope: { erased },

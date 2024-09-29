@@ -41,7 +41,7 @@ public struct Subscope<Value: InjectionTreeNodeProtocol>: CustomStringConvertibl
     ) -> Value {
         get {
             let val: Value = enclosingInstance[keyPath: storageKeyPath].storage
-            if nil != enclosingInstance.parentNode, enclosingInstance.parentNode is IsOptionalType {
+            if nil != enclosingInstance._parentNode, enclosingInstance._parentNode is IsOptionalType {
                 let optionalWrappedKeyPath = (\T?.self! as KeyPath<T?, T>).appending(path: wrappedKeyPath)
                 enclosingInstance.assignChildOnPropertyWrapperGet(val, keyPath: optionalWrappedKeyPath)
             } else {
@@ -50,6 +50,7 @@ public struct Subscope<Value: InjectionTreeNodeProtocol>: CustomStringConvertibl
             return val
         }
         set {
+            // TODO: early return if nil assigned when already nil, this code below does not work
             if let storageOpt = enclosingInstance[keyPath: storageKeyPath].storage as? IsOptionalType,
                let newOptValue = newValue as? IsOptionalType,
                storageOpt.isNil && newOptValue.isNil {
@@ -67,7 +68,7 @@ public struct Subscope<Value: InjectionTreeNodeProtocol>: CustomStringConvertibl
             enclosingInstance[keyPath: storageKeyPath].storage = newValue
 
             // Children maintenance (for injection retrieval)
-            if nil != enclosingInstance.parentNode, enclosingInstance.parentNode is IsOptionalType {
+            if nil != enclosingInstance._parentNode, enclosingInstance._parentNode is IsOptionalType {
                 let optionalWrappedKeyPath = (\T?.self! as KeyPath<T?, T>).appending(path: wrappedKeyPath)
                 enclosingInstance.assignChildOnPropertyWrapperSet(
                     newValue,

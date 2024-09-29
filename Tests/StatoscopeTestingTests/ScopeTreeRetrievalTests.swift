@@ -30,7 +30,7 @@ class ScopeTreeRetrievalTests: XCTestCase {
 
     func testSimpleParentChildAllChildScopes() {
         let parent = SimpleParentChild.Parent()
-        let allChildScopes = parent.allChildScopes()
+        let allChildScopes = parent._allChildScopes()
         XCTAssertEqual(allChildScopes.count, 2)
         XCTAssert(allChildScopes.first ===  parent)
         XCTAssert(allChildScopes.last === parent.child)
@@ -60,7 +60,7 @@ class ScopeTreeRetrievalTests: XCTestCase {
 
     func testParentChildGrandSonAllChildScopes() {
         let parent = ParentChildGrandSon.Parent()
-        let allChildScopes = parent.allChildScopes()
+        let allChildScopes = parent._allChildScopes()
         XCTAssertEqual(allChildScopes.count, 3)
         XCTAssert(allChildScopes.first ===  parent)
         XCTAssert(allChildScopes[1] === parent.child)

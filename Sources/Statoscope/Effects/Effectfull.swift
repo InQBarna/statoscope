@@ -13,8 +13,6 @@ public protocol Effectfull {
     associatedtype When: Sendable
     /// Returns currently pending or ongoing effects
     var effectsState: EffectsState<When> { get }
-    /// Returns a prefix so this is identified in the logs
-    var _logPrefix: String { get }
 }
 
 public protocol EffectfullImplementation: Effectfull {
@@ -27,8 +25,9 @@ extension Effectfull {
     }
 }
 
-extension Effectfull where Self: AnyObject {
-    public var _logPrefix: String {
+internal extension Effectfull where Self: AnyObject {
+    /// Returns a prefix so this is identified in the logs
+    var _logPrefix: String {
         "\(type(of: self)) (\(Unmanaged.passUnretained(self).toOpaque())):"
     }
 }

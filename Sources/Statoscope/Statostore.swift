@@ -22,7 +22,7 @@ public protocol Statostore:
 
 public extension Statostore {
 
-    var scopeImpl: ScopeImpl {
+    var _scopeImpl: ScopeImpl {
         return self
     }
 

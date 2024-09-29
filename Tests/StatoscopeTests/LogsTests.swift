@@ -64,6 +64,8 @@ final class LogsTests: XCTestCase {
             enum When {
                 case didAppear
                 case checkMissingInjection
+                case checkLogArray([Parent.When.DTO])
+                case checkLogDict([String: Parent.When.DTO])
             }
             @Injected var missing: MissingInjectable
             func update(_ when: When) throws {
@@ -72,6 +74,8 @@ final class LogsTests: XCTestCase {
                     showingChild = true
                 case .checkMissingInjection:
                     _ = String(describing: missing)
+                case .checkLogDict, .checkLogArray:
+                    break
                 }
             }
         }
@@ -239,10 +243,9 @@ final class LogsTests: XCTestCase {
         sut.send(.networkDidFinish(ParentChildImplemented.Parent.When.DTO(message: "message")))
         try XCTAssertEqualDiff(logs, [
             """
-            Parent (0xF): 
-              networkDidFinish: DTO(
-                message: message
-              )
+            Parent (0xF): networkDidFinish: DTO(
+              message: message
+            )
             """
         ])
     }
@@ -309,6 +312,255 @@ final class LogsTests: XCTestCase {
                💉 MissingInjectable
                Child (0xF)
             """.split(separator: String.newLine)
+        )
+    }
+    
+    @available(iOS 16.0, *)
+    func testDescribeCollections() throws {
+        
+        final class ScopeWithCollections: Statostore {
+            struct DTO {
+                let children: [DTO]
+            }
+            var collection: [DTO] = [DTO(children: [DTO(children: [])])]
+            var dict: [String: DTO] = [:]
+            enum When {
+                case checkLogArray([DTO])
+                case checkLogDict([String: DTO])
+            }
+            @Injected var missing: MissingInjectable
+            func update(_ when: When) throws {
+                switch when {
+                case .checkLogArray(let newArray):
+                    collection = newArray
+                case .checkLogDict(let newDict):
+                    dict = newDict
+                }
+            }
+        }
+        
+        var logs: [String] = []
+        let regex: Regex = try Regex("(0x[0-9a-f]*)")
+        StatoscopeLogger.logReplacement = { level, log in
+            if level == .when || level == .state {
+                logs.append(log.replacing(regex) { _ in "0xF"})
+            }
+        }
+        let sut = ScopeWithCollections()
+        sut.send(.checkLogDict([
+            "first": ScopeWithCollections.DTO(children: [])
+        ]))
+        sut.send(.checkLogArray([
+            ScopeWithCollections.DTO(children: [
+                ScopeWithCollections.DTO(children: []),
+                ScopeWithCollections.DTO(children: [])
+            ])
+        ]))
+        try XCTAssertEqualDiff(
+            logs,
+            [
+            """
+            ScopeWithCollections (0xF): checkLogDict: [
+              first:\tDTO(
+                children: []
+              )
+            ]
+            """,
+            """
+            ScopeWithCollections (0xF): ScopeWithCollections(
+              collection: [
+                DTO(
+                  children: [
+                    DTO(
+                      children: []
+                    )
+                  ]
+                )
+              ]
+              dict: [:]
+            )
+            """,
+            """
+            ScopeWithCollections (0xF): ScopeWithCollections(
+              collection: [
+                DTO(
+                  children: [
+                    DTO(
+                      children: []
+                    )
+                  ]
+                )
+              ]
+              dict: [
+                first:\tDTO(
+                  children: []
+                )
+              ]
+            )
+            """,
+            """
+            ScopeWithCollections (0xF): checkLogArray: [
+              DTO(
+                children: [
+                  DTO(
+                    children: []
+                  ),
+                  DTO(
+                    children: []
+                  )
+                ]
+              )
+            ]
+            """,
+            """
+            ScopeWithCollections (0xF): ScopeWithCollections(
+              collection: [
+                DTO(
+                  children: [
+                    DTO(
+                      children: []
+                    )
+                  ]
+                )
+              ]
+              dict: [
+                first:\tDTO(
+                  children: []
+                )
+              ]
+            )
+            """,
+            """
+            ScopeWithCollections (0xF): ScopeWithCollections(
+              collection: [
+                DTO(
+                  children: [
+                    DTO(
+                      children: []
+                    ),
+                    DTO(
+                      children: []
+                    )
+                  ]
+                )
+              ]
+              dict: [
+                first:\tDTO(
+                  children: []
+                )
+              ]
+            )
+            """
+            ]
+        )
+    }
+    
+    @available(iOS 16.0, *)
+    func testDescribeEnums() throws {
+        
+        final class ScopeWithEnums: Statostore {
+            struct DTO { 
+                let message: String
+            }
+            enum Enum {
+                case noAssociated
+                case associatedValue(DTO)
+                case associatedValues(DTO, String, label: Int, String?)
+            }
+            var state: Enum = .noAssociated
+            enum When {
+                case noAssociated
+                case associatedValue(DTO)
+                case associatedValues(DTO, String, label: Int, String?)
+            }
+            @Injected var missing: MissingInjectable
+            func update(_ when: When) throws {
+                switch when {
+                case .noAssociated:
+                    break
+                case .associatedValue(let dto):
+                    state = .associatedValue(dto)
+                case .associatedValues(let dto, let string, let int, let optString):
+                    state = .associatedValues(dto, string, label: int, optString)
+                }
+                
+            }
+        }
+        
+        var logs: [String] = []
+        let regex: Regex = try Regex("(0x[0-9a-f]*)")
+        StatoscopeLogger.logReplacement = { level, log in
+            if level == .when || level == .state {
+                logs.append(log.replacing(regex) { _ in "0xF"})
+            }
+        }
+        let sut = ScopeWithEnums()
+        sut.send(.noAssociated)
+        sut.send(.associatedValue(ScopeWithEnums.DTO(message: "msg")))
+        sut.send(.associatedValues(ScopeWithEnums.DTO(message: "msg"), "String", label: 2, nil))
+        try XCTAssertEqualDiff(
+            logs,
+            [
+            """
+            ScopeWithEnums (0xF): noAssociated
+            """,
+            """
+            ScopeWithEnums (0xF): ScopeWithEnums(
+              state: noAssociated
+            )
+            """,
+            """
+            ScopeWithEnums (0xF): ScopeWithEnums(
+              state: noAssociated
+            )
+            """,
+            """
+            ScopeWithEnums (0xF): associatedValue: DTO(
+              message: msg
+            )
+            """,
+            """
+            ScopeWithEnums (0xF): ScopeWithEnums(
+              state: noAssociated
+            )
+            """,
+            """
+            ScopeWithEnums (0xF): ScopeWithEnums(
+              state: associatedValue: DTO(
+                message: msg
+              )
+            )
+            """,
+            """
+            ScopeWithEnums (0xF): associatedValues: (DTO, String, label: Int, Optional<String>)(
+              .0: DTO(
+                message: msg
+              )
+              .1: String
+              label: 2
+              .3: nil
+            )
+            """,
+            """
+            ScopeWithEnums (0xF): ScopeWithEnums(
+              state: associatedValue: DTO(
+                message: msg
+              )
+            )
+            """,
+            """
+            ScopeWithEnums (0xF): ScopeWithEnums(
+              state: associatedValues: (DTO, String, label: Int, Optional<String>)(
+                .0: DTO(
+                  message: msg
+                )
+                .1: String
+                label: 2
+                .3: nil
+              )
+            )
+            """
+            ]
         )
     }
 }

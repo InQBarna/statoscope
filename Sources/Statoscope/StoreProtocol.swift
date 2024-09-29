@@ -15,7 +15,7 @@ public protocol StoreProtocol {
     /// The state object should implement the ``Scope`` protocol, providing
     /// * Usable inside injection tree
     /// * Member variables with the Scope's state
-    var scopeImpl: ScopeImpl { get }
+    var _scopeImpl: ScopeImpl { get }
 
     /// Public method to send events to the store
     ///
@@ -40,13 +40,13 @@ public protocol StoreProtocol {
 extension StoreProtocol {
     @discardableResult
     public func send(_ when: ScopeImpl.When) -> Self {
-        scopeImpl._sendImplementation(when)
+        _scopeImpl._sendImplementation(when)
         return self
     }
 
     @discardableResult
     public func sendUnsafe(_ when: ScopeImpl.When) throws -> Self {
-        try scopeImpl._unsafeSendImplementation(when)
+        try _scopeImpl._unsafeSendImplementation(when)
         return self
     }
 }

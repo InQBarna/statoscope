@@ -22,8 +22,8 @@ struct StoreView<S: StoreProtocol, V: View>: View where S.ScopeImpl: ObservableO
     let view: V
     init(scope: S, @ViewBuilder view: (S.ScopeImpl, @escaping (S.ScopeImpl.When) -> Void) -> V) {
         self.scope = scope
-        self.state = scope.scopeImpl
-        self.view = view(scope.scopeImpl, { scope.send($0) })
+        self.state = scope._scopeImpl
+        self.view = view(scope._scopeImpl, { scope.send($0) })
     }
     var body: some View {
         view

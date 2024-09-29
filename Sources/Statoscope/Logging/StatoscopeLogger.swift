@@ -64,13 +64,14 @@ public struct StatoscopeLogger {
     }
 
     static func LOG(_ level: LogLevel, prefix: String, describing: Any) {
+        let safePrefix = prefix.count == 0 ? "" : prefix + " "
         if let logReplacement {
-            logReplacement(level, "\(prefix) \(describeObject(describing))")
+            logReplacement(level, "\(safePrefix)\(describeObject(describing))")
         } else if Self.logLevel.contains(level) {
             if #available(iOS 14.0, *), let logger = loggers[level] {
-                os_log(.debug, log: logger, "\(prefix) \(describeObject(describing))")
+                os_log(.debug, log: logger, "\(safePrefix)\(describeObject(describing))")
             } else {
-                print("\(prefix) \(describeObject(describing))")
+                print("\(safePrefix)\(describeObject(describing))")
             }
         }
     }

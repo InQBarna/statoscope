@@ -15,7 +15,7 @@ struct WeakScopeBox {
 
 extension ScopeImplementation {
     func allChildScopesChecker() -> [WeakScopeBox] {
-        allChildScopes().map { WeakScopeBox(scope: $0) }
+        _allChildScopes().map { WeakScopeBox(scope: $0) }
     }
 }
 

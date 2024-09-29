@@ -33,6 +33,6 @@ final class CloudCounter: ScopeImplementation {
     }
     
     private func postNewValueToNetwork(newValue: Int) throws {
-        // TODO: post the new value to the network
+        // TODO post the new value to the network
     }
 }

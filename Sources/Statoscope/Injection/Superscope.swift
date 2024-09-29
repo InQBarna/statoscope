@@ -33,7 +33,7 @@ public struct Superscope<Value: Injectable & ObservableObject>: CustomStringConv
             }
 
             // return try enclosingInstance.resolve()
-            let foundSuper: Value = enclosingInstance.resolve()
+            let foundSuper: Value = enclosingInstance._resolve()
 
             // Listen to parent
             if enclosingInstance[keyPath: storageKeyPath].observed,

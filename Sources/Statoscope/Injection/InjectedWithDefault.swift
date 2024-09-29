@@ -36,7 +36,7 @@ public struct InjectedWithDefault<Value> {
             return result
 #else
             do {
-                return try enclosingInstance.resolveUnsafe(appendingLog: String(describing: storageKeyPath))
+                return try enclosingInstance._resolveUnsafe(appendingLog: String(describing: storageKeyPath))
             } catch {
                 return enclosingInstance[keyPath: storageKeyPath].defaultValue
             }

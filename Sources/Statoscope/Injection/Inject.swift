@@ -20,7 +20,7 @@ public struct Inject<Value: Injectable> {
         storage storageKeyPath: ReferenceWritableKeyPath<T, Self>
     ) -> Value {
         get {
-            (try? enclosingInstance.resolveUnsafe(appendingLog: String(describing: storageKeyPath))) ??
+            (try? enclosingInstance._resolveUnsafe(appendingLog: String(describing: storageKeyPath))) ??
             enclosingInstance[keyPath: storageKeyPath].initialValue
         }
         set {

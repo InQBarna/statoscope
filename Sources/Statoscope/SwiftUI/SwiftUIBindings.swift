@@ -36,12 +36,12 @@ extension StoreProtocol where Self: AnyObject {
     ) -> Binding<Bool> {
         guard let when = when else {
             return Binding(
-                get: { [weak self] in self?.scopeImpl[keyPath: keyPath] != nil },
+                get: { [weak self] in self?._scopeImpl[keyPath: keyPath] != nil },
                 set: { _ in return }
             )
         }
         return Binding(
-            get: { [weak self] in self?.scopeImpl[keyPath: keyPath] != nil },
+            get: { [weak self] in self?._scopeImpl[keyPath: keyPath] != nil },
             set: { [weak self] in self?.send(when($0)) }
         )
     }
@@ -52,13 +52,13 @@ extension StoreProtocol where Self: AnyObject {
     ) -> Binding<Bool> {
         guard let when = when else {
             return Binding(
-                get: { [weak self] in self?.scopeImpl[keyPath: keyPath] != nil },
+                get: { [weak self] in self?._scopeImpl[keyPath: keyPath] != nil },
                 set: { _ in return }
             )
         }
         return Binding(
-            get: { [weak self] in self?.scopeImpl[keyPath: keyPath] != nil },
-            set: { [weak self] in self?.send( !$0 ? when(nil) : when(self?.scopeImpl[keyPath: keyPath])) }
+            get: { [weak self] in self?._scopeImpl[keyPath: keyPath] != nil },
+            set: { [weak self] in self?.send( !$0 ? when(nil) : when(self?._scopeImpl[keyPath: keyPath])) }
         )
     }
 }
@@ -79,7 +79,7 @@ extension StoreProtocol where Self: AnyObject {
         _ when: @escaping (T) -> ScopeImpl.When
     ) -> Binding<T> {
         bind(
-            { $0.scopeImpl[keyPath: keyPath] },
+            { $0._scopeImpl[keyPath: keyPath] },
             when
         )
     }
@@ -90,7 +90,7 @@ extension StoreProtocol where Self: AnyObject {
         defaultValue: T
     ) -> Binding<T> {
         Binding(
-            get: { [weak self] in self?.scopeImpl[keyPath: keyPath] ?? defaultValue },
+            get: { [weak self] in self?._scopeImpl[keyPath: keyPath] ?? defaultValue },
             set: { [weak self] in self?.send(when($0)) }
         )
     }

@@ -10,6 +10,7 @@ import Foundation
 extension String {
     static var newLine: String = "\n"
     static var newLineIndented: String = "\n  "
+    static var tab: String = "\t"
     func indentDumpedObject() -> Self {
         "  " +
         replacingOccurrences(of: String.newLine, with: String.newLineIndented)
@@ -73,13 +74,40 @@ func describeObject(_ object: Any, appending: String = "") -> String {
     let mirror = Mirror(reflecting: object)
     let mirrorChildren = mirror.children
     if mirror.displayStyle == .optional && mirror.children.isEmpty {
-        return "nil"
+        return "nil" + appending
     } else if mirrorChildren.count == 0 {
         return String(describing: object) + appending
     } else if let anyEffect = object as? IsAnyEffectToMirror {
-        return describeObject(anyEffect.objectToBeDescribed)
-    } else if mirror.displayStyle == .collection || mirror.displayStyle == .dictionary {
-        return String(describing: object) + appending
+        return describeObject(anyEffect.objectToBeDescribed, appending: appending)
+    } else if mirror.displayStyle == .collection {
+        return "[" +
+            .newLine +
+            mirrorChildren.map { item in
+                describeObject(item.value)
+            }
+            .joined(separator: ",\n")
+            .indentDumpedObject() +
+            .newLine +
+        "]" + appending
+    } else if mirror.displayStyle == .dictionary {
+        return "[" +
+            .newLine +
+            mirrorChildren.map { item in
+                if let (key, value) = item.value as? (Any, Any) {
+                    describeObject(key) +
+                    ":" + .tab +
+                    describeObject(value)
+                } else {
+                    describeObject(item.value)
+                }
+            }
+            .joined(separator: ",\n")
+            .indentDumpedObject() +
+            .newLine +
+            "]" + appending
+    } else if mirror.displayStyle == .enum,
+              let firstChild = mirrorChildren.first {
+        return "\(firstChild.label ?? "_"): \(describeObject(firstChild.value))" + appending
     } else {
         let childrenDescribed: [String] = mirrorChildren
             .compactMap { (child) in
@@ -89,7 +117,7 @@ func describeObject(_ object: Any, appending: String = "") -> String {
                 guard let label = child.label else {
                     // Be carefull calling describeObject here
                     //  it creates an infinite recursion.
-                    // For example for [AnyCancellabl]
+                    // For example for [AnyCancellable]
                     // Fixed in displayStyle .collection or .dictionary above
                     return describeObject(child.value)
                 }
@@ -105,17 +133,11 @@ func describeObject(_ object: Any, appending: String = "") -> String {
                 }
                 return "\(label): \(valueDescription)".indentDumpedObject()
             }
-        if let firstDescribed = childrenDescribed.first,
-           childrenDescribed.count == 1, mirror.displayStyle == .enum {
-            // return "\(type(of: object))(\(firstDescribed))" + appending
-            return .newLine + firstDescribed + appending
-        } else {
-            return "\(type(of: object))(" +
-                .newLine +
-                childrenDescribed.joined(separator: .newLine) +
-                .newLine +
-                appending +
+        return "\(type(of: object))(" +
+            .newLine +
+            childrenDescribed.joined(separator: .newLine) +
+            .newLine +
+            appending +
             ")"
-        }
     }
 }

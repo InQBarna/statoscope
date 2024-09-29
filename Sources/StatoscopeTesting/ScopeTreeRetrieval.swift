@@ -38,7 +38,7 @@ internal func ifChildScope(
 
 extension ScopeImplementation {
 
-    public func allChildScopes() -> [any ScopeImplementation] {
+    public func _allChildScopes() -> [any ScopeImplementation] {
         var scopes: [any ScopeImplementation] = [self]
         allChildScopeIterative(except: &scopes)
         return scopes

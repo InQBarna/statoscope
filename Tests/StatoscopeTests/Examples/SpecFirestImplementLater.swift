@@ -39,10 +39,10 @@ extension SampleScope: Statostore {
     func update(_ when: When) throws {
         switch when {
         case .systemLoadsSampleScope, .retry:
-            scopeImpl.viewShowsLoadingMessage = "Loading..."
+            _scopeImpl.viewShowsLoadingMessage = "Loading..."
         case .networkRespondsWithContent(let newContent):
-            scopeImpl.viewShowsContent = newContent.mapError { _ in SampleError.someError }
-            scopeImpl.viewShowsLoadingMessage = nil
+            _scopeImpl.viewShowsContent = newContent.mapError { _ in SampleError.someError }
+            _scopeImpl.viewShowsLoadingMessage = nil
         }
     }
 }

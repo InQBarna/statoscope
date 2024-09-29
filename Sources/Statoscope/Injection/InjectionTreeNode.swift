@@ -12,14 +12,14 @@ import Foundation
 ///  struct to conform to the same protocol and be used in the Subscope property wrapper
 public protocol InjectionTreeNodeProtocol {
     /// Returns the ancestor in the injection tree node
-    var parentNode: InjectionTreeNodeProtocol? { get set }
+    var _parentNode: InjectionTreeNodeProtocol? { get set }
     // TODO: parentKeyPath and parentNode to be merged into a single property ?
     /// Returns the ancestor keyPath to the current node
-    var keyPathToSelfOnParent: AnyKeyPath? { get set }
+    var _keyPathToSelfOnParent: AnyKeyPath? { get set }
     /// Returns the descendants in the injection tree node
-    var childrenNodes: [InjectionTreeNodeProtocol] { get }
+    var _childrenNodes: [InjectionTreeNodeProtocol] { get }
     /// Returns the root ancestor of the inection tree node
-    var rootNode: InjectionTreeNodeProtocol? { get }
+    var _rootNode: InjectionTreeNodeProtocol? { get }
 }
 
 /// Represents a node in a tree of dependencies search to achieve a dependency 
@@ -86,17 +86,17 @@ public protocol InjectionTreeNode: InjectionTreeNodeProtocol, AnyObject {
     ///
     /// Method will search first in ad-hoc injected objects and later up in the injection tree.
     /// * Returns The found injected value or default value if not found
-    func resolve<T: Injectable>(appendingLog: String) -> T
+    func _resolve<T: Injectable>(appendingLog: String) -> T
     /// Searches and returns the requested type inside the injection store or up to the injection tree
     ///
     /// Method will search first in ad-hoc injected objects and later up in the injection tree.
     /// * Returns The found injected value or throws ``NoInjectedValueFound`` if not found
-    func resolveUnsafe<T>(appendingLog: String) throws -> T
+    func _resolveUnsafe<T>(appendingLog: String) throws -> T
 }
 
 public extension InjectionTreeNode {
 
-    var parentNode: InjectionTreeNodeProtocol? {
+    var _parentNode: InjectionTreeNodeProtocol? {
         get {
             weakParent?.anyLink
         }
@@ -105,15 +105,15 @@ public extension InjectionTreeNode {
         }
     }
 
-    var keyPathToSelfOnParent: AnyKeyPath? {
+    var _keyPathToSelfOnParent: AnyKeyPath? {
         get {
-            weakParent?.keyPathToSelfOnParent
+            weakParent?._keyPathToSelfOnParent
         }
         set {
             // parentNode and parentKeyPath needs a refactor so they are assigned alltogether
             //  in the meantime... assert correct usage
             assert(newValue == nil || weakParent != nil)
-            weakParent?.keyPathToSelfOnParent = newValue
+            weakParent?._keyPathToSelfOnParent = newValue
         }
     }
 
@@ -124,15 +124,15 @@ public extension InjectionTreeNode {
         return self
     }
 
-    func resolve<T: Injectable>(appendingLog: String = "") -> T {
+    func _resolve<T: Injectable>(appendingLog: String = "") -> T {
         do {
-            return try resolveUnsafe(appendingLog: appendingLog)
+            return try _resolveUnsafe(appendingLog: appendingLog)
         } catch {
             return T.defaultValue
         }
     }
 
-    func resolveUnsafe<T>(appendingLog: String = "") throws -> T {
+    func _resolveUnsafe<T>(appendingLog: String = "") throws -> T {
         var node: InjectionTreeNode? = self
         while let iterator = node {
             node = iterator.weakParent?.anyLink
@@ -160,11 +160,11 @@ public extension InjectionTreeNode {
         throw NoInjectedValueFound(T.self, injectionTreeDescription: self.rootTreeDescription())
     }
 
-    var rootNode: InjectionTreeNodeProtocol? {
+    var _rootNode: InjectionTreeNodeProtocol? {
         root
     }
 
-    var childrenNodes: [InjectionTreeNodeProtocol] {
+    var _childrenNodes: [InjectionTreeNodeProtocol] {
         children
             .map {
                 // swiftlint:disable:next force_cast
@@ -213,15 +213,15 @@ extension InjectionTreeNode {
 
     var selfRootKeyPath: AnyKeyPath {
         guard var node: InjectionTreeNode = weakParent?.anyLink,
-              let keyPathToSelfOnParent else {
+              let _keyPathToSelfOnParent else {
             return \Self.self
         }
 
-        var keyPath: AnyKeyPath = keyPathToSelfOnParent
+        var keyPath: AnyKeyPath = _keyPathToSelfOnParent
         while let weakParent = node.weakParent,
               let weakParentLink = weakParent.anyLink {
             node = weakParentLink
-            if let appendableKP = weakParent.keyPathToSelfOnParent,
+            if let appendableKP = weakParent._keyPathToSelfOnParent,
                let newLKeyPath = appendableKP.appending(path: keyPath) {
                 keyPath = newLKeyPath
             }
@@ -230,14 +230,14 @@ extension InjectionTreeNode {
     }
 
     func assignChildOnPropertyWrapperGet<Value: InjectionTreeNodeProtocol>(_ value: Value?, keyPath: AnyKeyPath) {
-        if value?.parentNode != nil {
+        if value?._parentNode != nil {
             return
         }
         assignChildAndCleanupChain(value, keyPath: keyPath)
     }
 
     func assignChildOnPropertyWrapperSet<Value: InjectionTreeNodeProtocol>(_ value: Value?, keyPath: AnyKeyPath, isOptional: Bool) {
-        if isOptional, value?.parentNode != nil {
+        if isOptional, value?._parentNode != nil {
             (value as? InjectionTreeNode ?? self).logInjectionTree()
             return
         }
@@ -264,8 +264,8 @@ extension InjectionTreeNode {
             if !children.contains(newInjTreeNode) {
                 children.add(InjectionTreeNodeBox(expr: newInjTreeNode))
             }
-            newInjTreeNode.parentNode = self
-            newInjTreeNode.keyPathToSelfOnParent = keyPath
+            newInjTreeNode._parentNode = self
+            newInjTreeNode._keyPathToSelfOnParent = keyPath
         }
     }
 
@@ -287,12 +287,12 @@ extension InjectionTreeNode {
 // Debugging
 extension InjectionTreeNode {
 
-    public var injectedTreeDescription: String {
+    public var _injectedTreeDescription: String {
         injectedTree
             .joined(separator: "\n")
     }
 
-    public var injectedTree: [String] {
+    var injectedTree: [String] {
         [
             [
                 "\(type(of: self)) (\(Unmanaged.passUnretained(self).toOpaque()))"
@@ -333,7 +333,7 @@ extension InjectionTreeNode {
 }
 
 public extension InjectionTreeNodeProtocol {
-    var parentNode: InjectionTreeNodeProtocol? {
+    var _parentNode: InjectionTreeNodeProtocol? {
         get {
             fatalError("Don't try implementing ChainLinkProtocol, " +
                        " this is an internal helper for optional-nonoptional property wrapping")
@@ -348,29 +348,29 @@ public extension InjectionTreeNodeProtocol {
 
 extension Optional: InjectionTreeNodeProtocol where Wrapped: InjectionTreeNode {
 
-    public var parentNode: InjectionTreeNodeProtocol? {
+    public var _parentNode: InjectionTreeNodeProtocol? {
         get {
-            return self?.parentNode
+            return self?._parentNode
         }
         set {
-            self?.parentNode = newValue
+            self?._parentNode = newValue
         }
     }
 
-    public var keyPathToSelfOnParent: AnyKeyPath? {
+    public var _keyPathToSelfOnParent: AnyKeyPath? {
         get {
-            return self?.keyPathToSelfOnParent
+            return self?._keyPathToSelfOnParent
         }
         set {
-            self?.keyPathToSelfOnParent = newValue
+            self?._keyPathToSelfOnParent = newValue
         }
     }
 
-    public var childrenNodes: [InjectionTreeNodeProtocol] {
-        self?.childrenNodes ?? []
+    public var _childrenNodes: [InjectionTreeNodeProtocol] {
+        self?._childrenNodes ?? []
     }
 
-    public var rootNode: InjectionTreeNodeProtocol? {
-        self?.rootNode
+    public var _rootNode: InjectionTreeNodeProtocol? {
+        self?._rootNode
     }
 }

@@ -54,13 +54,13 @@ class StatoscopeAccessControl: XCTestCase {
             // _ = self.addMiddleWare { _, _ in nil }
 
             // This may compile... should be used only for debugging
-            _ = self.parentNode
-            _ = self.childrenNodes
-            _ = self.rootNode
+            _ = self._parentNode
+            _ = self._childrenNodes
+            _ = self._rootNode
 
             // This may compile
             self.injectObject(Date())
-            let _: Date = try self.resolveUnsafe()
+            let _: Date = try self._resolveUnsafe()
         }
     }
 }
