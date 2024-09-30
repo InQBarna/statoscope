@@ -47,9 +47,10 @@ public struct EffectStructMacro: PeerMacro {
          */
 
         let parameterList = funcDecl.signature.parameterClause.parameters
+        let newGenericParameterClause = buildGenericParameterClause(funcDecl: funcDecl)
         let newStructDeclaration = StructDeclSyntax(
             name: .identifier(funcDecl.name.text.firstCharCapitalized + "Effect"),
-            genericParameterClause: funcDecl.genericParameterClause,
+            genericParameterClause: newGenericParameterClause,
             inheritanceClause: InheritanceClauseSyntax(
                 inheritedTypes: InheritedTypeListSyntax {
                     InheritedTypeSyntax(type: IdentifierTypeSyntax(name: "Effect"))
@@ -107,5 +108,85 @@ public struct EffectStructMacro: PeerMacro {
             )
         )
         return [DeclSyntax(newStructDeclaration)]
+    }
+    
+    private static func buildGenericParameterClause(funcDecl: FunctionDeclSyntax) -> GenericParameterClauseSyntax? {
+        let functionGenerics: [String] = funcDecl.genericParameterClause
+            .flatMap({ $0.parameters })?.map { $0.name.text } ?? []
+        let functionParmTypes: [String] = funcDecl.signature.parameterClause.parameters
+            .compactMap({ $0.type.as(IdentifierTypeSyntax.self)?.name.text })
+        let conformToGenericEquatable = functionGenerics.count > 0 &&
+            !Set(functionGenerics).isDisjoint(with: functionParmTypes)
+        return funcDecl.genericParameterClause.map { existing in
+            GenericParameterClauseSyntax(
+                leftAngle: existing.leftAngle,
+                parameters: GenericParameterListSyntax(
+                    existing.parameters.map { existingParam in
+                        if conformToGenericEquatable,
+                           var existingParamInheritanceComposed = existingParam.inheritedType?.as(CompositionTypeSyntax.self) {
+                            guard nil == existingParamInheritanceComposed.elements.first(where: {
+                                $0.type.as(IdentifierTypeSyntax.self)?.name.text == "Equatable"
+                            }) else {
+                                return GenericParameterSyntax(
+                                    attributes: existingParam.attributes,
+                                    name: existingParam.name,
+                                    colon: existingParam.colon,
+                                    inheritedType: existingParamInheritanceComposed
+                                )
+                            }
+                            var newComposed = existingParamInheritanceComposed.elements.map { existingGeneric in
+                                CompositionTypeElementSyntax(
+                                    type: existingGeneric.type,
+                                    ampersand: .binaryOperator("&")
+                                )
+                            }
+                            newComposed.append(
+                                CompositionTypeElementSyntax(
+                                    type: IdentifierTypeSyntax(name: .identifier("Equatable"))
+                                )
+                            )
+                            let newInheritedType = CompositionTypeSyntax(
+                                leadingTrivia: existingParamInheritanceComposed.leadingTrivia,
+                                elements: CompositionTypeElementListSyntax(newComposed),
+                                trailingTrivia: existingParamInheritanceComposed.trailingTrivia
+                            )
+                            return GenericParameterSyntax(
+                                attributes: existingParam.attributes,
+                                name: existingParam.name,
+                                colon: existingParam.colon,
+                                inheritedType: newInheritedType
+                            )
+
+                        } else if conformToGenericEquatable,
+                               let existingInheritance = existingParam.inheritedType {
+                            return GenericParameterSyntax(
+                                attributes: existingParam.attributes,
+                                name: existingParam.name,
+                                colon: existingParam.colon,
+                                inheritedType: CompositionTypeSyntax(
+                                    elements: [
+                                        CompositionTypeElementSyntax(
+                                            type: existingInheritance,
+                                            ampersand: .binaryOperator("&")
+                                        ),
+                                        CompositionTypeElementSyntax(
+                                            type: IdentifierTypeSyntax(name: .identifier("Equatable"))
+                                        )
+                                    ]
+                                )
+
+                            )
+                        } else {
+                            return GenericParameterSyntax(
+                                attributes: existingParam.attributes,
+                                name: existingParam.name,
+                                colon: existingParam.colon,
+                                inheritedType: existingParam.inheritedType
+                            )
+                        }
+                    }
+                )
+            )
+        }
     }
 }

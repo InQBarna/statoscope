@@ -147,4 +147,106 @@ final class StatoscopeMacrosTests: XCTestCase {
         throw XCTSkip("macros are only supported when running tests for the host platform")
         #endif
     }
+    
+    func testCreateEffectMacroWithTemplate() throws {
+        #if canImport(StatoscopeMacros)
+        assertMacroExpansion(
+            #"""
+            enum SomeNamespace {
+                @EffectStructMacro
+                func createDoc<T: Encodable>(docRef: DocRef, collectionName: String, value: T) async throws -> String {
+                    return ""
+                }
+            }
+            """#,
+            expandedSource: #"""
+            enum SomeNamespace {
+                func createDoc<T: Encodable>(docRef: DocRef, collectionName: String, value: T) async throws -> String {
+                    return ""
+                }
+            
+                struct CreateDocEffect<T: Encodable & Equatable>: Effect, Equatable {
+                    let docRef: DocRef
+                    let collectionName: String
+                    let value: T
+                    func runEffect() async throws -> String {
+                        try await createDoc(docRef: docRef, collectionName: collectionName, value: value)
+                    }
+                }
+            }
+            """#,
+            macros: testMacros
+        )
+        #else
+        throw XCTSkip("macros are only supported when running tests for the host platform")
+        #endif
+    }
+    
+    func testCreateEffectMacroWithTemplateComposed() throws {
+        #if canImport(StatoscopeMacros)
+        assertMacroExpansion(
+            #"""
+            enum SomeNamespace {
+                @EffectStructMacro
+                func createDoc<T: Encodable & BrainFuck>(docRef: DocRef, collectionName: String, value: T) async throws -> String {
+                    return ""
+                }
+            }
+            """#,
+            expandedSource: #"""
+            enum SomeNamespace {
+                func createDoc<T: Encodable & BrainFuck>(docRef: DocRef, collectionName: String, value: T) async throws -> String {
+                    return ""
+                }
+            
+                struct CreateDocEffect<T: Encodable & BrainFuck & Equatable>: Effect, Equatable {
+                    let docRef: DocRef
+                    let collectionName: String
+                    let value: T
+                    func runEffect() async throws -> String {
+                        try await createDoc(docRef: docRef, collectionName: collectionName, value: value)
+                    }
+                }
+            }
+            """#,
+            macros: testMacros
+        )
+        #else
+        throw XCTSkip("macros are only supported when running tests for the host platform")
+        #endif
+    }
+    
+    func testCreateEffectMacroWithTemplateComposedEquatable() throws {
+        #if canImport(StatoscopeMacros)
+        assertMacroExpansion(
+            #"""
+            enum SomeNamespace {
+                @EffectStructMacro
+                func createDoc<T: Encodable & Equatable>(docRef: DocRef, collectionName: String, value: T) async throws -> String {
+                    return ""
+                }
+            }
+            """#,
+            expandedSource: #"""
+            enum SomeNamespace {
+                func createDoc<T: Encodable & Equatable>(docRef: DocRef, collectionName: String, value: T) async throws -> String {
+                    return ""
+                }
+            
+                struct CreateDocEffect<T: Encodable & Equatable>: Effect, Equatable {
+                    let docRef: DocRef
+                    let collectionName: String
+                    let value: T
+                    func runEffect() async throws -> String {
+                        try await createDoc(docRef: docRef, collectionName: collectionName, value: value)
+                    }
+                }
+            }
+            """#,
+            macros: testMacros
+        )
+        #else
+        throw XCTSkip("macros are only supported when running tests for the host platform")
+        #endif
+    }
 }
