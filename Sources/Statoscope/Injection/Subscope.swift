@@ -14,7 +14,7 @@ protocol IsOptionalType {
 }
 extension Optional: IsOptionalType {
     var isNil: Bool {
-        self != nil
+        self == nil
     }
 }
 
