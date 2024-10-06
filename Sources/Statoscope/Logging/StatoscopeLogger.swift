@@ -63,6 +63,11 @@ public struct StatoscopeLogger {
         }
     }
 
+    static func logEnabled(_ level: LogLevel) -> Bool {
+        return logReplacement != nil ||
+            Self.logLevel.contains(level)
+    }
+    
     static func LOG(_ level: LogLevel, prefix: String, describing: Any) {
         let safePrefix = prefix.count == 0 ? "" : prefix + " "
         if let logReplacement {
@@ -76,14 +81,16 @@ public struct StatoscopeLogger {
         }
     }
     
-    static func LOG(_ level: LogLevel, prefix: String, _ string: String) {
+    static func LOG(_ level: LogLevel, prefix: String, _ string: @autoclosure () -> String) {
+        let safePrefix = prefix.count == 0 ? "" : prefix + " "
         if let logReplacement {
-            logReplacement(level, "\(prefix) \(string)")
+            logReplacement(level, "\(safePrefix)\(string())")
         } else if Self.logLevel.contains(level) {
             if #available(iOS 14.0, *), let logger = loggers[level] {
-                os_log(.debug, log: logger, "\(prefix) \(string)")
+                let stringValue = string()
+                os_log(.debug, log: logger, "\(safePrefix)\(stringValue)")
             } else {
-                print("\(prefix) \(string)")
+                print("\(safePrefix)\(string())")
             }
         }
     }
@@ -99,9 +106,6 @@ public extension CollectionDifference.Change {
 }
 
 extension ScopeImplementation {
-    func logState(describingSelf: String) {
-        LOG(.state, describingSelf)
-    }
     
     func logStateDiff(
         previousDescribingSelf: String,

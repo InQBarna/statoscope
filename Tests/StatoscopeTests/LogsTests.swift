@@ -27,7 +27,7 @@ final class LogsTests: XCTestCase {
         static var defaultValue = LogsTests.MissingInjectable()
         let id: UUID = UUID()
     }
-
+    
     private enum ParentChildImplemented {
         final class Parent: Statostore {
             var loading: Bool = false
@@ -58,7 +58,7 @@ final class LogsTests: XCTestCase {
                 }
             }
         }
-
+        
         final class Child: Statostore {
             var showingChild: Bool = false
             enum When {
@@ -80,7 +80,7 @@ final class LogsTests: XCTestCase {
             }
         }
     }
-
+    
     @available(iOS 16.0, *)
     func testStoreLogs() throws {
         var logs: [ExpLog] = []
@@ -113,7 +113,7 @@ final class LogsTests: XCTestCase {
             """)
         ])
     }
-
+    
     @available(iOS 16.0, *)
     func testChildStoreLogs() throws {
         var logs: [String] = []
@@ -165,7 +165,7 @@ final class LogsTests: XCTestCase {
             """
         ])
     }
-
+    
     private enum PublishedLogs {
         final class WithPublishedProperties: Statostore, ObservableObject {
             @Published var loading: Bool = false
@@ -184,7 +184,7 @@ final class LogsTests: XCTestCase {
             var debugLoading: Bool { loading }
         }
     }
-
+    
     @available(iOS 16.0, *)
     func testPublishedPropertiesLogs() throws {
         var logs: [String] = []
@@ -204,7 +204,7 @@ final class LogsTests: XCTestCase {
             """
         ])
     }
-
+    
     @available(iOS 16.0, *)
     func testPublishedPropertiesLogsWithSink() throws {
         var logs: [String] = []
@@ -459,7 +459,7 @@ final class LogsTests: XCTestCase {
     func testDescribeEnums() throws {
         
         final class ScopeWithEnums: Statostore {
-            struct DTO { 
+            struct DTO {
                 let message: String
             }
             enum Enum {
@@ -562,6 +562,29 @@ final class LogsTests: XCTestCase {
             """
             ]
         )
+    }
+    
+    @available(iOS 16.0, *)
+    func DISABLED_testInfiniteLogOnPublisherAssign() throws {
+        
+        final class StoreWithAssignPublisher: Statostore {
+            var cancellables: [AnyCancellable] = []
+            var myVar: Date = Date()
+            enum When {
+                case defaultWhen
+            }
+            func update(_ when: When) throws {
+                switch when {
+                case .defaultWhen:
+                    Timer.publish(every: 1000, on: .main, in: .common)
+                        .assign(to: \.myVar, on: self)
+                        .store(in: &cancellables)
+                }
+            }
+        }
+        
+        let sut = StoreWithAssignPublisher()
+        sut.send(.defaultWhen)
     }
 }
 // swiftlint:enable nesting

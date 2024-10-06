@@ -14,7 +14,7 @@ import XCTest
 import StatoscopeMacros
 
 let testMacros: [String: Macro.Type] = [
-    "EffectStructMacro": EffectStructMacro.self,
+    "EffectStruct": EffectStructMacro.self,
     "StateProtocol": StateProtocolMacro.self,
     "CaseAssociatedGet": CaseAssociatedGetMacro.self
 ]
@@ -27,7 +27,7 @@ final class StatoscopeMacrosTests: XCTestCase {
         assertMacroExpansion(
             #"""
             enum SomeNamespace {
-                @EffectStructMacro
+                @EffectStruct
                 func methodName() -> Int {
                     return 2
                 }
@@ -58,7 +58,7 @@ final class StatoscopeMacrosTests: XCTestCase {
         assertMacroExpansion(
             #"""
             enum SomeNamespace {
-                @EffectStructMacro
+                @EffectStruct
                 func c(a: Int, for b: String, _ value: Double) -> Int {
                     return 2
                 }
@@ -91,7 +91,7 @@ final class StatoscopeMacrosTests: XCTestCase {
         #if canImport(StatoscopeMacros)
         assertMacroExpansion(
             #"""
-            @EffectStructMacro
+            @EffectStruct
             func network<Response: Decodable>(request: URLRequest) async throws -> Response {
                 try JSONDecoder().decode(Response.self, from: try await URLSession.shared.data(for: request).0)
             }
@@ -120,7 +120,7 @@ final class StatoscopeMacrosTests: XCTestCase {
         assertMacroExpansion(
             #"""
             enum SomeNamespace {
-                @EffectStructMacro
+                @EffectStruct
                 @MainActor
                 func methodName() -> Int {
                     return 2
@@ -153,7 +153,7 @@ final class StatoscopeMacrosTests: XCTestCase {
         assertMacroExpansion(
             #"""
             enum SomeNamespace {
-                @EffectStructMacro
+                @EffectStruct
                 func createDoc<T: Encodable>(docRef: DocRef, collectionName: String, value: T) async throws -> String {
                     return ""
                 }
@@ -187,7 +187,7 @@ final class StatoscopeMacrosTests: XCTestCase {
         assertMacroExpansion(
             #"""
             enum SomeNamespace {
-                @EffectStructMacro
+                @EffectStruct
                 func createDoc<T: Encodable & BrainFuck>(docRef: DocRef, collectionName: String, value: T) async throws -> String {
                     return ""
                 }
@@ -221,7 +221,7 @@ final class StatoscopeMacrosTests: XCTestCase {
         assertMacroExpansion(
             #"""
             enum SomeNamespace {
-                @EffectStructMacro
+                @EffectStruct
                 func createDoc<T: Encodable & Equatable>(docRef: DocRef, collectionName: String, value: T) async throws -> String {
                     return ""
                 }
@@ -239,6 +239,39 @@ final class StatoscopeMacrosTests: XCTestCase {
                     let value: T
                     func runEffect() async throws -> String {
                         try await createDoc(docRef: docRef, collectionName: collectionName, value: value)
+                    }
+                }
+            }
+            """#,
+            macros: testMacros
+        )
+        #else
+        throw XCTSkip("macros are only supported when running tests for the host platform")
+        #endif
+    }
+
+    func testCreateEffectMacroWithTemplateComposedManyEquatable() throws {
+        #if canImport(StatoscopeMacros)
+        assertMacroExpansion(
+            #"""
+            enum SomeNamespace {
+                @EffectStruct
+                static func performRequest<Request: Encodable, Response: Decodable>(_ callable: Callable, request: Request? = EmptyRequest()) async throws -> Response {
+                    return
+                }
+            }
+            """#,
+            expandedSource: #"""
+            enum SomeNamespace {
+                static func performRequest<Request: Encodable, Response: Decodable>(_ callable: Callable, request: Request? = EmptyRequest()) async throws -> Response {
+                    return
+                }
+
+                struct PerformRequestEffect<Request: Encodable & Equatable, Response: Decodable>: Effect, Equatable {
+                    let callable: Callable
+                    let request: Request?
+                    func runEffect() async throws -> Response {
+                        try await performRequest(_ : callable, request: request)
                     }
                 }
             }

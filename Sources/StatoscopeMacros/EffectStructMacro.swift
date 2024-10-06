@@ -114,16 +114,23 @@ public struct EffectStructMacro: PeerMacro {
         let functionGenerics: [String] = funcDecl.genericParameterClause
             .flatMap({ $0.parameters })?.map { $0.name.text } ?? []
         let functionParmTypes: [String] = funcDecl.signature.parameterClause.parameters
-            .compactMap({ $0.type.as(IdentifierTypeSyntax.self)?.name.text })
-        let conformToGenericEquatable = functionGenerics.count > 0 &&
-            !Set(functionGenerics).isDisjoint(with: functionParmTypes)
+            .compactMap {
+                let typeSyntax = $0.type.as(OptionalTypeSyntax.self)?.wrappedType ?? $0.type
+                guard let identifierTypeSyntax = typeSyntax.as(IdentifierTypeSyntax.self) else {
+                    return nil
+                }
+                return identifierTypeSyntax.name.text
+            }
+
         return funcDecl.genericParameterClause.map { existing in
             GenericParameterClauseSyntax(
                 leftAngle: existing.leftAngle,
                 parameters: GenericParameterListSyntax(
                     existing.parameters.map { existingParam in
-                        if conformToGenericEquatable,
-                           var existingParamInheritanceComposed = existingParam.inheritedType?.as(CompositionTypeSyntax.self) {
+                        
+                        let currentParamIsGeneric = functionParmTypes.contains(existingParam.name.text)
+                        if currentParamIsGeneric,
+                           let existingParamInheritanceComposed = existingParam.inheritedType?.as(CompositionTypeSyntax.self) {
                             guard nil == existingParamInheritanceComposed.elements.first(where: {
                                 $0.type.as(IdentifierTypeSyntax.self)?.name.text == "Equatable"
                             }) else {
@@ -131,7 +138,8 @@ public struct EffectStructMacro: PeerMacro {
                                     attributes: existingParam.attributes,
                                     name: existingParam.name,
                                     colon: existingParam.colon,
-                                    inheritedType: existingParamInheritanceComposed
+                                    inheritedType: existingParamInheritanceComposed,
+                                    trailingComma: existingParam.trailingComma
                                 )
                             }
                             var newComposed = existingParamInheritanceComposed.elements.map { existingGeneric in
@@ -154,10 +162,11 @@ public struct EffectStructMacro: PeerMacro {
                                 attributes: existingParam.attributes,
                                 name: existingParam.name,
                                 colon: existingParam.colon,
-                                inheritedType: newInheritedType
+                                inheritedType: newInheritedType,
+                                trailingComma: existingParam.trailingComma
                             )
 
-                        } else if conformToGenericEquatable,
+                        } else if currentParamIsGeneric,
                                let existingInheritance = existingParam.inheritedType {
                             return GenericParameterSyntax(
                                 attributes: existingParam.attributes,
@@ -173,16 +182,11 @@ public struct EffectStructMacro: PeerMacro {
                                             type: IdentifierTypeSyntax(name: .identifier("Equatable"))
                                         )
                                     ]
-                                )
-
+                                ),
+                                trailingComma: existingParam.trailingComma
                             )
                         } else {
-                            return GenericParameterSyntax(
-                                attributes: existingParam.attributes,
-                                name: existingParam.name,
-                                colon: existingParam.colon,
-                                inheritedType: existingParam.inheritedType
-                            )
+                            return existingParam
                         }
                     }
                 )

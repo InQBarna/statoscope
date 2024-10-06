@@ -39,6 +39,21 @@ extension ScopeImplementation {
             LOG(.errors, "‼️ Exception on send method: \(error)")
         }
     }
+    
+    private func logStateAndDiffIfEnabled(_ _updateUsingMiddlewares: () throws -> Void) rethrows {
+        if StatoscopeLogger.logEnabled(.stateDiff) {
+            let currentState = String(describing: self)
+            LOG(.state, currentState)
+            try _updateUsingMiddlewares()
+            let newState = String(describing: self)
+            LOG(.state, newState)
+            logStateDiff(previousDescribingSelf: currentState, newDescribingSelf: newState)
+        } else {
+            LOG(.state, describing: self)
+            try _updateUsingMiddlewares()
+            LOG(.state, describing: self)
+        }
+    }
 
     public func _unsafeSendImplementation(_ when: When) throws {
 
@@ -47,13 +62,9 @@ extension ScopeImplementation {
         LOG(.when, describing: when)
         assert(effectsState.enquedEffects.count == 0)
         assert(effectsState.cancelledEffects.count == 0)
-        // TODO: describing should only be called if logs enabled
-        let currentState = String(describing: self)
-        logState(describingSelf: currentState)
-        try updateUsingMiddlewares(when)
-        let newState = String(describing: self)
-        logState(describingSelf: newState)
-        logStateDiff(previousDescribingSelf: currentState, newDescribingSelf: newState)
+        try logStateAndDiffIfEnabled {
+            try updateUsingMiddlewares(when)
+        }
         let copiedSnapshot = effectsState
         effectsState = EffectsState(snapshotEffects: effectsState.currentRequestedEffects)
         ensureSetupDeinitObserver()
