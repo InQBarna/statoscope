@@ -71,19 +71,31 @@ fileprivate extension ScopeImplementation {
 }
 
 func describeObject(_ object: Any, appending: String = "") -> String {
+    var inoutObjects: [AnyObject] = []
+    return describeObject(object, objects: &inoutObjects, appending: appending)
+}
+
+private func describeObject(_ object: Any, objects: inout [AnyObject], appending: String = "") -> String {
     let mirror = Mirror(reflecting: object)
     let mirrorChildren = mirror.children
+    if mirror.displayStyle == .class {
+        let classObject = object as AnyObject
+        guard nil == objects.firstIndex(where: { $0 === classObject }) else {
+            return "‼️ infinite describeObject recursion avoided ‼️"
+        }
+        objects.append(classObject)
+    }
     if mirror.displayStyle == .optional && mirror.children.isEmpty {
         return "nil" + appending
     } else if mirrorChildren.count == 0 {
         return String(describing: object) + appending
     } else if let anyEffect = object as? IsAnyEffectToMirror {
-        return describeObject(anyEffect.objectToBeDescribed, appending: appending)
+        return describeObject(anyEffect.objectToBeDescribed, objects: &objects, appending: appending)
     } else if mirror.displayStyle == .collection {
         return "[" +
             .newLine +
             mirrorChildren.map { item in
-                describeObject(item.value)
+                describeObject(item.value, objects: &objects)
             }
             .joined(separator: ",\n")
             .indentDumpedObject() +
@@ -94,11 +106,11 @@ func describeObject(_ object: Any, appending: String = "") -> String {
             .newLine +
             mirrorChildren.map { item in
                 if let (key, value) = item.value as? (Any, Any) {
-                    describeObject(key) +
+                    describeObject(key, objects: &objects) +
                     ":" + .tab +
-                    describeObject(value)
+                    describeObject(value, objects: &objects)
                 } else {
-                    describeObject(item.value)
+                    describeObject(item.value, objects: &objects)
                 }
             }
             .joined(separator: ",\n")
@@ -107,7 +119,7 @@ func describeObject(_ object: Any, appending: String = "") -> String {
             "]" + appending
     } else if mirror.displayStyle == .enum,
               let firstChild = mirrorChildren.first {
-        return "\(firstChild.label ?? "_"): \(describeObject(firstChild.value))" + appending
+        return "\(firstChild.label ?? "_"): \(describeObject(firstChild.value, objects: &objects))" + appending
     } else {
         let childrenDescribed: [String] = mirrorChildren
             .compactMap { (child) in
@@ -119,7 +131,7 @@ func describeObject(_ object: Any, appending: String = "") -> String {
                     //  it creates an infinite recursion.
                     // For example for [AnyCancellable]
                     // Fixed in displayStyle .collection or .dictionary above
-                    return describeObject(child.value)
+                    return describeObject(child.value, objects: &objects)
                 }
                 let valueDescription: String
                 if let fixedDescription = child.value as? WithFixedDebugDescription {
@@ -127,9 +139,9 @@ func describeObject(_ object: Any, appending: String = "") -> String {
                 } else if child.value is IsSubscopeToMirror {
                     valueDescription = String(describing: child.value)
                 } else if let anyEffect = child.value as? IsAnyEffectToMirror {
-                    valueDescription = describeObject(anyEffect.objectToBeDescribed)
+                    valueDescription = describeObject(anyEffect.objectToBeDescribed, objects: &objects)
                 } else {
-                    valueDescription = describeObject(child.value)
+                    valueDescription = describeObject(child.value, objects: &objects)
                 }
                 return "\(label): \(valueDescription)".indentDumpedObject()
             }

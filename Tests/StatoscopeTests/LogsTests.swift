@@ -565,26 +565,86 @@ final class LogsTests: XCTestCase {
     }
     
     @available(iOS 16.0, *)
-    func DISABLED_testInfiniteLogOnPublisherAssign() throws {
+    func testInfiniteLogOnPublisherAssign() throws {
         
         final class StoreWithAssignPublisher: Statostore {
             var cancellables: [AnyCancellable] = []
-            var myVar: Date = Date()
+            var myVar: Date = Date(timeIntervalSince1970: 0)
             enum When {
                 case defaultWhen
             }
             func update(_ when: When) throws {
                 switch when {
                 case .defaultWhen:
-                    Timer.publish(every: 1000, on: .main, in: .common)
+                    NotificationCenter.default
+                        .publisher(for: UserDefaults.didChangeNotification)
+                        .map { _ in Date(timeIntervalSince1970: 10) }
                         .assign(to: \.myVar, on: self)
                         .store(in: &cancellables)
                 }
             }
         }
+
+        var logs: [String] = []
+        let regex: Regex = try Regex("(0x[0-9a-f]*)")
+        let rawValueRegex: Regex = try Regex("Value: [0-9a-f]*")
+        StatoscopeLogger.logReplacement = { level, log in
+            if level != .stateDiff {
+                logs.append(
+                    log
+                        .replacing(regex) { _ in "0xF"}
+                        .replacing(rawValueRegex) { _ in "Value: 0XF"}
+                )
+            }
+        }
         
         let sut = StoreWithAssignPublisher()
         sut.send(.defaultWhen)
+        try XCTAssertEqualDiff([
+            "StoreWithAssignPublisher (0xF): defaultWhen",
+            """
+            StoreWithAssignPublisher (0xF): StoreWithAssignPublisher(
+              cancellables: []
+              myVar: Date(
+                timeIntervalSinceReferenceDate: -978307200.0
+              )
+            )
+            """,
+            """
+            StoreWithAssignPublisher (0xF): StoreWithAssignPublisher(
+              cancellables: [
+                AnyCancellable(
+                  storage: cancellable: Assign<StoreWithAssignPublisher, Date>(
+                    object: Optional<StoreWithAssignPublisher>(
+                      some: ‼️ infinite describeObject recursion avoided ‼️
+                    )
+                    keyPath: \\StoreWithAssignPublisher.myVar
+                    status: subscribed: Subscription<Inner<Assign<StoreWithAssignPublisher, Date>>>(
+                      center: Optional<NSNotificationCenter>(
+                        some: <CFNotificationCenter 0xF [0xF]>
+                      )
+                      name: NSNotificationName(
+                        _rawValue: 0XFNSUserDefaultsDidChangeNotification
+                      )
+                      object: nil
+                      demand: Demand(
+                        rawValue: 0XF
+                      )
+                    )
+                  )
+                  lock: UnsafeMutablePointer<os_unfair_lock_s>(
+                    pointerValue: 0XF
+                  )
+                )
+              ]
+              myVar: Date(
+                timeIntervalSinceReferenceDate: -978307200.0
+              )
+            )
+            """
+            ],
+            logs
+        )
     }
 }
 // swiftlint:enable nesting

@@ -111,8 +111,6 @@ public struct EffectStructMacro: PeerMacro {
     }
     
     private static func buildGenericParameterClause(funcDecl: FunctionDeclSyntax) -> GenericParameterClauseSyntax? {
-        let functionGenerics: [String] = funcDecl.genericParameterClause
-            .flatMap({ $0.parameters })?.map { $0.name.text } ?? []
         let functionParmTypes: [String] = funcDecl.signature.parameterClause.parameters
             .compactMap {
                 let typeSyntax = $0.type.as(OptionalTypeSyntax.self)?.wrappedType ?? $0.type
@@ -121,7 +119,6 @@ public struct EffectStructMacro: PeerMacro {
                 }
                 return identifierTypeSyntax.name.text
             }
-
         return funcDecl.genericParameterClause.map { existing in
             GenericParameterClauseSyntax(
                 leftAngle: existing.leftAngle,

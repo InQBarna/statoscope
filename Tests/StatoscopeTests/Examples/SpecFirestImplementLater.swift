@@ -52,7 +52,10 @@ extension SampleScope: DummyScopeImplementation { }
 
 final class SpecFirstTest: XCTestCase {
 
-    func DISABLED_testSpec() throws {
+    func testSpec() throws {
+
+        XCTExpectFailure()
+
         try SampleScope.GIVEN {
             SampleScope()
         }
