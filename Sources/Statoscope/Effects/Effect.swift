@@ -62,6 +62,36 @@ public protocol Effect {
     ///  * returns: True if the compared effect
     ///  See ``Statoscope/AnyEffect/pristine``
     func pristineEquals<ComparedEffect: Effect & Equatable>(_: ComparedEffect) -> Bool
+    
+    /// Completes the effect in its pristine state with a specified result (for testing purposes).
+    ///
+    /// This method is intended for use within the StatoscopeTesting library to test the completion of the effect
+    /// using a given result in its pristine state.
+    ///
+    /// - Parameter pristineResult: The result to use when simulating completion of the effect in its pristine state.
+    /// - Returns: A `ResultType` value representing the outcome of the effect mapping given the pristineResult
+    ///
+    /// - Throws: An error if the mappings fails. or  InvalidPristineResult  if the library fails internally.
+    ///
+    /// - Note: This method is marked with a leading underscore to indicate that it is intended for private use
+    /// within the StatoscopeTesting library and should not be used in production code.
+    func _pristineCompletes(_: Any) throws -> ResultType
+
+    /// Completes the effect in its pristine state with a specified result (for testing purposes).
+    ///
+    /// This method is intended for use within the StatoscopeTesting library to test the completion throwing of the effect
+    /// using a given error that may have been thrown in the pristine effect.
+    ///
+    /// - Parameter error: The error to throw when simulating completion failure of the effect in its pristine state.
+    /// - Returns: A `ResultType` value representing the outcome of the effect mapping given the pristineResult
+    ///
+    /// - Throws: An error if the mappings fails. or  InvalidPristineResult  if the library fails internally.
+    ///
+    /// - Note: This method is marked with a leading underscore to indicate that it is intended for private use
+    /// within the StatoscopeTesting library and should not be used in production. This method throws when an error
+    /// when used correctly, completion without throwing is considered an incorrect usage, since it is meant for test
+    /// with failure expectation.
+    func _pristineFails(_: any Error) throws -> ResultType
 }
 
 public extension Effect {
@@ -76,6 +106,47 @@ public extension Effect {
             return false
         }
     }
+
+    /// Checks if the current effect is of a specific type in its pristine origin state.
+    ///
+    /// This method determines whether the effect matches the specified type when it is in its pristine (unmodified) state.
+    ///
+    /// - Parameter otherType: The type of the effect to compare against.
+    ///
+    /// - Returns: A `Bool` value indicating whether the current effect is of the specified type in its pristine state.
+    ///
+    /// # Discussion
+    /// When mapping an effect using map, mapToResult, etc... the pristine effect before
+    /// map is stored in the erased box for retrieval and comparison. Use pristineEquals when iterating on
+    /// an array of erased effects to compare to a known original prinstine effect.
+    func pristineIs<ComparedEffect: Effect>(_ otherType: ComparedEffect.Type) -> Bool {
+        if type(of: self) == otherType {
+            return true
+        } else if let anySelf = self as? AnyEffect<ResultType> {
+           return anySelf.pristine is ComparedEffect
+        } else {
+            return false
+        }
+    }
+    
+    func _pristineCompletes(_ pristineResult: Any) throws -> ResultType {
+        if let anySelf = self as? AnyEffect<ResultType> {
+            return try anySelf.transformPristineResult({ pristineResult })
+        } else if let pristineTyped = pristineResult as? ResultType {
+            return pristineTyped
+        } else {
+            throw InvalidPristineResult()
+        }
+    }
+    
+    func _pristineFails(_ failureError: any Error) throws -> ResultType {
+        if let anySelf = self as? AnyEffect<ResultType> {
+            return try anySelf.transformPristineResult({ throw failureError })
+        } else {
+            throw InvalidPristineResult()
+        }
+    }
+
 
     /// Type erasure helper
     func eraseToAnyEffect() -> AnyEffect<ResultType> {

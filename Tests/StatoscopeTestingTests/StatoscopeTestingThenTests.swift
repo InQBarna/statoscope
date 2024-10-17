@@ -138,6 +138,7 @@ final class StatoscopeTestingThenTests: XCTestCase {
         .WHEN(.systemLoadsSampleScope)
         .AND(.networkRespondsWithContent(.success("Result")))
         .AND(.navigateToDetail)
+        .THEN_NotNil(\.child)
         .THEN(\.child?.toggled, equals: false)
         .WHEN(\.child, .toggle)
         .THEN(\.child?.toggled, equals: true)
@@ -157,7 +158,7 @@ final class StatoscopeTestingThenTests: XCTestCase {
         .runTest()
     }
 
-    func testAllWhenOptionalChildFailureWhen() throws {
+    func testWhenOnMissingOptionalChildFails() throws {
         XCTExpectFailure("This should fail")
         try MyScope.GIVEN {
             MyScope()
@@ -166,7 +167,7 @@ final class StatoscopeTestingThenTests: XCTestCase {
         .runTest()
     }
 
-    func testAllWhenOptionalChildFailureThrowsWhen() throws {
+    func testThrowsWhenOnMissingOptionalChild() throws {
         XCTExpectFailure("This should fail")
         try MyScope.GIVEN {
             MyScope()
