@@ -8,7 +8,7 @@
 import Foundation
 import XCTest
 import StatoscopeTesting
-@testable import Statoscope
+@_spi(SCT) import Statoscope
 
 // This file demonstrates how to design first the
 //  feature and the acceptance criteria, later you

@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import Statoscope
+@_spi(SCT) import Statoscope
 import XCTest
 
 extension StoreTestPlan {

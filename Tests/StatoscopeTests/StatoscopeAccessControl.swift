@@ -51,16 +51,18 @@ class StatoscopeAccessControl: XCTestCase {
             try self.update(.delayFinished)
 
             // TODO: obfuscate/make method private so it is not used. It does not make sense to call addMiddleware during update
-            // _ = self.addMiddleWare { _, _ in nil }
+            _ = self.addMiddleWare { _, _, _  in return }
 
-            // This may compile... should be used only for debugging
+            // TODO: obfuscate/make method private so it is not used. It does not make sense to call update during update
             _ = self._parentNode
-            _ = self._childrenNodes
-            _ = self._rootNode
+            // Does not compile: OK
+            // _ = self._childrenNodes
+            // _ = self._rootNode
 
             // This may compile
             self.injectObject(Date())
-            let _: Date = try self._resolveUnsafe()
+            // Does not compile
+            // let _: Date = try self._resolveUnsafe()
         }
     }
 }

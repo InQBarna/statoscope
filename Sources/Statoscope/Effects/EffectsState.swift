@@ -128,7 +128,7 @@ public struct EffectsState<When: Sendable>: Sendable {
     ///
     /// - Note: This property is marked with a leading underscore to indicate that it is intended for private use
     /// within the StatoscopeTesting library and should not be used in production code.
-    public var _erasedEffects: [AnyEffect<When>] {
+    @_spi(SCT) public var _erasedEffects: [AnyEffect<When>] {
         currentRequestedEffects.map { $0.1 }
     }
 }

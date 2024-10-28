@@ -7,7 +7,7 @@
 
 import Foundation
 import XCTest
-@testable import Statoscope
+@_spi(SCT) import Statoscope
 
 // swiftlint:disable nesting
 class SubscopeSuperscodePropertyWrapperTests: XCTestCase {

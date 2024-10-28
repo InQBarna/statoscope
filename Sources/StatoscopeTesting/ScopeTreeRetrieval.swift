@@ -36,14 +36,15 @@ internal func ifChildScope(
     }
 }
 
-extension ScopeImplementation {
-
+@_spi(SCT) extension ScopeImplementation {
     public func _allChildScopes() -> [any ScopeImplementation] {
         var scopes: [any ScopeImplementation] = [self]
         allChildScopeIterative(except: &scopes)
         return scopes
     }
+}
 
+extension ScopeImplementation {
     private func allChildScopeIterative(except: inout [any ScopeImplementation]) {
         let mirror = Mirror(reflecting: self)
         mirror.children.forEach { child in
@@ -53,5 +54,4 @@ extension ScopeImplementation {
             }
         }
     }
-
 }

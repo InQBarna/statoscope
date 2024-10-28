@@ -7,7 +7,7 @@
 
 import XCTest
 import SwiftUI
-@testable import Statoscope
+@_spi(SCT) import Statoscope
 import StatoscopeTesting
 
 private final class SampleScope:

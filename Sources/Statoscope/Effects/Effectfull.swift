@@ -16,7 +16,7 @@ public protocol Effectfull {
 }
 
 public protocol EffectfullImplementation: Effectfull {
-    func _completedEffect(_ uuid: UUID, _ effect: AnyEffect<When>, _ when: When?)
+    @_spi(SCT) func _completedEffect(_ uuid: UUID, _ effect: AnyEffect<When>, _ when: When?)
 }
 
 extension Effectfull {

@@ -12,14 +12,10 @@ import Foundation
 ///  struct to conform to the same protocol and be used in the Subscope property wrapper
 public protocol InjectionTreeNodeProtocol {
     /// Returns the ancestor in the injection tree node
-    var _parentNode: InjectionTreeNodeProtocol? { get set }
+    @_spi(SCT) var _parentNode: InjectionTreeNodeProtocol? { get set }
     // TODO: parentKeyPath and parentNode to be merged into a single property ?
     /// Returns the ancestor keyPath to the current node
-    var _keyPathToSelfOnParent: AnyKeyPath? { get set }
-    /// Returns the descendants in the injection tree node
-    var _childrenNodes: [InjectionTreeNodeProtocol] { get }
-    /// Returns the root ancestor of the inection tree node
-    var _rootNode: InjectionTreeNodeProtocol? { get }
+    @_spi(SCT) var _keyPathToSelfOnParent: AnyKeyPath? { get set }
 }
 
 /// Represents a node in a tree of dependencies search to achieve a dependency 
@@ -82,20 +78,10 @@ public protocol InjectionTreeNodeProtocol {
 /// ```
 public protocol InjectionTreeNode: InjectionTreeNodeProtocol, AnyObject {
     @discardableResult func injectObject<T>(_ obj: T) -> Self
-    /// Searches and returns the requested type inside the injection store or up to the injection tree
-    ///
-    /// Method will search first in ad-hoc injected objects and later up in the injection tree.
-    /// * Returns The found injected value or default value if not found
-    func _resolve<T: Injectable>(appendingLog: String) -> T
-    /// Searches and returns the requested type inside the injection store or up to the injection tree
-    ///
-    /// Method will search first in ad-hoc injected objects and later up in the injection tree.
-    /// * Returns The found injected value or throws ``NoInjectedValueFound`` if not found
-    func _resolveUnsafe<T>(appendingLog: String) throws -> T
 }
 
 public extension InjectionTreeNode {
-
+    
     var _parentNode: InjectionTreeNodeProtocol? {
         get {
             weakParent?.anyLink
@@ -104,7 +90,7 @@ public extension InjectionTreeNode {
             weakParent?.anyLink = InjectionTreeNodeBox.map(expr: newValue)
         }
     }
-
+    
     var _keyPathToSelfOnParent: AnyKeyPath? {
         get {
             weakParent?._keyPathToSelfOnParent
@@ -116,14 +102,13 @@ public extension InjectionTreeNode {
             weakParent?._keyPathToSelfOnParent = newValue
         }
     }
-
-    @discardableResult
-    func injectObject<T>(_ obj: T) -> Self {
-        injectionStore.registerValue(obj)
-        logInjectionTree()
-        return self
-    }
-
+}
+    
+@_spi(SCT) public extension InjectionTreeNode {
+    /// Searches and returns the requested type inside the injection store or up to the injection tree
+    ///
+    /// Method will search first in ad-hoc injected objects and later up in the injection tree.
+    /// * Returns The found injected value or default value if not found
     func _resolve<T: Injectable>(appendingLog: String = "") -> T {
         do {
             return try _resolveUnsafe(appendingLog: appendingLog)
@@ -132,6 +117,10 @@ public extension InjectionTreeNode {
         }
     }
 
+    /// Searches and returns the requested type inside the injection store or up to the injection tree
+    ///
+    /// Method will search first in ad-hoc injected objects and later up in the injection tree.
+    /// * Returns The found injected value or throws ``NoInjectedValueFound`` if not found
     func _resolveUnsafe<T>(appendingLog: String = "") throws -> T {
         var node: InjectionTreeNode? = self
         while let iterator = node {
@@ -159,12 +148,14 @@ public extension InjectionTreeNode {
         )
         throw NoInjectedValueFound(T.self, injectionTreeDescription: self.rootTreeDescription())
     }
-
-    var _rootNode: InjectionTreeNodeProtocol? {
+    
+    /// Returns the root ancestor of the inection tree node
+    @_spi(SCT) var _rootNode: InjectionTreeNodeProtocol? {
         root
     }
-
-    var _childrenNodes: [InjectionTreeNodeProtocol] {
+    
+    /// Returns the descendants in the injection tree node
+    @_spi(SCT) var _childrenNodes: [InjectionTreeNodeProtocol] {
         children
             .map {
                 // swiftlint:disable:next force_cast
@@ -173,10 +164,17 @@ public extension InjectionTreeNode {
     }
 }
 
-extension InjectionTreeNode {
+public extension InjectionTreeNode {
+    
+    @discardableResult
+    func injectObject<T>(_ obj: T) -> Self {
+        injectionStore.registerValue(obj)
+        logInjectionTree()
+        return self
+    }
 
     @discardableResult
-    public func injectSuperscopeForTesting<T: AnyObject>(_ obj: T) -> Self {
+    func injectSuperscopeForTesting<T: AnyObject>(_ obj: T) -> Self {
         injectionStore.registerValue(obj)
         return self
     }
@@ -203,7 +201,7 @@ fileprivate extension InjectionTreeNode {
 // Tree maintenance
 extension InjectionTreeNode {
 
-    var root: InjectionTreeNode {
+    @_spi(SCT) public var root: InjectionTreeNode {
         var node: InjectionTreeNode = self
         while let weakParentLink = node.weakParent?.anyLink {
             node = weakParentLink
@@ -211,7 +209,7 @@ extension InjectionTreeNode {
         return node
     }
 
-    var selfRootKeyPath: AnyKeyPath {
+    @_spi(SCT) public var selfRootKeyPath: AnyKeyPath {
         guard var node: InjectionTreeNode = weakParent?.anyLink,
               let _keyPathToSelfOnParent else {
             return \Self.self
@@ -332,8 +330,19 @@ extension InjectionTreeNode {
     }
 }
 
-public extension InjectionTreeNodeProtocol {
+extension InjectionTreeNodeProtocol {
     var _parentNode: InjectionTreeNodeProtocol? {
+        get {
+            fatalError("Don't try implementing ChainLinkProtocol, " +
+                       " this is an internal helper for optional-nonoptional property wrapping")
+        }
+        set {
+            fatalError("Trying to set value \(String(describing: newValue)) to parentNode. " +
+                       "Don't try implementing ChainLinkProtocol, " +
+                       " this is an internal helper for optional-nonoptional property wrapping")
+        }
+    }
+    var _keyPathToSelfOnParent: AnyKeyPath? {
         get {
             fatalError("Don't try implementing ChainLinkProtocol, " +
                        " this is an internal helper for optional-nonoptional property wrapping")

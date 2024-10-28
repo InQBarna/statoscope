@@ -7,7 +7,7 @@
 
 import Foundation
 import XCTest
-@testable import Statoscope
+@_spi(SCT) import Statoscope
 import StatoscopeTesting
 
 #if swift(>=5.8)
