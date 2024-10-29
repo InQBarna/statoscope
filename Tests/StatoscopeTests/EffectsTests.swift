@@ -234,7 +234,9 @@ class EffectsRunBlockCall: XCTestCase {
     }
 }
 
-extension String: Error { }
+private enum EffectsError: String, Error {
+    case failed
+}
 class EffectPristineCompletesOrFailsTests: XCTestCase {
     struct Effect1: Effect {
         let param: String
@@ -264,24 +266,24 @@ class EffectPristineCompletesOrFailsTests: XCTestCase {
     func testPristineFails() async throws {
         let effectA = Effect1(param: "param1")
             .mapToResultWithError(EquatableError.init)
-        let result = try effectA._pristineFails("failed")
-        XCTAssertEqual(.failure("failed".toEquatableError()), result)
+        let result = try effectA._pristineFails(EffectsError.failed)
+        XCTAssertEqual(.failure(EffectsError.failed.toEquatableError()), result)
     }
     func testPristineFailsEquatable() async throws {
         let effectA = Effect1(param: "param1")
             .mapToResultWithErrorType(EquatableError.self)
-        let result = try effectA._pristineFails("failed".toEquatableError())
-        XCTAssertEqual(.failure("failed".toEquatableError()), result)
+        let result = try effectA._pristineFails(EffectsError.failed.toEquatableError())
+        XCTAssertEqual(.failure(EffectsError.failed.toEquatableError()), result)
     }
     func testPristineFailsNoMap() async throws {
         let effectA = Effect1(param: "param1")
-        XCTAssertThrowsError(try effectA._pristineFails("failed"))
+        XCTAssertThrowsError(try effectA._pristineFails(EffectsError.failed))
     }
     func testPristineFailsNoEquatableError() async throws {
         let effectA = Effect1(param: "param1")
             .mapToResult()
-        let result = try effectA._pristineFails("failed")
-        XCTAssertEqual(result.toEquatableError(), .failure("failed".toEquatableError()))
+        let result = try effectA._pristineFails(EffectsError.failed)
+        XCTAssertEqual(result.toEquatableError(), .failure(EffectsError.failed.toEquatableError()))
     }
 }
 // swiftlint:enable nesting

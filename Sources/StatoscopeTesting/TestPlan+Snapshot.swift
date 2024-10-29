@@ -27,10 +27,14 @@ extension StoreTestPlan {
     }
 
     public func takeSnapshot(file: StaticString = #file, line: UInt = #line) -> Self {
-        return addStep { [weak self] sut in
-            XCTAssertNotNil(self?.snapshot, "Taking snapshot without configured snapshot block", file: file, line: line)
-            self?.snapshot?(sut)
-        }
+         addStep { [weak self] sut in
+             guard let self else {
+                 return XCTFail(
+                    "Taking snapshot without configured snapshot block", file: file, line: line
+                 )
+             }
+             self.snapshot?(sut)
+         }
     }
 }
 
