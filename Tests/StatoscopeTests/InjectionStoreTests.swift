@@ -10,6 +10,7 @@ import Foundation
 import StatoscopeTesting
 import XCTest
 
+@available(iOS 16.0, *)
 final class InjectionStoreTests: XCTestCase {
 
     func testRegisterResolveObject() throws {
