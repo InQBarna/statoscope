@@ -1,30 +1,30 @@
 # ``Statoscope``
 
-A small library to handle iOS application state, focused in simplicity, testability and scalability.
+A lightweight library for managing state in iOS applications, designed with simplicity, testability, and scalability in mind.
 
 ## Overview
 
-Statoscope enables the app developer to focus on the overall design of the app's state, providing helpers for testing, dependency injection and composition of state scopes.
+Statoscope helps developers focus on the overall design of application state, offering helpers for testing, dependency injection, and composing state scopes.
 
-* **State management**
+* **State Management**
 
-    State and mutation of state using synchronous events is implemented by the Store with a single entry point: When events.
+    State and state mutation using synchronous events are managed by the `Store`, which has a single entry point for handling `When` events.
 
 * **Effects**
 
-    All asynchronous effects are handled by the library using the EffectsHandler, enabling effects status check and cancellation.
+    Asynchronous effects are managed through the `EffectsHandler`, which supports checking the status of effects and allows for their cancellation.
 
 * **Scopes**
 
-    The Statoscope is the minimum implementation for a piece of state, handling State, mutation and Effects. Scopes can be linked together as a dependency tree using the provided Superscope and Subscope property wrappers
+    A `Scope` is the minimal implementation for managing a piece of state, handling state, mutations, and effects. Scopes can be connected as a dependency tree using the `Superscope` and `Subscope` property wrappers.
 
 * **Testing**
 
-    The TestPlan helper object allows Flow tests of the whole app's production code setup, enabling Acceptance As Code if when properly naming your states and When events
+    The `TestPlan` helper object enables flow tests of the entire app using production code, allowing for Acceptance-As-Code if state and `When` events are clearly named.
 
-* **Dependency injection**
+* **Dependency Injection**
 
-    Injectable protocol and Injected property wrappers, in conjunction with the Scopes links allow a multi-level dependency injection such as the one accomplished by SwiftUI.
+    The `Injectable` protocol and `Injected` property wrappers, in combination with scope linking, provide a multi-level dependency injection pattern similar to the one used in SwiftUI.
 
 ## Topics
 

@@ -1,19 +1,26 @@
-import Statoscope
+//
+//  CounterView.swift
+//  Statoscope
+//
+//  Created by Sergi Hernanz on 22/11/24.
+//
+
 import SwiftUI
 
 private struct CounterView: View {
-    @StateObject var model = Counter()
     var body: some View {
         VStack {
-            Text("\(model.viewDisplaysTotalCount)")
+            Text("0")
             HStack {
                 Button("+") {
-                    model.send(.userTappedIncrementButton)
                 }
                 Button("-") {
-                    model.send(.userTappedDecrementButton)
                 }
             }
         }
     }
+}
+
+#Preview {
+    CounterView()
 }

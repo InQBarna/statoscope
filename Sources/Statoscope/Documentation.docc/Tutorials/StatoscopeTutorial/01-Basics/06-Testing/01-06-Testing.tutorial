@@ -1,0 +1,122 @@
+@Tutorial(time: 30) {
+    @Intro(title: "Scopes") {
+        In complex applications, managing all state and events in a single Statostore quickly becomes unsustainable. To scale effectively, we need to split the app's state and events into separate parts or Scopes. This process can sometimes be straightforward, but other times, developers may feel compelled to separate state and events that are closely tied together due to business logic. In this tutorial, we'll focus on how to organize app state into different scopes to maintain scalability.
+    }
+
+    @Section(title: "Designing Scopes") {
+        @ContentAndMedia {
+            We'll start by taking an overgrown "god object" that handles multiple app use cases and split it into distinct state scopes, making our app more modular and maintainable.
+        }
+        @Steps {
+            @Step {
+                We'll begin by revisiting the example from the previous tutorial, where all the state and logic reside in a single NewsFeed object.
+            
+                @Code(name: "NewsFeed.swift", file: 01-05-01-code-0001.swift)
+            }
+                    
+            @Step {
+                Next, we extend the example to add more functionality, such as loading remote feature toggles at initialization, and implementing list and detail navigation.
+                
+                @Code(name: "NewsFeed.swift", file: 01-05-01-code-0002.swift)
+            }
+                    
+            This business logic could grow in three areas:
+            Feature toggle selection (with possible remote configuration or QA testing UI).
+            List and detail views (requiring error handling, connectivity feedback, etc.).
+            We'll start by splitting the current State and When cases into several scopes.
+                
+            @Step {
+                First, we’ll separate the feature toggle management from the list. The feature toggle management will remain in the NewsFeed scope, while we remove everything else.                
+                
+                @Code(name: "NewsFeed.swift", file: 01-05-01-code-0003.swift)
+            }
+            @Step {
+                Next, we create a new scope, NewsFeedList, to manage the list and detail view states and events.
+
+                @Code(name: "NewsFeed.swift", file: 01-05-01-code-0004.swift)
+            }
+                    
+            During initialization, the app can either be loading feature toggles or displaying the list. The atList variable (whether nil or with a valid value) indicates the current state, connecting the two scopes.
+                
+            @Step {
+                We now connect the two scopes using the ChildScope property wrapper. This enables hierarchical dependency resolution and provides access to root middlewares offered by Statoscope.
+                
+                @Code(name: "NewsFeed.swift", file: 01-05-01-code-0005.swift)
+            }
+            
+            @Step {
+                Now, let's create another scope, NewsFeedArticle, to manage the detail state and events.
+
+                @Code(name: "NewsFeed.swift", file: 01-05-01-code-0006.swift)
+            }
+            
+            @Step {
+                We’ll remove the detail state and When events from the NewsFeedList scope, as they are now handled by the NewsFeedArticle scope.
+
+                @Code(name: "NewsFeed.swift", file: 01-05-01-code-0007.swift)
+            }
+            
+            @Step {
+                Some of the initial naming conventions included scope-related clarifications. Now that the logic is split into distinct scopes, we can simplify those names.
+                        
+                @Code(name: "NewsFeed.swift", file: 01-05-01-code-0008.swift)
+            }
+            
+            With our state now organized into three small scopes, development becomes easier, allowing us to focus on smaller subsets of the app. Dependencies can also be declared more precisely for each scope. However, no state is completely isolated. Some shared data (e.g., the favoritesEnabled property) needs to flow between scopes. Additionally, logic such as favorites management is duplicated across NewsFeedList and NewsFeedArticle.
+                    
+                When implementing update methods, you’ll need a default When case to trigger the initial load of child scopes.
+                    
+            @Step {
+                Finally, declare the When events that are triggered upon the loading of subscopes, if necessary.
+
+                @Code(name: "NewsFeed.swift", file: 01-05-01-code-0009.swift)
+            }
+            
+            By organizing your state into hierarchical scopes, you can focus on smaller, more manageable portions of your app’s state and events. Finding the right scope boundaries can be challenging, and they often evolve as the project progresses. As you work with Statoscope, you’ll develop a clearer understanding of scope boundaries.
+        }
+    }
+    @Section(title: "Views and Scopes") {
+        @ContentAndMedia {
+            Now that we’ve defined state and scopes, let’s explore how state flows through the scopes by creating the corresponding views.
+        }
+        @Steps {
+            @Step {
+                We’ll start by building the NewsFeedView, which initially shows a loading state before transitioning to the list view.
+
+                @Code(name: "NewsFeedView.swift", file: 01-05-02-code-0001.swift)
+            }
+            @Step {
+                Next, we’ll add the NewsFeedListView, though we won’t implement navigation to the detail view just yet.
+
+                @Code(name: "NewsFeedView.swift", file: 01-05-02-code-0002.swift)
+            }
+            
+            In NewsFeedView, we didn’t use a navigation stack. Since users can't return to the feature toggle selection screen, showing a child scope is simple: we either return it or not based on flow control.
+
+            To navigate from the list to the detail view, we’ll use NavigationLink or navigationDestination, mapping our programmatic navigation to the readingArticle subscope. For this, we need to create bindings.
+                
+            @Step {
+                Focus on the NewsFeedListView.
+
+                @Code(name: "NewsFeedListView.swift", file: 01-05-02-code-0003.swift)
+            }
+            @Step {
+                Manually construct the bindings to adapt SwiftUI interfaces to the When-based event management system.
+
+                @Code(name: "NewsFeedListView.swift", file: 01-05-02-code-0004.swift)
+            }
+            @Step {
+                Although this state and When mapping to bindings is straightforward, it involves a lot of boilerplate. Fortunately, Statoscope provides helper methods for such mappings and navigations.
+
+                @Code(name: "NewsFeedListView.swift", file: 01-05-02-code-0005.swift)
+            }
+            @Step {
+                Next, we’ll create the article view to display detailed information for each article.
+
+                @Code(name: "NewsFeedListView.swift", file: 01-05-02-code-0006.swift)
+            }
+
+            State scopes naturally align with screens, as navigating from a list to a detail typically opens a new scope. Statoscope’s scope and memory management is fully domain-controlled, meaning SwiftUI’s declarative syntax and navigation must adapt by mapping state and events to bindings or closures.
+        }
+    }
+}

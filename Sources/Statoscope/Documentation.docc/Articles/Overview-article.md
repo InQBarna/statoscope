@@ -1,29 +1,33 @@
 # Overview
 
-Learn the main concepts in the Statoscope architecture, by examples
+Explore the core concepts of the Statoscope architecture through examples.
 
-## Statoscope basics
+## Statoscope Basics
 
-### The Statoscope Object
+### The Statostore Object
 
-It holds your application state, or a piece (a scope) of your application state.
+The `Statostore` object manages your application state, or a portion (scope) of it.
 
-It is a class object with
+It is a class object with the following components:
 
-* A When type (usually enum cases), which defines the events happening within your application scope.
-* Member variables which define the application/scope State. You should never modify these variables directly, instead the view (for example) should send a When instance to the scope object, and the scope object will implement the update method.
-* A send method publicly available to forward events for scope processing
-* An internal update method that given the current state and the incoming When event updates the scope with a new state. It holds your scope’s business logic.
+* A `When` type (typically an enum), which defines the events that occur within your application's scope.
+* Member variables that represent the state of the application/scope. These variables should never be modified directly. Instead, the view or other components should send a `When` event to the scope, and the scope's `update` method will handle state changes.
+* A public `send` method that forwards events for scope processing.
+* An internal `update` method that processes the current state and incoming `When` event, applying the business logic to produce a new state.
 
-The mentioned When events are resolved synchronously, so right after sending a When event, the state is correctly updated. If any other asynchronous action may take place, this will be triggered as a side effect: Effects from now on. Every triggered effect has an associated effect completion When definition, so a common asynchronous task adds a pair of When definitions to a scope: there’ll be one ‘When’ to start the effect and another ‘When’ to handle the completion.
+The `When` events are processed synchronously, meaning the state is updated immediately after sending an event. Asynchronous tasks, called **Effects**, are triggered as side effects. Each effect has a corresponding completion `When` event. Thus, a typical asynchronous task introduces two `When` events: one to start the effect and one to handle its completion.
 
-#### Asynchronous tasks
+#### Asynchronous Tasks
 
-The Statoscope is a class object (designed intentionally), so the lifespan of the object is used to define the lifespan of the ongoing effects. When the statoscope object is released, all these Effects are also canceled and released. So the statoscope object also defines the transient states that occur when launching asynchronous tasks. This implicit transient state can be accessed privately by:
-* An enqueue method to trigger an asynchronous task during the update process.
-* A list of Ongoing Effects. 
-* The ability to cancel all effects by simply releasing the scope. 
-* A method to cancel specific ongoing effects
+The `Statostore` object is intentionally designed as a class to manage the lifecycle of ongoing effects. When a `Statostore` instance is released, all associated effects are canceled. This ensures that the lifespan of the object defines the lifespan of the effects. 
+
+For asynchronous tasks, the Statoscope object provides:
+
+* An `enqueue` method to trigger asynchronous tasks during state updates.
+* A list of ongoing effects.
+* Automatic cancellation of effects upon releasing the scope.
+* A method to cancel specific ongoing effects.
+
 
 ## State + When
 
