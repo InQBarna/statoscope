@@ -13,12 +13,12 @@ import Foundation
 /// and provides functions to enqueue new effects or cancel existing ones.
 public struct EffectsState<When: Sendable>: Sendable {
 
-    internal let snapshotEffects: [(UUID, AnyEffect<When>)]
-    internal var currentRequestedEffects: [(UUID, AnyEffect<When>)]
-    internal var enquedEffects: [(UUID, AnyEffect<When>)] = []
-    internal var cancelledEffects: [(UUID, AnyEffect<When>)] = []
+    internal let snapshotEffects: [(UInt, AnyEffect<When>)]
+    internal var currentRequestedEffects: [(UInt, AnyEffect<When>)]
+    internal var enquedEffects: [(UInt, AnyEffect<When>)] = []
+    internal var cancelledEffects: [(UInt, AnyEffect<When>)] = []
 
-    init(snapshotEffects: [(UUID, AnyEffect<When>)]) {
+    init(snapshotEffects: [(UInt, AnyEffect<When>)]) {
         self.snapshotEffects = snapshotEffects
         self.currentRequestedEffects = snapshotEffects
     }
@@ -68,7 +68,8 @@ public struct EffectsState<When: Sendable>: Sendable {
     ///  )
     ///  ```
     public mutating func enqueue<E: Effect>(_ effect: E) where E.ResultType == When {
-        let uuid = UUID()
+        let currentMax = currentRequestedEffects.compactMap(\.0).max() ?? 0
+        let uuid = currentMax + 1
         enquedEffects.append((uuid, AnyEffect(effect: effect)))
         currentRequestedEffects.append((uuid, AnyEffect(effect: effect)))
     }

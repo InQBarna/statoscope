@@ -85,23 +85,23 @@ extension ScopeImplementation {
         "\(type(of: self)) (\(Unmanaged.passUnretained(self).toOpaque())):"
     }
 
-    public func _completedEffect(_ uuid: UUID, _ effect: AnyEffect<When>, _ when: When?) {
+    public func _completedEffect(_ uuid: UInt, _ effect: AnyEffect<When>, _ when: When?) {
         if let when {
             Task {
                 let newEffects = effectsState.currentRequestedEffects.filter { $0.0 != uuid }
                 effectsState = EffectsState(snapshotEffects: newEffects)
-                await safeMainActorSend(effect, when)
+                await safeMainActorSend(uuid, effect, when)
             }
         }
     }
 
     @MainActor
-    private func safeMainActorSend(_ effect: AnyEffect<When>, _ when: When) {
+    private func safeMainActorSend(_ uuid: UInt, _ effect: AnyEffect<When>, _ when: When) {
         let count = effects.count
         if count > 0 {
-            LOG(.effects, "🪃 ↩ (x\(count))\t\(describeObject(effect))")
+            LOG(.effects, "🪃 ↩ [\(uuid)] (x\(count))\t\(describeObject(effect))")
         } else {
-            LOG(.effects, "🪃 ↩ \t\(describeObject(effect))")
+            LOG(.effects, "🪃 ↩ [\(uuid)]\t\(describeObject(effect))")
         }
         _sendImplementation(when)
     }
