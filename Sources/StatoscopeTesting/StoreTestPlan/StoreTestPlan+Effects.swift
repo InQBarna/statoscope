@@ -19,7 +19,7 @@ extension StoreTestPlan {
         line: UInt = #line
     ) throws -> Self {
         return addStep { sut in
-            switch grabSingleEffect(expectedEffect, sut: sut) {
+            switch grabSingleEffect(expectedEffect, sut: sut, clearingFound: true) {
             case .failure(let error):
                 XCTFailForEffectSearchError(error, file: file, line: line)
             case .success(let foundEffect):
@@ -39,7 +39,7 @@ extension StoreTestPlan {
         line: UInt = #line
     ) throws -> Self {
         return addStep { sut in
-            switch grabSingleEffect(expectedEffect, sut: sut) {
+            switch grabSingleEffect(expectedEffect, sut: sut, clearingFound: true) {
             case .failure(let error):
                 XCTFailForEffectSearchError(error, file: file, line: line)
             case .success(let foundEffect):
@@ -126,7 +126,7 @@ extension StoreTestPlan {
                 XCTFailForMissingSubscope(keyPath: keyPath, file: file, line: line)
                 return
             }
-            switch grabSingleEffect(EffectType.self, sut: sut) {
+            switch grabSingleEffect(EffectType.self, sut: sut, clearingFound: false) {
             case .failure(let error):
                 XCTFailForEffectSearchError(error, file: file, line: line)
             case .success(let foundEffect):
@@ -143,7 +143,7 @@ extension StoreTestPlan {
     ) throws -> Self {
         addStep { supersut in
             let sut = supersut[keyPath: keyPath]
-            switch grabSingleEffect(EffectType.self, sut: sut) {
+            switch grabSingleEffect(EffectType.self, sut: sut, clearingFound: false) {
             case .failure(let error):
                 XCTFailForEffectSearchError(error, file: file, line: line)
             case .success(let foundEffect):
@@ -158,7 +158,7 @@ extension StoreTestPlan {
         file: StaticString = #file, line: UInt = #line
     ) throws -> Self {
         addStep { sut in
-            switch grabSingleEffect(type(of: expectedValue), sut: sut) {
+            switch grabSingleEffect(type(of: expectedValue), sut: sut, clearingFound: false) {
             case .failure(let error):
                 XCTFailForEffectSearchError(error, file: file, line: line)
             case .success(let foundEffect):
@@ -174,7 +174,7 @@ extension StoreTestPlan {
         file: StaticString = #file, line: UInt = #line
     ) throws -> Self {
         addStep { sut in
-            switch grabSingleEffect(EffectType.self, sut: sut) {
+            switch grabSingleEffect(EffectType.self, sut: sut, clearingFound: false) {
             case .failure(let error):
                 XCTFailForEffectSearchError(error, file: file, line: line)
             case .success(let foundEffect):

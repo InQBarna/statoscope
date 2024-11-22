@@ -57,7 +57,7 @@ func grabEffects<EffectType: Effect, T: ScopeImplementation>(
 func grabSingleEffect<EffectType: Effect, T: ScopeImplementation>(
     _ expectedEffect: EffectType.Type,
     sut: T,
-    clearingFound: Bool = true
+    clearingFound: Bool
 ) -> Result<FoundEffect<EffectType>, EffectTestError<EffectType, T>> {
     guard let foundEffects = findEffects(expectedEffect, sut: sut),
           let foundEffect = foundEffects.first else {
