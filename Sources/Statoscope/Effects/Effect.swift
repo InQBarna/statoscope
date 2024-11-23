@@ -138,7 +138,10 @@ public extension Effect {
     /// with failure expectation.
     func _pristineFails(_ failureError: any Error) throws -> ResultType {
         if let anySelf = self as? AnyEffect<ResultType> {
-            return try anySelf.transformPristineResult({ throw failureError })
+            return try anySelf.transformPristineResult({
+                // WHEN_EffectFails hits this throwing line, TODO: find how to skip exception breakpoint
+                throw failureError
+            })
         } else {
             throw InvalidPristineResult()
         }

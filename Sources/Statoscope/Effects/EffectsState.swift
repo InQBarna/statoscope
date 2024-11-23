@@ -116,10 +116,14 @@ public struct EffectsState<When: Sendable>: Sendable {
     /// Resets effects state to the original status previous to the update method
     ///
     /// This method is mostly meant for unit testing
-    public mutating func reset(clearing: (any Effect) -> Bool = { _ in true }) {
+    public mutating func reset(
+        clearing: (any Effect, any ScopeImplementation) -> Bool = { _, _ in true },
+        scope: any ScopeImplementation
+    ) {
         currentRequestedEffects = currentRequestedEffects.filter { _, anyEffect in
-            !clearing(anyEffect.pristine)
+            !clearing(anyEffect.pristine, scope)
         }
+        // TODO: revisar este removeAll?
         enquedEffects.removeAll()
         cancelledEffects.removeAll()
     }
@@ -131,5 +135,26 @@ public struct EffectsState<When: Sendable>: Sendable {
     /// within the StatoscopeTesting library and should not be used in production code.
     @_spi(SCT) public var _erasedEffects: [AnyEffect<When>] {
         currentRequestedEffects.map { $0.1 }
+    }
+    
+    /// List of effects expected to be ongoing. With their uuids (for testing purposes)
+    ///
+    /// - Note: This property is marked with a leading underscore to indicate that it is intended for private use
+    /// within the StatoscopeTesting library and should not be used in production code.
+    // TODO: renombrar ó replantear métodos reset y este
+    @_spi(SCT) public mutating func _cancelOlderEffect() throws -> AnyEffect<When> {
+        guard let olderEffect = currentRequestedEffects.min(by: { lhs, rhs in lhs.0 < rhs.0 }) else {
+            throw StatoscopeErrors.effectNotFound
+        }
+        let olderUUID = olderEffect.0
+        currentRequestedEffects = currentRequestedEffects.filter { uuid, _ in
+            uuid != olderUUID
+        }
+        enquedEffects = currentRequestedEffects.filter { uuid, _ in
+            uuid != olderUUID
+        }
+        // TODO: revisar este removeAll?
+        cancelledEffects.removeAll()
+        return olderEffect.1
     }
 }

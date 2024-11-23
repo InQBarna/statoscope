@@ -69,6 +69,7 @@ final class StatoscopeConfigureTests: XCTestCase {
         try MyScope.GIVEN {
             MyScope()
         }
+        .configure(clearEffectsOnEveryWhenOrEnd: .all)
         .THEN(\.viewShowsLoadingMessage, equals: nil)
         .THEN(\.viewShowsContent, equals: nil)
         .WHEN(.systemLoadsSampleScope)
@@ -84,7 +85,7 @@ final class StatoscopeConfigureTests: XCTestCase {
             XCTAssertEqual(sut.effects.count, 1)
             XCTAssertEffectsInclude(sut, MyEffect(milliseconds: 1000, result: "Result 1"))
         }
-        .configure(clearEffects: .none)
+        .configure(clearEffectsOnEveryWhenOrEnd: .none)
         .WHEN(.systemLoadsSampleScope)
         .THEN(\.viewShowsLoadingMessage, equals: "Loading #2 (2)...")
         .THEN { sut in
@@ -93,11 +94,15 @@ final class StatoscopeConfigureTests: XCTestCase {
             XCTAssertEffectsInclude(sut, MyEffect(milliseconds: 1000, result: "Result 1"))
             XCTAssertEffectsInclude(sut, MyEffect(milliseconds: 1000, result: "Result 2"))
         }
-        .configure(clearEffects: .some({ ($0 as? MyEffect)?.result == "Result 1" }))
+        .configure(clearEffectsOnEveryWhenOrEnd: .some({
+            ($0 as? MyEffect<String>)?.result == "Result 1"
+        }))
         .WHEN(.networkRespondsWithContent(.success("Result 1")))
         .THEN(\.viewShowsLoadingMessage, equals: nil)
         .THEN(\.viewShowsContent, equals: .success("Result 1"))
-        .configure(clearEffects: .some({ ($0 as? MyEffect)?.result == "Result 2" }))
+        .configure(clearEffectsOnEveryWhenOrEnd: .some({
+            ($0 as? MyEffect<String>)?.result == "Result 2"
+        }))
         .WHEN(.networkRespondsWithContent(.success("Result 2")))
         .runTest()
     }

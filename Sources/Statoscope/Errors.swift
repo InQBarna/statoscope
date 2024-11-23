@@ -39,6 +39,7 @@ public struct NoInjectedValueFound: Error, LocalizedError {
 
 public enum StatoscopeErrors: Error {
     case effectsDisabledForPreviews
+    case effectNotFound
 }
 
 /// An error that can be thrown by an effect

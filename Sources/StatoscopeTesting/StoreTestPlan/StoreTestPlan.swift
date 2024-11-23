@@ -18,7 +18,7 @@ public class StoreTestPlan<T: ScopeImplementation> {
     let given: () throws -> T
     internal var steps: [(T) throws -> Void] = []
     internal var forks: [StoreTestPlan<T>] = []
-    internal var clearEffectsOnWhen: ClearEffects = .all
+    internal var clearEffectsOnWhen: ClearEffects = .none
     
     public init(given: @escaping () throws -> T) {
         self.given = given
@@ -46,7 +46,8 @@ public class StoreTestPlan<T: ScopeImplementation> {
     //   1.1.- Record screenshots
     //  2.- Memory release check
     //  3.- Force check effects after every WHEN? WHEN is the "clear" trigger!
-    //  4.- ?
+    //  4.- ? TODO:
+    // TODO: put some test failure in place in case someone forgets to write runTest
     public func runTest(
         file: StaticString = #file, line: UInt = #line,
         assertRelease: Bool = false
@@ -58,8 +59,8 @@ public class StoreTestPlan<T: ScopeImplementation> {
         }
     }
     
-    public func configure(clearEffects: ClearEffects) -> Self {
-        self.clearEffectsOnWhen = clearEffects
+    public func configure(clearEffectsOnEveryWhenOrEnd: ClearEffects) -> Self {
+        self.clearEffectsOnWhen = clearEffectsOnEveryWhenOrEnd
         return self
     }
 
@@ -68,23 +69,27 @@ public class StoreTestPlan<T: ScopeImplementation> {
         line: UInt,
         assertRelease: Bool
     ) throws {
+        func runner(
+            file: StaticString,
+            line: UInt
+        ) throws -> T {
+            let sut: T = try given()
+            snapshot?(sut)
+            for step in steps {
+                try step(sut)
+                snapshot?(sut)
+            }
+            sut.clear(clearEffectsOnWhen, scope: sut)
+            sut.assertNoDeepEffects(file: file, line: line)
+            return sut
+        }
         if assertRelease {
             try assertChildScopesReleased(file: file, line: line) {
-                try runAllSteps()
+                try runner(file: file, line: line)
             }
         } else {
-            _ = try runAllSteps()
+            _ = try runner(file: file, line: line)
         }
-    }
-
-    private func runAllSteps() throws -> T {
-        let sut: T = try given()
-        snapshot?(sut)
-        for step in steps {
-            try step(sut)
-            snapshot?(sut)
-        }
-        return sut
     }
 }
 
@@ -98,7 +103,7 @@ internal extension ScopeImplementation {
     ) throws -> Self {
         // assertNoDeepEffects(file: file, line: line)
         try whens.forEach {
-            childScope.effectsState.reset()
+            childScope.effectsState.reset(scope: self)
             try childScope._unsafeSendImplementation($0)
         }
         return self

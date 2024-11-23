@@ -178,6 +178,7 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         try MyScope.GIVEN {
             MyScope()
         }
+        .configure(clearEffectsOnEveryWhenOrEnd: .all)
         .WHEN(.systemLoadsSampleScope)
         .THEN_EnquedEffect(
             MyEffect(milliseconds: 1000, result: "Result")
@@ -202,7 +203,7 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         try MyScope.GIVEN {
             MyScope()
         }
-        .configure(clearEffects: .none)
+        .configure(clearEffectsOnEveryWhenOrEnd: .none)
         .WHEN(.systemLoadsSampleScope)
         .WHEN(.systemLoadsSampleScope)
         .THEN_EnquedEffect(
@@ -215,6 +216,7 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         try MyScope.GIVEN {
             MyScope()
         }
+        .configure(clearEffectsOnEveryWhenOrEnd: .all)
         .WHEN(.navigateToDetail)
         .WHEN(\.child, .defaultWhen)
         .THEN_Enqued(
@@ -253,6 +255,7 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         try MyScope.GIVEN {
             MyScope()
         }
+        .configure(clearEffectsOnEveryWhenOrEnd: .all)
         .WHEN(.navigateToDetail)
         .WHEN(\.nonOptionalChild, .defaultWhen)
         .THEN_Enqued(
@@ -297,6 +300,7 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         try MyScope.GIVEN {
             MyScope()
         }
+        .configure(clearEffectsOnEveryWhenOrEnd: .all)
         .WHEN(.systemLoadsSampleScope)
         .THEN_NoEnquedEffect(MyOtherEffect.self)
         .runTest()
@@ -326,6 +330,7 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         try MyScope.GIVEN {
             MyScope()
         }
+        .configure(clearEffectsOnEveryWhenOrEnd: .all)
         .WHEN(.navigateToDetail)
         .WHEN(\.child, .defaultWhen)
         .THEN_NoEnquedEffect(\.child, MyOtherEffect.self)
@@ -345,6 +350,7 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         try MyScope.GIVEN {
             MyScope()
         }
+        .configure(clearEffectsOnEveryWhenOrEnd: .all)
         .WHEN(.systemLoadsSampleScope)
         .THEN_EnquedEffect(parameter: \MyEffect<String>.milliseconds, equals: UInt64(1000))
         .runTest()
@@ -403,7 +409,7 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         try MyScope.GIVEN {
             MyScope()
         }
-        .configure(clearEffects: .none)
+        .configure(clearEffectsOnEveryWhenOrEnd: .none)
         .WHEN(.systemLoadsSampleScope)
         .WHEN(.systemLoadsSampleScope)
         .WHEN_EffectCompletes(MyEffect<String>.self, with: "")

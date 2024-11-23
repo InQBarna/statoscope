@@ -6,24 +6,42 @@
 //
 
 import Foundation
-import Statoscope
+@_spi(SCT) import Statoscope
 import XCTest
 
 public enum ClearEffects {
     case all
+    case allOnCurrentScope
     case none
     case some((any Effect) -> Bool)
+    case someInCurrentAndSubscopes((any Effect, any ScopeImplementation) -> Bool)
+}
+
+extension ScopeImplementation {
+    func clear(_ clearEffects: ClearEffects, scope: any ScopeImplementation) {
+        effectsState.clear(clearEffects, scope: self)
+    }
 }
 
 extension EffectsState {
-    mutating func clear(_ clearEffects: ClearEffects) {
+    mutating func clear(_ clearEffects: ClearEffects, scope: any ScopeImplementation) {
         switch clearEffects {
         case .none:
             return
         case .all:
-            reset()
+            reset(scope: scope)
+            scope._allChildScopes().forEach { subscope in
+                subscope.clear(.allOnCurrentScope, scope: subscope)
+            }
+        case .allOnCurrentScope:
+            reset(scope: scope)
         case .some(let filter):
-            reset(clearing: filter)
+            reset(clearing: { effect, _ in filter(effect) }, scope: scope)
+        case .someInCurrentAndSubscopes(let filter):
+            reset(clearing: filter, scope: scope)
+            scope._allChildScopes().forEach { subscope in
+                subscope.clear(.some({ filter($0, subscope) }), scope: subscope)
+            }
         }
     }
 }
@@ -67,8 +85,7 @@ extension StoreTestPlan {
         _ when: T.When
     ) -> Self {
         addStep { sut in
-            // assertNoDeepEffects(file: file, line: line)
-            sut.effectsState.clear(clearEffects)
+            sut.effectsState.clear(clearEffects, scope: sut)
             XCTAssertThrowsError(try sut._unsafeSendImplementation(when), file: file, line: line)
         }
     }
@@ -82,7 +99,7 @@ extension StoreTestPlan {
         _ when: Subscope.When
     ) throws -> Self {
         addStep { sut in
-            sut.effectsState.clear(clearEffects)
+            sut.effectsState.clear(clearEffects, scope: sut)
             XCTAssertThrowsError(try sut[keyPath: keyPath]._unsafeSendImplementation(when), file: file, line: line)
         }
     }
@@ -102,7 +119,7 @@ extension StoreTestPlan {
                         file: file, line: line)
                 return
             }
-            childScope.effectsState.clear(clearEffects)
+            childScope.effectsState.clear(clearEffects, scope: sut)
             XCTAssertThrowsError(try childScope._unsafeSendImplementation(when), file: file, line: line)
         }
     }
@@ -149,8 +166,7 @@ private extension StoreTestPlan {
     ) throws -> Self {
         let clearEffectsOnWhen = self.clearEffectsOnWhen
         return addStep { sut in
-            // assertNoDeepEffects(file: file, line: line)
-            sut.effectsState.clear(clearEffectsOnWhen)
+            sut.effectsState.clear(clearEffectsOnWhen, scope: sut)
             try sut._unsafeSendImplementation(when)
         }
     }
@@ -165,7 +181,7 @@ private extension StoreTestPlan {
         let clearEffectsOnWhen = self.clearEffectsOnWhen
         return addStep { sut in
             let child = sut[keyPath: keyPath]
-            child.effectsState.clear(clearEffectsOnWhen)
+            child.effectsState.clear(clearEffectsOnWhen, scope: sut)
             try sut.when(childScope: child, file: file, line: line, [when])
         }
     }
@@ -185,7 +201,7 @@ private extension StoreTestPlan {
                         file: file, line: line)
                 return
             }
-            childScope.effectsState.clear(clearEffectsOnWhen)
+            childScope.effectsState.clear(clearEffectsOnWhen, scope: sut)
             try sut.when(childScope: childScope, file: file, line: line, [when])
         }
     }

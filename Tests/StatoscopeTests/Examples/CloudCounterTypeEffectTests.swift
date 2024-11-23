@@ -99,6 +99,7 @@ final class TypedEffectCloudCounterTest: XCTestCase {
         try CloudCounter.GIVEN {
             CloudCounter()
         }
+        .configure(clearEffectsOnEveryWhenOrEnd: .all)
         .THEN(\.viewDisplaysTotalCount, equals: 0)
         .THEN(\.viewShowsLoadingAndDisablesButtons, equals: false)
         // Increment

@@ -107,7 +107,7 @@ extension ScopeImplementation {
     }
 
     internal func resetEffects() {
-        effectsState.reset()
+        effectsState.reset(scope: self)
     }
 }
 

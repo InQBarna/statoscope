@@ -49,7 +49,7 @@ func grabEffects<EffectType: Effect, T: ScopeImplementation>(
         )
     }
     if clearingFound {
-        sut.effectsState.clear(.some { $0 is EffectType })
+        sut.effectsState.clear(.some { $0 is EffectType }, scope: sut)
     }
     return .success(foundEffects)
 }
@@ -71,7 +71,7 @@ func grabSingleEffect<EffectType: Effect, T: ScopeImplementation>(
         )
     }
     if clearingFound {
-        sut.effectsState.clear(.some { $0 is EffectType })
+        sut.effectsState.clear(.some { $0 is EffectType }, scope: sut)
     }
     return .success(foundEffect)
 }

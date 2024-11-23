@@ -116,6 +116,7 @@ final class StatoscopeTestingThenTests: XCTestCase {
         try MyScope.GIVEN {
             MyScope()
         }
+        .configure(clearEffectsOnEveryWhenOrEnd: .all)
         .THEN(\.viewShowsLoadingMessage, equals: nil)
         .THEN(\.viewShowsContent, equals: nil)
         .throwsWHEN(.detailTappedBack)
