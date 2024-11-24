@@ -12,7 +12,6 @@ import XCTest
 extension StoreTestPlan {
     
     // TODO: integrate some xctest logging into the test plan ?
-    // TODO: build a WHEN_OlderEffectCompletes
     @discardableResult
     public func WHEN_EffectCompletes<EffectType: Effect>(
         _ expectedEffect: EffectType.Type,

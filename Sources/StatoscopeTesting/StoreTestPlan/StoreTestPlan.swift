@@ -56,7 +56,6 @@ public class StoreTestPlan<T: ScopeImplementation> {
     //  2.- Memory release check
     //  3.- Force check effects after every WHEN? WHEN is the "clear" trigger!
     //  4.- ? TODO:
-    // TODO: put some test failure in place in case someone forgets to write runTest
     private var ransExecuted = 0
     public func runTest(
         file: StaticString = #file, line: UInt = #line,

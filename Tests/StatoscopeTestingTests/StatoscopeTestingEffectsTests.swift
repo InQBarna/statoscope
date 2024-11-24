@@ -10,6 +10,20 @@ import SwiftUI
 @testable import Statoscope
 import StatoscopeTesting
 
+// TODO: use matched in expected failures
+extension XCTExpectedFailure.Options {
+    static func containingString(_ containing: String) -> XCTExpectedFailure.Options {
+        let options = XCTExpectedFailure.Options()
+        options.issueMatcher = { issue in
+            issue.type == .assertionFailure &&
+            issue.compactDescription.contains(
+                "No subscope found on MyScope of type MyChildScope: when looking for effects"
+            )
+        }
+        return options
+    }
+}
+
 private enum MyError: String, EffectError, Equatable {
     case someError
     case noConnection
@@ -166,7 +180,12 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
     }
     
     func testNoEffectsChildFailsIfChildNil() throws {
-        XCTExpectFailure("THEN_NoEffects on subscope should fail if unwrap fails")
+        XCTExpectFailure(
+            "THEN_NoEffects on subscope should fail if unwrap fails",
+            options: .containingString(
+                "No subscope found on MyScope of type MyChildScope: when looking for effects"
+            )
+        )
         try MyScope.GIVEN {
             MyScope()
         }

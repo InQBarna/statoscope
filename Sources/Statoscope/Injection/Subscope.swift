@@ -50,7 +50,6 @@ public struct Subscope<Value: InjectionTreeNodeProtocol>: CustomStringConvertibl
             return val
         }
         set {
-            // TODO: early return if nil assigned when already nil, this code below does not work
             if let storageOpt = enclosingInstance[keyPath: storageKeyPath].storage as? IsOptionalType,
                let newOptValue = newValue as? IsOptionalType,
                storageOpt.isNil && newOptValue.isNil {
