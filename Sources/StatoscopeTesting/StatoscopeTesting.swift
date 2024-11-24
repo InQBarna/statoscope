@@ -61,7 +61,9 @@ extension StoreTestPlan {
     ) -> WithStoreTestPlan<Subscope, T> {
         WithStoreTestPlan<Subscope, T>(
             parent: self,
-            keyPath: keyPath
+            keyPath: keyPath,
+            file: file,
+            line: line
         )
     }
 
@@ -72,7 +74,9 @@ extension StoreTestPlan {
     ) -> WithOptStoreTestPlan<Subscope, T> {
         WithOptStoreTestPlan<Subscope, T>(
             parent: self,
-            keyPath: keyPath
+            keyPath: keyPath,
+            file: file,
+            line: line
         )
     }
 }

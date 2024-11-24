@@ -16,7 +16,11 @@ public func GIVEN<Store: ScopeImplementation>(
 }
 
 extension ScopeImplementation {
-    public static func GIVEN(_ builder: @escaping () throws -> Self) rethrows -> StoreTestPlan<Self> {
-        StoreTestPlan(given: builder)
+    public static func GIVEN(
+        file: StaticString = #file,
+        line: UInt = #line,
+        _ builder: @escaping () throws -> Self
+    ) rethrows -> StoreTestPlan<Self> {
+        StoreTestPlan(file: file, line: line, given: builder)
     }
 }

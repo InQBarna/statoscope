@@ -20,8 +20,14 @@ public class StoreTestPlan<T: ScopeImplementation> {
     internal var forks: [StoreTestPlan<T>] = []
     internal var clearEffectsOnWhen: ClearEffects = .none
     
-    public init(given: @escaping () throws -> T) {
+    private let initLine: UInt
+    private let initFile: StaticString
+    private let isAFork: Bool
+    public init(file: StaticString = #file, line: UInt = #line, given: @escaping () throws -> T) {
         self.given = given
+        self.initLine = line
+        self.initFile = file
+        self.isAFork = false
     }
 
     func addStep(_ step: @escaping (T) throws -> Void) -> Self {
@@ -30,13 +36,16 @@ public class StoreTestPlan<T: ScopeImplementation> {
     }
     
     func buildLinkedFork(file: StaticString = #file, line: UInt = #line) -> StoreTestPlan<T> {
-        let forkedPlan = StoreTestPlan(forkingParent: self)
+        let forkedPlan = StoreTestPlan(file: file, line: line, forkingParent: self)
         forks.append(forkedPlan)
         return forkedPlan
     }
-    private init<F: StoreTestPlan<T>>(forkingParent parent: F) {
+    private init<F: StoreTestPlan<T>>(file: StaticString = #file, line: UInt = #line, forkingParent parent: F) {
         self.given = parent.given
         self.steps = parent.steps
+        self.initFile = file
+        self.initLine = line
+        self.isAFork = true
     }
 
     var snapshot: ((T) -> Void)?
@@ -48,15 +57,38 @@ public class StoreTestPlan<T: ScopeImplementation> {
     //  3.- Force check effects after every WHEN? WHEN is the "clear" trigger!
     //  4.- ? TODO:
     // TODO: put some test failure in place in case someone forgets to write runTest
+    private var ransExecuted = 0
     public func runTest(
         file: StaticString = #file, line: UInt = #line,
         assertRelease: Bool = false
     ) throws {
+        guard ransExecuted == 0 else {
+            return XCTFail("‼️ Don't call runTest() more than once ‼️", file: file, line: line)
+        }
+        guard !isAFork else {
+            return XCTFail("‼️ Don't call runTest() on a forked StoreTestPlan ‼️", file: file, line: line)
+        }
+        try uncheckedRunTest(file: file, line: line, assertRelease: assertRelease)
+    }
+
+    private func uncheckedRunTest(
+        file: StaticString = #file, line: UInt = #line,
+        assertRelease: Bool = false
+    ) throws {
+        ransExecuted = ransExecuted + 1
         try runAllSteps(file: file, line: line, assertRelease: assertRelease)
         try forks.forEach { childFlow in
             childFlow.snapshot = snapshot
-            try childFlow.runTest(file: file, line: line, assertRelease: assertRelease)
+            try childFlow.uncheckedRunTest(file: file, line: line, assertRelease: assertRelease)
         }
+    }
+    
+    deinit {
+        guard ransExecuted == 0,
+              type(of: self) == StoreTestPlan<T>.self else {
+            return
+        }
+        XCTFail("‼️ Don't forget to call runTest() at the end of the test plan ‼️", file: initFile, line: initLine)
     }
     
     public func configure(clearEffectsOnEveryWhenOrEnd: ClearEffects) -> Self {

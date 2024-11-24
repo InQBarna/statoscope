@@ -88,7 +88,11 @@ private func describeObject(_ object: Any, objects: inout [AnyObject], appending
     if mirror.displayStyle == .optional && mirror.children.isEmpty {
         return "nil" + appending
     } else if mirrorChildren.count == 0 {
-        return String(describing: object) + appending
+        if object is Scope {
+            return "\(type(of: object))" + appending
+        } else {
+            return String(describing: object) + appending
+        }
     } else if let anyEffect = object as? IsAnyEffectToMirror {
         return describeObject(anyEffect.objectToBeDescribed, objects: &objects, appending: appending)
     } else if mirror.displayStyle == .collection {

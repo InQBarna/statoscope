@@ -159,6 +159,7 @@ extension StoreTestPlan {
 
 private extension StoreTestPlan {
 
+    // TODO: remove file, line ?
     func privateWHEN(
         _ when: T.When,
         file: StaticString = #file,

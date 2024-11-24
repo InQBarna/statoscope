@@ -136,7 +136,8 @@ extension StoreTestPlan {
     public func THEN_Enqued<EffectType: Effect & Equatable, Subscope: ScopeImplementation>(
         _ keyPath: KeyPath<T, Subscope?>,
         effect expectedEffect: EffectType,
-        file: StaticString = #file, line: UInt = #line
+        file: StaticString = #file,
+        line: UInt = #line
     ) throws -> Self {
         addStep { supersut in
             guard let sut = supersut[keyPath: keyPath] else {

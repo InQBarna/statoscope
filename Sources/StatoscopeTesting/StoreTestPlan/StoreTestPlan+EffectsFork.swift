@@ -21,7 +21,7 @@ extension StoreTestPlan {
         _ elseFlow: (StoreTestPlan<T>) throws -> StoreTestPlan<T>
     ) throws -> Self {
         let elseTestPlan = buildLinkedFork(file: file, line: line)
-        try elseTestPlan.WHEN_EffectCompletes(expectedEffect, with: effectResult)
+        try elseTestPlan.WHEN_EffectCompletes(expectedEffect, with: effectResult, file: file, line: line)
         _ = try elseFlow(elseTestPlan)
         return self
     }
@@ -35,7 +35,7 @@ extension StoreTestPlan {
         _ elseFlow: (StoreTestPlan<T>) throws -> StoreTestPlan<T>
     ) throws -> Self {
         let elseTestPlan = buildLinkedFork(file: file, line: line)
-        try elseTestPlan.WHEN_EffectFails(expectedEffect, with: effectResult)
+        try elseTestPlan.WHEN_EffectFails(expectedEffect, with: effectResult, file: file, line: line)
         _ = try elseFlow(elseTestPlan)
         return self
     }
@@ -48,7 +48,7 @@ extension StoreTestPlan {
         _ elseFlow: (StoreTestPlan<T>) throws -> StoreTestPlan<T>
     ) throws -> Self {
         let elseTestPlan = buildLinkedFork(file: file, line: line)
-        try elseTestPlan.WHEN_OlderEffectCompletes(with: effectResult)
+        try elseTestPlan.WHEN_OlderEffectCompletes(with: effectResult, file: file, line: line)
         _ = try elseFlow(elseTestPlan)
         return self
     }

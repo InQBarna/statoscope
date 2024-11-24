@@ -13,7 +13,6 @@ extension StoreTestPlan {
 
     @discardableResult
     public func THEN(
-        file: StaticString = #file, line: UInt = #line,
         _ checker: @escaping (_ sut: T) throws -> Void
     ) rethrows -> Self {
         addStep { sut in
@@ -24,7 +23,6 @@ extension StoreTestPlan {
     @discardableResult
     public func THEN<S>(
         _ keyPath: KeyPath<T, S> = \T.self,
-        file: StaticString = #file, line: UInt = #line,
         checker: @escaping (_ sut: S) throws -> Void
     ) rethrows -> Self {
         addStep { sut in

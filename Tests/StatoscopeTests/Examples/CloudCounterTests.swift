@@ -30,6 +30,7 @@ final class Example0101 {
     final class CloudCounterTest: XCTestCase {
         
         func testUserFlow() throws {
+            XCTExpectFailure()
             try CloudCounter.GIVEN {
                 CloudCounter()
             }
@@ -52,7 +53,7 @@ final class Example0101 {
             // Invalid decrement
             .WHEN(.userTappedDecrementButton)
             .THEN(\.viewDisplaysTotalCount, equals: 0)
-            // .runTest() // commented wo it does not fail when running tests
+            .runTest()
         }
         
     }
