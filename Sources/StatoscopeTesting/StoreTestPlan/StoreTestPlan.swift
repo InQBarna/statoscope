@@ -49,6 +49,8 @@ public class StoreTestPlan<T: ScopeImplementation> {
     }
 
     var snapshot: ((T) -> Void)?
+    private var takingSnapshot = false
+    private var takingSnapshotSafeScopes: [any ScopeImplementation] = []
 
     // Possible parameters
     //  1.- Taking screenshots
@@ -105,10 +107,10 @@ public class StoreTestPlan<T: ScopeImplementation> {
             line: UInt
         ) throws -> T {
             let sut: T = try given()
-            snapshot?(sut)
+            safeSnapshot(sut: sut)
             for step in steps {
                 try step(sut)
-                snapshot?(sut)
+                safeSnapshot(sut: sut)
             }
             sut.clear(clearEffectsOnWhen, scope: sut)
             sut.assertNoDeepEffects(file: file, line: line)
@@ -138,6 +140,42 @@ internal extension ScopeImplementation {
             try childScope._unsafeSendImplementation($0)
         }
         return self
+    }
+}
+
+private extension ScopeImplementation {
+    @discardableResult
+    func addErasedMiddleWare(_ update: @escaping (Self, Any, (Any) throws -> Void) throws -> Void) -> Self {
+        addMiddleWare { scope, when, forward in
+            try update(scope, when) { receivedWhen in
+                guard let typedWhen = receivedWhen as? When else {
+                    fatalError()
+                }
+                try forward(typedWhen)
+            }
+        }
+    }
+}
+
+internal extension StoreTestPlan {
+    func safeSnapshot(sut: T) {
+        // Block any message such as the ones received onAppear
+        defer { takingSnapshot = false }
+        let allScopes: [any ScopeImplementation] = [sut] + sut._allChildScopes()
+        allScopes.forEach { scope in
+            if nil == takingSnapshotSafeScopes.first(where: { $0 === scope }) {
+                scope.addErasedMiddleWare { [weak self] scope, when, forward in
+                    guard let self else { return }
+                    if !self.takingSnapshot {
+                        try forward(when)
+                    }
+                }
+                takingSnapshotSafeScopes.append(scope)
+            }
+        }
+        takingSnapshot = true
+        // Take snapshot
+        snapshot?(sut)
     }
 }
 

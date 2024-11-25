@@ -13,10 +13,10 @@ import StatoscopeTesting
 private final class SampleScope:
     Statostore,
     ObservableObject {
-    let childDeptch: Int
+    let childDepth: Int
     
     init(childDepth: Int) {
-        self.childDeptch = childDepth
+        self.childDepth = childDepth
         self.atNonOptChild = NonOptSampleScope()
     }
 
@@ -30,7 +30,7 @@ private final class SampleScope:
     func update(_ when: When) throws {
         switch when {
         case .navigateChild:
-            atChild = SampleScope(childDepth: childDeptch + 1)
+            atChild = SampleScope(childDepth: childDepth + 1)
         }
     }
 }
@@ -45,7 +45,7 @@ private final class NonOptSampleScope: Statostore {
 private struct SampleView: View {
     @ObservedObject var scope: SampleScope
     var body: some View {
-        Text("I am at depth: \(scope.childDeptch)")
+        Text("I am at depth: \(scope.childDepth)")
         if let atChild = scope.atChild {
             SampleView(scope: atChild)
         }
@@ -82,9 +82,9 @@ final class StatoscopeTestingRunTests: XCTestCase {
         }
         .WHEN(.navigateChild)
         .WITH(\.atChild)
-        .THEN(\.childDeptch, equals: 1)
+        .THEN(\.childDepth, equals: 1)
         .POP()
-        .THEN(\.childDeptch, equals: 0)
+        .THEN(\.childDepth, equals: 0)
     }
     
     func testRunTestsCalledOnWith() throws {
@@ -93,7 +93,7 @@ final class StatoscopeTestingRunTests: XCTestCase {
         }
         .WHEN(.navigateChild)
         .WITH(\.atChild)
-        .THEN(\.childDeptch, equals: 1)
+        .THEN(\.childDepth, equals: 1)
         .runTest()
     }
     
@@ -121,12 +121,12 @@ final class StatoscopeTestingRunTests: XCTestCase {
         }
         .FORK(.navigateChild) {
             let forked = try $0
-                .THEN(\.atChild?.childDeptch, equals: 1)
+                .THEN(\.atChild?.childDepth, equals: 1)
             try forked.runTest()
             return forked
         }
         .WHEN(.navigateChild)
-        .THEN(\.atChild?.childDeptch, equals: 1)
+        .THEN(\.atChild?.childDepth, equals: 1)
         .runTest()
     }
 }
