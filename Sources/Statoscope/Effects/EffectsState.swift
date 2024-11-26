@@ -68,7 +68,7 @@ public struct EffectsState<When: Sendable>: Sendable {
     ///  )
     ///  ```
     public mutating func enqueue<E: Effect>(_ effect: E) where E.ResultType == When {
-        let currentMax = currentRequestedEffects.compactMap(\.0).max() ?? 0
+        let currentMax = currentRequestedEffects.map(\.0).max() ?? 0
         let uuid = currentMax + 1
         enquedEffects.append((uuid, AnyEffect(effect: effect)))
         currentRequestedEffects.append((uuid, AnyEffect(effect: effect)))
