@@ -11,11 +11,15 @@ import Statoscope
 
 extension StoreTestPlan {
 
+    internal func addThenStep(_ step: @escaping (T) throws -> Void) -> Self {
+        addStep(Step(type: .then, run: step))
+    }
+    
     @discardableResult
     public func THEN(
         _ checker: @escaping (_ sut: T) throws -> Void
     ) rethrows -> Self {
-        addStep { sut in
+        addThenStep { sut in
             try checker(sut)
         }
     }
@@ -25,9 +29,26 @@ extension StoreTestPlan {
         _ keyPath: KeyPath<T, S> = \T.self,
         checker: @escaping (_ sut: S) throws -> Void
     ) rethrows -> Self {
-        addStep { sut in
+        addThenStep { sut in
             let childScope = sut[keyPath: keyPath]
             try checker(childScope)
+        }
+    }
+    
+    @discardableResult
+    public func THEN<S>(
+        _ keyPath: KeyPath<T, S?>,
+        file: StaticString = #file, line: UInt = #line,
+        checker: @escaping (_ sut: S) throws -> Void
+    ) rethrows -> Self {
+        addThenStep { sut in
+            guard let unwrapped = sut[keyPath: keyPath] else {
+                XCTFail("THEN: Error unwrapping optional property" +
+                        " \(keyPath) : \(type(of: S.self))",
+                        file: file, line: line)
+                return
+            }
+            try checker(unwrapped)
         }
     }
 
@@ -37,7 +58,7 @@ extension StoreTestPlan {
         _ keyPath: KeyPath<T, AcceptableKP>,
         equals expectedValue: AcceptableKP
     ) throws -> Self {
-        addStep { sut in
+        addThenStep { sut in
             if sut[keyPath: keyPath] != expectedValue {
                 XCTFail("[\(keyPath): '\(sut[keyPath: keyPath])' != '\(expectedValue)']", file: file, line: line)
             }
@@ -49,7 +70,7 @@ extension StoreTestPlan {
         file: StaticString = #file, line: UInt = #line,
         _ keyPath: KeyPath<T, AcceptableKP?>
     ) throws -> Self {
-        addStep { sut in
+        addThenStep { sut in
             XCTAssertNotNil(sut[keyPath: keyPath], file: file, line: line)
         }
     }
@@ -59,7 +80,7 @@ extension StoreTestPlan {
         file: StaticString = #file, line: UInt = #line,
         _ keyPath: KeyPath<T, AcceptableKP?>
     ) throws -> Self {
-        addStep { sut in
+        addThenStep { sut in
             XCTAssertNil(sut[keyPath: keyPath], file: file, line: line)
         }
     }

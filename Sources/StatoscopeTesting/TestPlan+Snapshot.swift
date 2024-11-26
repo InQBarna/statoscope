@@ -16,25 +16,30 @@ extension StoreTestPlan {
 
     public func configureViewSnapshot<V: View>(_ test: XCTestCase, _ block: @escaping (T) -> V) -> Self {
 #if canImport(UIKit)
-        snapshot = { sut in
+        snapshot = { sut, name in
             let screenshot = block(sut).asImage()
             let attachment = XCTAttachment(image: screenshot)
             attachment.lifetime = .keepAlways
+            if let name {
+                attachment.name = name
+            }
             test.add(attachment)
         }
 #endif
         return self
     }
 
-    public func takeSnapshot(file: StaticString = #file, line: UInt = #line) -> Self {
-         addStep { [weak self] sut in
-             guard let self else {
-                 return XCTFail(
-                    "Taking snapshot without configured snapshot block", file: file, line: line
-                 )
-             }
-             self.snapshot?(sut)
-         }
+    public func takeSnapshot(name: String? = nil, file: StaticString = #file, line: UInt = #line) -> Self {
+        addStep(
+            Step(type: .snapshot) { [weak self] sut in
+                guard let self else {
+                    return XCTFail(
+                        "Taking snapshot without configured snapshot block", file: file, line: line
+                    )
+                }
+                self.snapshot?(sut, name)
+            }
+        )
     }
 }
 

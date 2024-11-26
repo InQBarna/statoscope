@@ -47,14 +47,16 @@ extension EffectsState {
 }
 
 extension StoreTestPlan {
+    
+    internal func addWhenStep(_ description: String? = nil, _ step: @escaping (T) throws -> Void) -> Self {
+        addStep(Step(type: .when(description), run: step))
+    }
 
     @discardableResult
     public func WHEN(
-        _ when: T.When,
-        file: StaticString = #file,
-        line: UInt = #line
+        _ when: T.When
     ) throws -> Self {
-        try privateWHEN(when, file: file, line: line)
+        try privateWHEN(when)
     }
 
     @discardableResult
@@ -84,7 +86,7 @@ extension StoreTestPlan {
         line: UInt = #line,
         _ when: T.When
     ) -> Self {
-        addStep { sut in
+        addWhenStep { sut in
             sut.effectsState.clear(clearEffects, scope: sut)
             XCTAssertThrowsError(try sut._unsafeSendImplementation(when), file: file, line: line)
         }
@@ -98,7 +100,7 @@ extension StoreTestPlan {
         line: UInt = #line,
         _ when: Subscope.When
     ) throws -> Self {
-        addStep { sut in
+        addWhenStep { sut in
             sut.effectsState.clear(clearEffects, scope: sut)
             XCTAssertThrowsError(try sut[keyPath: keyPath]._unsafeSendImplementation(when), file: file, line: line)
         }
@@ -112,7 +114,7 @@ extension StoreTestPlan {
         line: UInt = #line,
         _ when: Subscope.When
     ) throws -> Self {
-        addStep { sut in
+        addWhenStep { sut in
             guard let childScope = sut[keyPath: keyPath] else {
                 XCTFail("WHEN: Non existing model in first parameter: error unwrapping expecte non-nil subscope" +
                         " \(type(of: T.self)) : \(type(of: Subscope.self))",
@@ -128,12 +130,8 @@ extension StoreTestPlan {
 extension StoreTestPlan {
 
     @discardableResult
-    public func AND(
-        _ when: T.When,
-        file: StaticString = #file,
-        line: UInt = #line
-    ) throws -> Self {
-        try privateWHEN(when, file: file, line: line)
+    public func AND(_ when: T.When) throws -> Self {
+        try privateWHEN(when)
     }
 
     @discardableResult
@@ -159,14 +157,10 @@ extension StoreTestPlan {
 
 private extension StoreTestPlan {
 
-    // TODO: remove file, line ?
     func privateWHEN(
-        _ when: T.When,
-        file: StaticString = #file,
-        line: UInt = #line
+        _ when: T.When
     ) throws -> Self {
-        let clearEffectsOnWhen = self.clearEffectsOnWhen
-        return addStep { sut in
+        addWhenStep { [clearEffectsOnWhen = self.clearEffectsOnWhen] sut in
             sut.effectsState.clear(clearEffectsOnWhen, scope: sut)
             try sut._unsafeSendImplementation(when)
         }
@@ -179,8 +173,7 @@ private extension StoreTestPlan {
         file: StaticString = #file,
         line: UInt = #line
     ) throws -> Self {
-        let clearEffectsOnWhen = self.clearEffectsOnWhen
-        return addStep { sut in
+        addWhenStep(String(describing: when)) { [clearEffectsOnWhen = self.clearEffectsOnWhen] sut in
             let child = sut[keyPath: keyPath]
             child.effectsState.clear(clearEffectsOnWhen, scope: sut)
             try sut.when(childScope: child, file: file, line: line, [when])
@@ -194,8 +187,7 @@ private extension StoreTestPlan {
         file: StaticString = #file,
         line: UInt = #line
     ) throws -> Self {
-        let clearEffectsOnWhen = self.clearEffectsOnWhen
-        return addStep { sut in
+        addWhenStep(String(describing: when)) { [clearEffectsOnWhen = self.clearEffectsOnWhen] sut in
             guard let childScope = sut[keyPath: keyPath] else {
                 XCTFail("WHEN: Non existing model in first parameter: error unwrapping expecte non-nil subscope" +
                         " \(type(of: T.self)) : \(type(of: Subscope.self))",

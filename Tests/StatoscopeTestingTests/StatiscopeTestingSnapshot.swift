@@ -50,6 +50,7 @@ private struct SampleView: View {
 
 final class StatoscopeTestingSnapshot: XCTestCase {
 
+#if canImport(UIKit)
     func testSnapshot() throws {
         let snapshotCalled = expectation(description: "snapshot called")
         snapshotCalled.assertForOverFulfill = false
@@ -133,4 +134,5 @@ final class StatoscopeTestingSnapshot: XCTestCase {
         .runTest()
         wait(for: [snapshotCalled], timeout: 2)
     }
+#endif
 }

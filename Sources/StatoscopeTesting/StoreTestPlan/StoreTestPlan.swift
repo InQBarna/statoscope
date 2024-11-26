@@ -13,10 +13,21 @@ enum TestPlanErrors: Error {
     case unwrappingNonOptionalSubscope
 }
 
+internal enum StepType {
+    case when(String?)
+    case then
+    case snapshot
+}
+
+internal struct Step<S: ScopeImplementation> {
+    let type: StepType
+    let run: (S) throws -> Void
+}
+
 public class StoreTestPlan<T: ScopeImplementation> {
     
     let given: () throws -> T
-    internal var steps: [(T) throws -> Void] = []
+    internal var steps: [Step<T>] = []
     internal var forks: [StoreTestPlan<T>] = []
     internal var clearEffectsOnWhen: ClearEffects = .none
     
@@ -30,7 +41,7 @@ public class StoreTestPlan<T: ScopeImplementation> {
         self.isAFork = false
     }
 
-    func addStep(_ step: @escaping (T) throws -> Void) -> Self {
+    func addStep(_ step: Step<T>) -> Self {
         steps.append(step)
         return self
     }
@@ -48,9 +59,9 @@ public class StoreTestPlan<T: ScopeImplementation> {
         self.isAFork = true
     }
 
-    var snapshot: ((T) -> Void)?
+    var snapshot: ((T, String?) -> Void)?
     private var takingSnapshot = false
-    private var takingSnapshotSafeScopes: [any ScopeImplementation] = []
+    private var takingSnapshotSafeScopes: [WeakScopeBox] = []
 
     // Possible parameters
     //  1.- Taking screenshots
@@ -107,10 +118,15 @@ public class StoreTestPlan<T: ScopeImplementation> {
             line: UInt
         ) throws -> T {
             let sut: T = try given()
-            safeSnapshot(sut: sut)
+            safeSnapshot(sut: sut, name: "GIVEN")
             for step in steps {
-                try step(sut)
-                safeSnapshot(sut: sut)
+                try step.run(sut)
+                switch step.type {
+                case .when(let whenName):
+                    safeSnapshot(sut: sut, name: nil)
+                default:
+                    break
+                }
             }
             sut.clear(clearEffectsOnWhen, scope: sut)
             sut.assertNoDeepEffects(file: file, line: line)
@@ -158,24 +174,27 @@ private extension ScopeImplementation {
 }
 
 internal extension StoreTestPlan {
-    func safeSnapshot(sut: T) {
+    func safeSnapshot(sut: T, name: String?) {
         // Block any message such as the ones received onAppear
-        defer { takingSnapshot = false }
+        defer {
+            takingSnapshot = false
+            takingSnapshotSafeScopes = takingSnapshotSafeScopes.filter { $0.scope == nil }
+        }
         let allScopes: [any ScopeImplementation] = [sut] + sut._allChildScopes()
         allScopes.forEach { scope in
-            if nil == takingSnapshotSafeScopes.first(where: { $0 === scope }) {
+            if nil == takingSnapshotSafeScopes.first(where: { $0.scope === scope }) {
                 scope.addErasedMiddleWare { [weak self] scope, when, forward in
                     guard let self else { return }
                     if !self.takingSnapshot {
                         try forward(when)
                     }
                 }
-                takingSnapshotSafeScopes.append(scope)
+                takingSnapshotSafeScopes.append(WeakScopeBox(scope: scope))
             }
         }
         takingSnapshot = true
         // Take snapshot
-        snapshot?(sut)
+        snapshot?(sut, name)
     }
 }
 
@@ -200,10 +219,12 @@ public class WithStoreTestPlan<W: ScopeImplementation, S: ScopeImplementation>: 
         }
     }
     
-    override func addStep(_ step: @escaping (W) throws -> Void) -> Self {
-        _ = parentPlan.addStep { [keyPath] sut in
-            try step(sut[keyPath: keyPath])
-        }
+    override func addStep(_ step: Step<W>) -> Self {
+        _ = parentPlan.addStep(
+            Step(type: step.type) { [keyPath] sut in
+                try step.run(sut[keyPath: keyPath])
+            }
+        )
         return self
     }
     
@@ -246,16 +267,18 @@ public class WithOptStoreTestPlan<W: ScopeImplementation, S: ScopeImplementation
         }
     }
     
-    override func addStep(_ step: @escaping (W) throws -> Void) -> Self {
-        _ = parentPlan.addStep { [keyPath, file, line] sut in
-            guard let childScope: W = sut[keyPath: keyPath] else {
-                XCTFail("WITH: Non existing model in first parameter: error unwrapping expecte non-nil subscope" +
-                        " \(type(of: W.self)) : \(type(of: W.self))",
-                        file: file, line: line)
-                throw TestPlanErrors.unwrappingNonOptionalSubscope
+    override func addStep(_ step: Step<W>) -> Self {
+        _ = parentPlan.addStep(
+            Step(type: step.type) { [keyPath, file, line] sut in
+                guard let childScope: W = sut[keyPath: keyPath] else {
+                    XCTFail("WITH: Non existing model in first parameter: error unwrapping expecte non-nil subscope" +
+                            " \(type(of: W.self)) : \(type(of: W.self))",
+                            file: file, line: line)
+                    throw TestPlanErrors.unwrappingNonOptionalSubscope
+                }
+                try step.run(childScope)
             }
-            try step(childScope)
-        }
+        )
         return self
     }
         
@@ -268,7 +291,11 @@ public class WithOptStoreTestPlan<W: ScopeImplementation, S: ScopeImplementation
         return parentPlan
     }
     
-    override public func runTest(file: StaticString = #file, line: UInt = #line, assertRelease: Bool = false) throws {
+    override public func runTest(
+        file: StaticString = #file,
+        line: UInt = #line,
+        assertRelease: Bool = false
+    ) throws {
         try parentPlan.runTest(file: file, line: line, assertRelease: assertRelease)
     }
 }

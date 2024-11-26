@@ -17,7 +17,7 @@ extension StoreTestPlan {
         _ elseFlow: (StoreTestPlan<T>) throws -> StoreTestPlan<T>
     ) throws -> Self {
         let elseTestPlan = buildLinkedFork(file: file, line: line)
-        try elseTestPlan.WHEN(elseWhen, file: file, line: line)
+        try elseTestPlan.WHEN(elseWhen)
         _ = try elseFlow(elseTestPlan)
         return self
     }
