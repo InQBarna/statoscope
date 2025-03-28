@@ -45,7 +45,7 @@ extension StoreProtocol where Self: AnyObject {
             set: { [weak self] in self?.send(when($0)) }
         )
     }
-    
+
     public func bindIsPresented<T>(
         _ keyPath: KeyPath<ScopeImpl, T?>,
         _ when: ((T?) -> ScopeImpl.When)? = nil
@@ -94,7 +94,7 @@ extension StoreProtocol where Self: AnyObject {
             set: { [weak self] in self?.send(when($0)) }
         )
     }
-    
+
     public func bind<T>(
         _ getter: @escaping (Self) -> T,
         _ when: @escaping (T) -> ScopeImpl.When

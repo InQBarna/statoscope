@@ -14,7 +14,7 @@ private final class SampleScope:
     Statostore,
     ObservableObject {
     let childDepth: Int
-    
+
     init(childDepth: Int) {
         self.childDepth = childDepth
     }
@@ -46,7 +46,7 @@ final class StatoscopeTestingWithTests: XCTestCase {
         .THEN(\.childDepth, equals: 0)
         .runTest()
     }
-    
+
     func testWithTripleDepth() throws {
         try SampleScope.GIVEN {
             SampleScope(childDepth: 0)

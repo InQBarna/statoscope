@@ -1,5 +1,5 @@
 final class NewsFeed: Statostore, ObservableObject {
-    
+
     @Published var loadingFeatureToggles: Bool = true
     @Published var loadingList: Bool = false
     @Published var loadedListDTO: DTO.FeedList?
@@ -7,7 +7,7 @@ final class NewsFeed: Statostore, ObservableObject {
     @Published var loadingArticle: Bool = false
     @Published var loadedArticleDTO: DTO.Article?
     @Published var favorites: [Favorite] = []
-    
+
     enum When {
         case systemLoadedScope
         case networkReturnsFeatureToggle(Result<[String: String], EquatableError>)
@@ -16,7 +16,7 @@ final class NewsFeed: Statostore, ObservableObject {
         case networkDidFinish(DTO.Article)
         case favorite
     }
-    
+
     @Injected var date: DateProvider
     @Injected var persistence: PersistenceProvider
     @Injected var network: NetworkProvider

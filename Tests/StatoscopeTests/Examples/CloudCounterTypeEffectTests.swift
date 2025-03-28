@@ -11,13 +11,13 @@ import Statoscope
 import XCTest
 
 final class Example0201 {
-    
+
     struct DTO: Codable {
         let count: Int
     }
-    
+
     final class CloudCounter: ScopeImplementation {
-        
+
         var viewDisplaysTotalCount: Int = 0
         var viewShowsLoadingAndDisablesButtons: Bool = false
         enum When {
@@ -25,7 +25,7 @@ final class Example0201 {
             case userTappedDecrementButton
             case networkPostCompleted(DTO)
         }
-        
+
         func update(_ when: When) throws {
             switch when {
             case .userTappedIncrementButton:
@@ -44,24 +44,24 @@ final class Example0201 {
                 viewDisplaysTotalCount = remoteCounter.count
             }
         }
-        
+
         private func postNewValueToNetwork(newValue: Int) throws {
-            
+
             // Solution 1: cancel any previous network effect
             effectsState.cancelEffect { $0 is CloudCounterEffect<DTO> }
-            
+
             // Solution 2: do nothing if an effect is already running
             guard nil == effects.first(where: { $0 is CloudCounterEffect<DTO> }) else {
                 throw InvalidStateError()
             }
-            
+
             effectsState.enqueue(
                 CloudCounterEffect<DTO>(request: try Network.buildURLRequestPosting(dto: DTO(count: newValue)))
                     .map(When.networkPostCompleted)
             )
         }
     }
-    
+
     enum Network {
         static func buildURLRequestPosting(dto: DTO) throws -> URLRequest {
             guard let url = URL(string: "http://statoscope.com") else {
@@ -74,7 +74,7 @@ final class Example0201 {
             return request
         }
     }
-    
+
     struct CloudCounterEffect<Response: Decodable>: Effect, Equatable {
         let request: URLRequest
         func runEffect() async throws -> Response {
@@ -90,12 +90,12 @@ private typealias DTO = Example0201.DTO
 final class TypedEffectCloudCounterTest: XCTestCase {
 
     func testUserFlow() throws {
-        
+
         var expectedNetworkRequest = URLRequest(url: try XCTUnwrap(URL(string: "http://statoscope.com")))
         expectedNetworkRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         expectedNetworkRequest.httpMethod = "POST"
         expectedNetworkRequest.httpBody = try JSONEncoder().encode(DTO(count: 0))
-        
+
         try CloudCounter.GIVEN {
             CloudCounter()
         }
@@ -125,4 +125,3 @@ final class TypedEffectCloudCounterTest: XCTestCase {
     }
 
 }
-

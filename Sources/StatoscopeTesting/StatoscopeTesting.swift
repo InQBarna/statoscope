@@ -23,8 +23,9 @@ extension ScopeImplementation {
 }
 
 extension StoreTestPlan {
-    
+
     /*
+     TODO: Remove
     @discardableResult
     public func WITH_v0<Subscope: ScopeImplementation>(
         _ keyPath: KeyPath<T, Subscope>,
@@ -53,7 +54,7 @@ extension StoreTestPlan {
         }
     }
     */
-    
+
     @discardableResult
     public func WITH<Subscope: ScopeImplementation>(
         _ keyPath: KeyPath<T, Subscope>,

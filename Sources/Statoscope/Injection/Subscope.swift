@@ -55,7 +55,7 @@ public struct Subscope<Value: InjectionTreeNodeProtocol>: CustomStringConvertibl
                storageOpt.isNil && newOptValue.isNil {
                 return
             }
-            
+
             // Enclosing ObservableObject will be notified when assigned:
             if let enclosingObservable = enclosingInstance as? (any ObservableObject) {
                 let publisher = enclosingObservable.objectWillChange as any Publisher

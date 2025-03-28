@@ -35,12 +35,12 @@ import Foundation
 /// 3. Use ``pristineEquals(_:)-5w9j1`` to search for exact effect instances.
 ///
 public protocol Effect {
-    
+
     /// The type returned by this effect,
     ///
     /// This is usually an enum of When cases to group effects inside a Store
     associatedtype ResultType: Sendable
-    
+
     /// The method to be executed when the Effects handler schedules this Effect
     ///
     ///  * returns: An object with the specified type, or throws an error
@@ -48,7 +48,7 @@ public protocol Effect {
 }
 
 public extension Effect {
-    
+
     /// Compares the current effect to another effect
     ///
     /// This comparison is provided for searching an effect inside an array of effect
@@ -74,10 +74,11 @@ public extension Effect {
             return false
         }
     }
-    
+
     /// Checks if the current effect is of a specific type in its pristine origin state.
     ///
-    /// This method determines whether the effect matches the specified type when it is in its pristine (unmodified) state.
+    /// This method determines whether the effect matches the specified type when it is in its
+    ///  pristine (unmodified) state.
     ///
     /// - Parameter otherType: The type of the effect to compare against.
     ///
@@ -97,7 +98,7 @@ public extension Effect {
         }
     }
 }
-    
+
 @_spi(SCT) public extension Effect {
 
     /// Completes the effect in its pristine state with a specified result (for testing purposes).
@@ -121,11 +122,11 @@ public extension Effect {
             throw InvalidPristineResult()
         }
     }
-    
+
     /// Completes the effect in its pristine state with a specified result (for testing purposes).
     ///
-    /// This method is intended for use within the StatoscopeTesting library to test the completion throwing of the effect
-    /// using a given error that may have been thrown in the pristine effect.
+    /// This method is intended for use within the StatoscopeTesting library to test the completion
+    /// throwing of the effect using a given error that may have been thrown in the pristine effect.
     ///
     /// - Parameter error: The error to throw when simulating completion failure of the effect in its pristine state.
     /// - Returns: A `ResultType` value representing the outcome of the effect mapping given the pristineResult

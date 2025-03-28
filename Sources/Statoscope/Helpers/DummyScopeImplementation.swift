@@ -9,4 +9,3 @@ public protocol DummyScopeImplementation: ScopeImplementation { }
 public extension DummyScopeImplementation {
     func update(_ when: When) throws { }
 }
-

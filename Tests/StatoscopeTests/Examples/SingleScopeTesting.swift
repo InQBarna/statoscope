@@ -9,7 +9,7 @@ import XCTest
 @testable import Statoscope
 
 class SingleScopeTesting: XCTestCase {
-    
+
     final class UserNotificationsNoEffects: Statostore, ObservableObject {
         @Published var notificationsPermissions: Bool = false
         enum When {
@@ -22,7 +22,7 @@ class SingleScopeTesting: XCTestCase {
             }
         }
     }
-    
+
     func testUserNotificationsNoEffects() throws {
         try UserNotificationsNoEffects.GIVEN {
             UserNotificationsNoEffects()
@@ -32,9 +32,9 @@ class SingleScopeTesting: XCTestCase {
         .THEN(\.notificationsPermissions, equals: true)
         .runTest()
     }
-    
+
     final class UserNotifications: Statostore, ObservableObject {
-        
+
         enum NotificationPermissions {
             case unknown
             case requesting
@@ -65,7 +65,7 @@ class SingleScopeTesting: XCTestCase {
             }
         }
     }
-    
+
     func testUserNotificationsAllowed() throws {
         try UserNotifications.GIVEN {
             UserNotifications()
@@ -77,7 +77,7 @@ class SingleScopeTesting: XCTestCase {
         .THEN(\.notificationsPermissions, equals: .allowed)
         .runTest()
     }
-    
+
     func testUserNotificationsDenied() throws {
         try UserNotifications.GIVEN {
             UserNotifications()
@@ -89,7 +89,7 @@ class SingleScopeTesting: XCTestCase {
         .THEN(\.notificationsPermissions, equals: .denied)
         .runTest()
     }
-    
+
     func testUserNotificationsFork() throws {
         try UserNotifications.GIVEN {
             UserNotifications()
@@ -104,7 +104,7 @@ class SingleScopeTesting: XCTestCase {
         .THEN(\.notificationsPermissions, equals: .allowed)
         .runTest()
     }
-    
+
     func testUserNotificationsEffectsCheck() throws {
         try UserNotifications.GIVEN {
             UserNotifications()
@@ -122,4 +122,3 @@ class SingleScopeTesting: XCTestCase {
         .runTest()
     }
 }
-

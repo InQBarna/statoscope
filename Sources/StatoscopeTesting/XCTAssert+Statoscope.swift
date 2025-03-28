@@ -75,29 +75,23 @@ public func XCTAssertEffectsInclude<S: ScopeImplementation, T2: Effect & Equatab
     }
 }
 
-public func XCTAssertEqualDiff<T>(
-    _ expression1: @autoclosure () throws -> T,
-    _ expression2: @autoclosure () throws -> T,
-    _ message: @autoclosure () -> String = "",
+func equalDiff<T>(
+    expected: T,
+    asserted: T,
     file: StaticString = #filePath,
     line: UInt = #line
-) throws where T : Equatable {
-    let val1 = try expression1()
-    let val2 = try expression2()
-    if val1 == val2 {
-        return
-    }
-    var expected: String = ""
-    dump(val1, to: &expected)
-    var described2: String = ""
-    dump(val2, to: &described2)
-    let differences = expected
+) throws -> String where T: Equatable {
+    var expectedString: String = ""
+    dump(expected, to: &expectedString)
+    var described: String = ""
+    dump(asserted, to: &described)
+    let differences = expectedString
         .split(separator: "\n")
-        .difference(from: described2.split(separator: "\n"))
+        .difference(from: described.split(separator: "\n"))
         .sorted { lhs, rhs in
             lhs.offset < rhs.offset
         }
-    XCTFail(message() + "\n" + differences
+    return differences
         .map {
             switch $0 {
             case .remove(_, let element, _):
@@ -106,6 +100,24 @@ public func XCTAssertEqualDiff<T>(
                 return "+ " + element
             }
         }
-        .joined(separator: "\n"),
-        file: file, line: line)
+        .joined(separator: "\n")
+}
+
+public func XCTAssertEqualDiff<T>(
+    _ expression1: @autoclosure () throws -> T,
+    _ expression2: @autoclosure () throws -> T,
+    _ message: @autoclosure () -> String = "",
+    file: StaticString = #filePath,
+    line: UInt = #line
+) throws where T: Equatable {
+    let val1 = try expression1()
+    let val2 = try expression2()
+    if val1 == val2 {
+        return
+    }
+    XCTFail(
+        message() + "\n" + (try equalDiff(expected: val1, asserted: val2)),
+        file: file,
+        line: line
+    )
 }

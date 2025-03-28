@@ -13,7 +13,7 @@ class NewsFeedTests: XCTestCase {
                 )
             ]
         )
-        
+
         try NewsFeedList.GIVEN {
             NewsFeedList()
         }
@@ -28,7 +28,7 @@ class NewsFeedTests: XCTestCase {
         .THEN(\.favorites, equals: [Favorite(id: "1", dateAdded: Date())])
         .runTest()
     }
-    
+
     func testFeatureSavedFavoriteIsPersistedForSubsequentExecution() throws {
         try NewsFeedList.GIVEN {
             NewsFeedList()

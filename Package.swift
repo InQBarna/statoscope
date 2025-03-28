@@ -26,7 +26,8 @@ let package = Package(
         // .package(url: "https://github.com/realm/SwiftLint", from: "0.0.0")
         // Depend on the Swift 5.9 release of SwiftSyntax
         .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "509.0.0"),
-        .package(url: "https://github.com/swiftlang/swift-docc-plugin", branch: "main")
+        .package(url: "https://github.com/swiftlang/swift-docc-plugin", branch: "main"),
+        .package(url: "https://github.com/SimplyDanny/SwiftLintPlugins", from: "0.58.2")
     ],
     targets: [
         .target(
@@ -34,8 +35,8 @@ let package = Package(
             dependencies: [
               "StatoscopeMacros"
             ],
-            path: "Sources/Statoscope"
-            // plugins: [.plugin(name: "SwiftLintPlugin", package: "SwiftLint")]
+            path: "Sources/Statoscope",
+            plugins: [.plugin(name: "SwiftLintBuildToolPlugin", package: "SwiftLintPlugins")]
         ),
         .testTarget(
             name: "StatoscopeTests",

@@ -21,6 +21,15 @@ extension String {
     }
 }
 
+extension SyntaxProtocol {
+    var trimm: Self {
+        self
+            .trimmed
+            .with(\.leadingTrivia, [])
+            .with(\.trailingTrivia, [])
+    }
+}
+
 public struct EffectStructMacro: PeerMacro {
     public static func expansion<
         Context: MacroExpansionContext,
@@ -41,20 +50,26 @@ public struct EffectStructMacro: PeerMacro {
         guard let returnType = funcDecl.signature.returnClause?.type,
             returnType.as(IdentifierTypeSyntax.self)?.name.text != "Void" else {
           throw StatoscopeMacroError.message(
-            "@EffectStructMacro requires an function that returns a When"
+            "@EffectStructMacro requires a function that returns a When"
           )
         }
          */
 
+        let equatableRequested: Bool = extractEquatableParam(from: node)
         let parameterList = funcDecl.signature.parameterClause.parameters
         let newGenericParameterClause = buildGenericParameterClause(funcDecl: funcDecl)
         let newStructDeclaration = StructDeclSyntax(
+            modifiers: DeclModifierListSyntax {
+                DeclModifierSyntax(name: .keyword(.public))
+            },
             name: .identifier(funcDecl.name.text.firstCharCapitalized + "Effect"),
             genericParameterClause: newGenericParameterClause,
             inheritanceClause: InheritanceClauseSyntax(
                 inheritedTypes: InheritedTypeListSyntax {
                     InheritedTypeSyntax(type: IdentifierTypeSyntax(name: "Effect"))
-                    InheritedTypeSyntax(type: IdentifierTypeSyntax(name: "Equatable"))
+                    if equatableRequested {
+                        InheritedTypeSyntax(type: IdentifierTypeSyntax(name: "Equatable"))
+                    }
                 }
             ),
             memberBlock: MemberBlockSyntax(
@@ -65,7 +80,7 @@ public struct EffectStructMacro: PeerMacro {
                                 bindingSpecifier: .keyword(Keyword.let),
                                 bindings: [
                                     PatternBindingSyntax(
-                                        pattern: IdentifierPatternSyntax(identifier: param.secondName ?? param.firstName),
+                                        pattern: IdentifierPatternSyntax(identifier: param.secondName?.trimm ?? param.firstName.trimm),
                                         typeAnnotation: TypeAnnotationSyntax(type: param.type)
                                     )
                                 ]
@@ -82,6 +97,9 @@ public struct EffectStructMacro: PeerMacro {
                                     return true
                                 }
                             },
+                            modifiers: DeclModifierListSyntax {
+                                DeclModifierSyntax(name: .keyword(.public))
+                            },
                             name: "runEffect",
                             signature: FunctionSignatureSyntax(
                                 parameterClause: FunctionParameterClauseSyntax {},
@@ -96,10 +114,32 @@ public struct EffectStructMacro: PeerMacro {
                                     CodeBlockItemSyntax(
                                         stringLiteral: "try await \(funcDecl.name)(" +
                                         parameterList.map({ param in
-                                            "\(param.firstName): \(param.secondName ?? param.firstName)"
+                                            "\(param.firstName.trimm): " +
+                                            "\(param.secondName?.trimm ?? param.firstName.trimm)"
                                         }).joined(separator: ", ") +
                                         ")"
                                     )
+                                }
+                            )
+                        )
+                    )
+                    MemberBlockItemSyntax(
+                        decl: InitializerDeclSyntax(
+                            modifiers: DeclModifierListSyntax {
+                                DeclModifierSyntax(name: .keyword(.public))
+                            },
+                            signature: FunctionSignatureSyntax(
+                                // Se podría hacer trimm de los params
+                                parameterClause: funcDecl.signature.parameterClause
+                            ),
+                            body: CodeBlockSyntax(
+                                statements: CodeBlockItemListSyntax {
+                                    for param in parameterList {
+                                        let stringLit = param.secondName?.trimm ?? param.firstName.trimm
+                                        CodeBlockItemSyntax(
+                                            stringLiteral: "self.\(stringLit.trimm) = \(stringLit.trimm)"
+                                        )
+                                    }
                                 }
                             )
                         )
@@ -109,7 +149,7 @@ public struct EffectStructMacro: PeerMacro {
         )
         return [DeclSyntax(newStructDeclaration)]
     }
-    
+
     private static func buildGenericParameterClause(funcDecl: FunctionDeclSyntax) -> GenericParameterClauseSyntax? {
         let functionParmTypes: [String] = funcDecl.signature.parameterClause.parameters
             .compactMap {
@@ -124,7 +164,7 @@ public struct EffectStructMacro: PeerMacro {
                 leftAngle: existing.leftAngle,
                 parameters: GenericParameterListSyntax(
                     existing.parameters.map { existingParam in
-                        
+
                         let currentParamIsGeneric = functionParmTypes.contains(existingParam.name.text)
                         if currentParamIsGeneric,
                            let existingParamInheritanceComposed = existingParam.inheritedType?.as(CompositionTypeSyntax.self) {
@@ -189,5 +229,16 @@ public struct EffectStructMacro: PeerMacro {
                 )
             )
         }
+    }
+
+    static func extractEquatableParam(
+      from node: AttributeSyntax
+    ) -> Bool {
+        guard let arguments = node.arguments?.as(LabeledExprListSyntax.self),
+              let equatableArgument = arguments.first(where: { $0.label?.text == "equatable" }),
+              let booleanExpression = equatableArgument.expression.as(BooleanLiteralExprSyntax.self) else {
+            return false
+        }
+        return booleanExpression.literal.text == "true"
     }
 }

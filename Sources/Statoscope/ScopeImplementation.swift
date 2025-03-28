@@ -39,7 +39,7 @@ extension ScopeImplementation {
             LOG(.errors, "‼️ Exception on send method: \(error)")
         }
     }
-    
+
     private func logStateAndDiffIfEnabled(_ _updateUsingMiddlewares: () throws -> Void) rethrows {
         if StatoscopeLogger.logEnabled(.stateDiff) {
             let currentState = String(describing: self)
@@ -76,7 +76,7 @@ extension ScopeImplementation {
     internal func LOG(_ level: LogLevel, describing: Any) {
         StatoscopeLogger.LOG(level, prefix: logPrefix, describing: describing)
     }
-    
+
     internal func LOG(_ level: LogLevel, _ string: String) {
         StatoscopeLogger.LOG(level, prefix: logPrefix, string)
     }

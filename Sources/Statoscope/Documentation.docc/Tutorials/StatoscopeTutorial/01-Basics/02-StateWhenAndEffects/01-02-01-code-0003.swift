@@ -31,7 +31,7 @@ final class CloudCounter: ScopeImplementation {
             viewDisplaysTotalCount = remoteCounter.count
         }
     }
-    
+
     private func postNewValueToNetwork(newValue: Int) throws {
         // TODO post the new value to the network
     }

@@ -47,7 +47,7 @@ extension EffectsState {
 }
 
 extension StoreTestPlan {
-    
+
     internal func addWhenStep(_ description: String? = nil, _ step: @escaping (T) throws -> Void) -> Self {
         addStep(Step(type: .when(description), run: step))
     }

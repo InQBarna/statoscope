@@ -44,7 +44,7 @@ final class CloudCounter: ScopeImplementation {
             viewDisplaysTotalCount = remoteCounter.count
         }
     }
-    
+
     private func postNewValueToNetwork(newValue: Int) {
         effectsState.enqueue(
             Network.Effect<DTO>(request: try Network.buildURLRequestPosting(dto: DTO(count: newValue)))

@@ -7,7 +7,6 @@
 
 import Foundation
 import Statoscope
-@_spi(SCT) import Statoscope
 @_spi(SCT) import StatoscopeTesting
 import XCTest
 

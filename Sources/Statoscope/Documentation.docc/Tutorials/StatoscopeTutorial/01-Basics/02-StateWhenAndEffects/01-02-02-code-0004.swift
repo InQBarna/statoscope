@@ -3,12 +3,12 @@ import StatoscopeTesting
 final class CloudCounterTest: XCTestCase {
 
     func testUserFlow() throws {
-        
+
         var expectedNetworkRequest = URLRequest(url: try XCTUnwrap(URL(string: "http://statoscope.com")))
         expectedNetworkRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         expectedNetworkRequest.httpMethod = "POST"
         expectedNetworkRequest.httpBody = try JSONEncoder().encode(DTO(count: 0))
-        
+
         try CloudCounter.GIVEN {
             CloudCounter()
         }

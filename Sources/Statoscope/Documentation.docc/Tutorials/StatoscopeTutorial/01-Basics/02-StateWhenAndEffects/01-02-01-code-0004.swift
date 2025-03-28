@@ -44,7 +44,7 @@ final class CloudCounter: ScopeImplementation {
             viewDisplaysTotalCount = remoteCounter.count
         }
     }
-    
+
     private func postNewValueToNetwork(newValue: Int) throws {
         effectsState.enqueue(
             AnyEffect {

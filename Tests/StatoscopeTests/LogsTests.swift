@@ -13,7 +13,7 @@ import Combine
 
 // swiftlint:disable nesting
 final class LogsTests: XCTestCase {
-    
+
     struct ExpLog: Equatable {
         let level: LogLevel
         let message: String
@@ -22,12 +22,12 @@ final class LogsTests: XCTestCase {
             self.message = message
         }
     }
-    
+
     struct MissingInjectable: Injectable {
         static var defaultValue = LogsTests.MissingInjectable()
         let id: UUID = UUID()
     }
-    
+
     private enum ParentChildImplemented {
         final class Parent: Statostore {
             var loading: Bool = false
@@ -58,7 +58,7 @@ final class LogsTests: XCTestCase {
                 }
             }
         }
-        
+
         final class Child: Statostore {
             var showingChild: Bool = false
             enum When {
@@ -80,7 +80,7 @@ final class LogsTests: XCTestCase {
             }
         }
     }
-    
+
     @available(iOS 16.0, *)
     func testStoreLogs() throws {
         var logs: [ExpLog] = []
@@ -113,7 +113,7 @@ final class LogsTests: XCTestCase {
             """)
         ])
     }
-    
+
     @available(iOS 16.0, *)
     func testChildStoreLogs() throws {
         var logs: [String] = []
@@ -165,7 +165,7 @@ final class LogsTests: XCTestCase {
             """
         ])
     }
-    
+
     private enum PublishedLogs {
         final class WithPublishedProperties: Statostore, ObservableObject {
             @Published var loading: Bool = false
@@ -184,7 +184,7 @@ final class LogsTests: XCTestCase {
             var debugLoading: Bool { loading }
         }
     }
-    
+
     @available(iOS 16.0, *)
     func testPublishedPropertiesLogs() throws {
         var logs: [String] = []
@@ -204,7 +204,7 @@ final class LogsTests: XCTestCase {
             """
         ])
     }
-    
+
     @available(iOS 16.0, *)
     func testPublishedPropertiesLogsWithSink() throws {
         var logs: [String] = []
@@ -229,7 +229,7 @@ final class LogsTests: XCTestCase {
         XCTAssertNotNil(cancellable, "shutting up compiler warnings")
         cancellable = nil
     }
-    
+
     @available(iOS 16.0, *)
     func testStoreWhenAssociatedValueLogs() throws {
         var logs: [String] = []
@@ -249,7 +249,7 @@ final class LogsTests: XCTestCase {
             """
         ])
     }
-    
+
     @available(iOS 16.0, *)
     func testMisingInjectionLogs() throws {
         var logs: [String] = []
@@ -275,7 +275,7 @@ final class LogsTests: XCTestCase {
             """.split(separator: String.newLine)
         )
     }
-    
+
     @available(iOS 16.0, *)
     func testInjectedAddedLog() throws {
         var logs: [String] = []
@@ -298,7 +298,7 @@ final class LogsTests: XCTestCase {
                💉 MissingInjectable
             """.split(separator: String.newLine)
         )
-        
+
         let sut2 = ParentChildImplemented.Parent()
         sut2.send(.navigateToChild)
         sut2.child?.send(.checkMissingInjection)
@@ -314,10 +314,10 @@ final class LogsTests: XCTestCase {
             """.split(separator: String.newLine)
         )
     }
-    
+
     @available(iOS 16.0, *)
     func testDescribeCollections() throws {
-        
+
         final class ScopeWithCollections: Statostore {
             struct DTO {
                 let children: [DTO]
@@ -338,7 +338,7 @@ final class LogsTests: XCTestCase {
                 }
             }
         }
-        
+
         var logs: [String] = []
         let regex: Regex = try Regex("(0x[0-9a-f]*)")
         StatoscopeLogger.logReplacement = { level, log in
@@ -454,10 +454,10 @@ final class LogsTests: XCTestCase {
             ]
         )
     }
-    
+
     @available(iOS 16.0, *)
     func testDescribeEnums() throws {
-        
+
         final class ScopeWithEnums: Statostore {
             struct DTO {
                 let message: String
@@ -483,10 +483,10 @@ final class LogsTests: XCTestCase {
                 case .associatedValues(let dto, let string, let int, let optString):
                     state = .associatedValues(dto, string, label: int, optString)
                 }
-                
+
             }
         }
-        
+
         var logs: [String] = []
         let regex: Regex = try Regex("(0x[0-9a-f]*)")
         StatoscopeLogger.logReplacement = { level, log in
@@ -563,10 +563,10 @@ final class LogsTests: XCTestCase {
             ]
         )
     }
-    
+
     @available(iOS 16.0, *)
     func testInfiniteLogOnPublisherAssign() throws {
-        
+
         final class StoreWithAssignPublisher: Statostore {
             var cancellables: [AnyCancellable] = []
             var myVar: Date = Date(timeIntervalSince1970: 0)
@@ -597,7 +597,7 @@ final class LogsTests: XCTestCase {
                 )
             }
         }
-        
+
         let sut = StoreWithAssignPublisher()
         sut.send(.defaultWhen)
         try XCTAssertEqualDiff([
@@ -648,4 +648,3 @@ final class LogsTests: XCTestCase {
     }
 }
 // swiftlint:enable nesting
-

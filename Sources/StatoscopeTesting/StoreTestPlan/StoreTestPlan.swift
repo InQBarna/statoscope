@@ -25,12 +25,12 @@ internal struct Step<S: ScopeImplementation> {
 }
 
 public class StoreTestPlan<T: ScopeImplementation> {
-    
+
     let given: () throws -> T
     internal var steps: [Step<T>] = []
     internal var forks: [StoreTestPlan<T>] = []
     internal var clearEffectsOnWhen: ClearEffects = .none
-    
+
     private let initLine: UInt
     private let initFile: StaticString
     private let isAFork: Bool
@@ -45,7 +45,7 @@ public class StoreTestPlan<T: ScopeImplementation> {
         steps.append(step)
         return self
     }
-    
+
     func buildLinkedFork(file: StaticString = #file, line: UInt = #line) -> StoreTestPlan<T> {
         let forkedPlan = StoreTestPlan(file: file, line: line, forkingParent: self)
         forks.append(forkedPlan)
@@ -94,15 +94,16 @@ public class StoreTestPlan<T: ScopeImplementation> {
             try childFlow.uncheckedRunTest(file: file, line: line, assertRelease: assertRelease)
         }
     }
-    
+
     deinit {
         guard ransExecuted == 0,
-              type(of: self) == StoreTestPlan<T>.self else {
+              type(of: self) == StoreTestPlan<T>.self,
+              !isAFork else {
             return
         }
         XCTFail("‼️ Don't forget to call runTest() at the end of the test plan ‼️", file: initFile, line: initLine)
     }
-    
+
     public func configure(clearEffectsOnEveryWhenOrEnd: ClearEffects) -> Self {
         self.clearEffectsOnWhen = clearEffectsOnEveryWhenOrEnd
         return self
@@ -122,7 +123,7 @@ public class StoreTestPlan<T: ScopeImplementation> {
             for step in steps {
                 try step.run(sut)
                 switch step.type {
-                case .when(let whenName):
+                case .when:
                     safeSnapshot(sut: sut, name: nil)
                 default:
                     break
@@ -183,7 +184,7 @@ internal extension StoreTestPlan {
         let allScopes: [any ScopeImplementation] = [sut] + sut._allChildScopes()
         allScopes.forEach { scope in
             if nil == takingSnapshotSafeScopes.first(where: { $0.scope === scope }) {
-                scope.addErasedMiddleWare { [weak self] scope, when, forward in
+                scope.addErasedMiddleWare { [weak self] _, when, forward in
                     guard let self else { return }
                     if !self.takingSnapshot {
                         try forward(when)
@@ -218,7 +219,7 @@ public class WithStoreTestPlan<W: ScopeImplementation, S: ScopeImplementation>: 
             fatalError("This is never called")
         }
     }
-    
+
     override func addStep(_ step: Step<W>) -> Self {
         _ = parentPlan.addStep(
             Step(type: step.type) { [keyPath] sut in
@@ -227,16 +228,16 @@ public class WithStoreTestPlan<W: ScopeImplementation, S: ScopeImplementation>: 
         )
         return self
     }
-    
+
     override func buildLinkedFork(file: StaticString = #file, line: UInt = #line) -> WithStoreTestPlan<W, S> {
         let forkedPlan = self.parentPlan.buildLinkedFork(file: file, line: line)
         return forkedPlan.WITH(self.keyPath)
     }
-    
+
     func POP() -> StoreTestPlan<S> {
         return parentPlan
     }
-    
+
     override public func runTest(
         file: StaticString = #file, line: UInt = #line,
         assertRelease: Bool = false
@@ -266,7 +267,7 @@ public class WithOptStoreTestPlan<W: ScopeImplementation, S: ScopeImplementation
             fatalError("This is never called")
         }
     }
-    
+
     override func addStep(_ step: Step<W>) -> Self {
         _ = parentPlan.addStep(
             Step(type: step.type) { [keyPath, file, line] sut in
@@ -281,7 +282,7 @@ public class WithOptStoreTestPlan<W: ScopeImplementation, S: ScopeImplementation
         )
         return self
     }
-        
+
     override func buildLinkedFork(file: StaticString = #file, line: UInt = #line) -> WithOptStoreTestPlan<W, S> {
         let forkedPlan = self.parentPlan.buildLinkedFork(file: file, line: line)
         return forkedPlan.WITH(self.keyPath)
@@ -290,7 +291,7 @@ public class WithOptStoreTestPlan<W: ScopeImplementation, S: ScopeImplementation
     public func POP() -> StoreTestPlan<S> {
         return parentPlan
     }
-    
+
     override public func runTest(
         file: StaticString = #file,
         line: UInt = #line,
