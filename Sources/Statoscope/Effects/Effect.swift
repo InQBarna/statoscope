@@ -45,6 +45,8 @@ public protocol Effect {
     ///
     ///  * returns: An object with the specified type, or throws an error
     func runEffect() async throws -> ResultType
+
+    func _injectNode(_ node: InjectionTreeNode)
 }
 
 public extension Effect {

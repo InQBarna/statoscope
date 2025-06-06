@@ -27,7 +27,8 @@ actor EffectsHandlerImplementation<When: Sendable> {
     }
 
     func triggerNewEffectsState(
-        newSnapshot: EffectsState<When>
+        newSnapshot: EffectsState<When>,
+        injectionTreeNode: InjectionTreeNode?
     ) async throws {
 
         removeCancelledEffectsAndCancelTasks(effects: newSnapshot.cancelledEffects)
@@ -40,17 +41,24 @@ actor EffectsHandlerImplementation<When: Sendable> {
             throw StatoscopeErrors.effectsDisabledForPreviews
         }
 
-        try await runNewEffects(newSnapshot: newSnapshot)
+        try await runNewEffects(
+            newSnapshot: newSnapshot,
+            injectionTreeNode: injectionTreeNode
+        )
     }
 
     private func runNewEffects(
-        newSnapshot: EffectsState<When>
+        newSnapshot: EffectsState<When>,
+        injectionTreeNode: InjectionTreeNode?
     ) async throws {
         var toEnqueueEffects: [(UInt, AnyEffect<When>)] = newSnapshot.enquedEffects
         let currentCount = newSnapshot.snapshotEffects.count
         var enqueued = 0
         while toEnqueueEffects.count > 0 {
-            let (uuid, effect) = toEnqueueEffects.removeFirst()
+            var (uuid, effect) = toEnqueueEffects.removeFirst()
+            if let injectionTreeNode {
+                effect._injectNode(injectionTreeNode)
+            }
             let newCount = currentCount + enqueued
             StatoscopeLogger.LOG(
                 .effects,
