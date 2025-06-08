@@ -160,11 +160,7 @@ final class StatoscopeMacrosTests: XCTestCase {
                     public func runEffect() async throws -> Int {
                         try await c(a: a, for: b, _: value)
                     }
-                    public init(
-                            a: Int,
-                            for b: String,
-                            _ value: Double
-                        ) {
+                    public init(a: Int, for b: String, _ value: Double) {
                         self.a = a
                         self.b = b
                         self.value = value
@@ -427,6 +423,40 @@ final class StatoscopeMacrosTests: XCTestCase {
                     public init(_ callable: Callable, request: Request? = EmptyRequest()) {
                         self.callable = callable
                         self.request = request
+                    }
+                }
+            }
+            """#,
+            macros: testMacros
+        )
+        #else
+        throw XCTSkip("macros are only supported when running tests for the host platform")
+        #endif
+    }
+
+    func testCreateEffectInjectedForEffects() throws {
+        #if canImport(StatoscopeMacros)
+        assertMacroExpansion(
+            #"""
+            enum SomeNamespace {
+                @EffectStruct
+                public static func signIn(@InjectedParam google: Google) async throws -> Profile {
+                    try await google.login()
+                }
+            }
+            """#,
+            expandedSource: #"""
+            enum SomeNamespace {
+                public static func signIn(@InjectedParam google: Google) async throws -> Profile {
+                    try await google.login()
+                }
+
+                public struct SignInEffect: Effect {
+                    @InjectedForEffect var google: Google
+                    public func runEffect() async throws -> Profile {
+                        try await signIn(google: google)
+                    }
+                    public init() {
                     }
                 }
             }

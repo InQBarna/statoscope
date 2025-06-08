@@ -30,6 +30,23 @@ extension SyntaxProtocol {
     }
 }
 
+extension FunctionParameterSyntax {
+    var trimm: Self {
+        self
+        .with(\.firstName, firstName.trimmed)
+        .with(\.secondName, secondName?.trimmed)
+    }
+}
+
+extension AttributeSyntax {
+    static func effectInjection() -> AttributeSyntax {
+        .init(
+            atSign: .atSignToken(),
+            attributeName: IdentifierTypeSyntax(name: .identifier("InjectedForEffect"))
+        )
+    }
+}
+
 public struct EffectStructMacro: PeerMacro {
     public static func expansion<
         Context: MacroExpansionContext,
@@ -58,6 +75,10 @@ public struct EffectStructMacro: PeerMacro {
         let equatableRequested: Bool = extractEquatableParam(from: node)
         let parameterList = funcDecl.signature.parameterClause.parameters
         let newGenericParameterClause = buildGenericParameterClause(funcDecl: funcDecl)
+        let injectedAttr = AttributeSyntax(
+            atSign: .atSignToken(),
+            attributeName: IdentifierTypeSyntax(name: .identifier("InjectedForEffect"))
+        )
         let newStructDeclaration = StructDeclSyntax(
             modifiers: DeclModifierListSyntax {
                 DeclModifierSyntax(name: .keyword(.public))
@@ -75,17 +96,36 @@ public struct EffectStructMacro: PeerMacro {
             memberBlock: MemberBlockSyntax(
                 members: MemberBlockItemListSyntax {
                     for param in parameterList {
-                        MemberBlockItemSyntax(
-                            decl: VariableDeclSyntax(
-                                bindingSpecifier: .keyword(Keyword.let),
-                                bindings: [
-                                    PatternBindingSyntax(
-                                        pattern: IdentifierPatternSyntax(identifier: param.secondName?.trimm ?? param.firstName.trimm),
-                                        typeAnnotation: TypeAnnotationSyntax(type: param.type)
-                                    )
-                                ]
+                        let isInjectedForEffect: Bool = param.isInjectedForEffect(context: context)
+                        if isInjectedForEffect {
+                            MemberBlockItemSyntax(
+                                decl: VariableDeclSyntax(
+                                    attributes: [.attribute(injectedAttr)],
+                                    bindingSpecifier: .keyword(Keyword.var),
+                                    bindings: [
+                                        PatternBindingSyntax(
+                                            pattern: IdentifierPatternSyntax(identifier: param.secondName?.trimm ?? param.firstName.trimm),
+                                            typeAnnotation: TypeAnnotationSyntax(
+                                                colon: .colonToken(),
+                                                type: param.type
+                                            )
+                                        )
+                                    ]
+                                )
                             )
-                        )
+                        } else {
+                            MemberBlockItemSyntax(
+                                decl: VariableDeclSyntax(
+                                    bindingSpecifier: .keyword(Keyword.let),
+                                    bindings: [
+                                        PatternBindingSyntax(
+                                            pattern: IdentifierPatternSyntax(identifier: param.secondName?.trimm ?? param.firstName.trimm),
+                                            typeAnnotation: TypeAnnotationSyntax(type: param.type)
+                                        )
+                                    ]
+                                )
+                            )
+                        }
                     }
                     MemberBlockItemSyntax(
                         decl: FunctionDeclSyntax(
@@ -129,16 +169,27 @@ public struct EffectStructMacro: PeerMacro {
                                 DeclModifierSyntax(name: .keyword(.public))
                             },
                             signature: FunctionSignatureSyntax(
-                                // Se podría hacer trimm de los params
-                                parameterClause: funcDecl.signature.parameterClause
+                                parameterClause: FunctionParameterClauseSyntax(
+                                    leftParen: .leftParenToken(),
+                                    parameters: FunctionParameterListSyntax {
+                                        for param in parameterList {
+                                            if !param.isInjectedForEffect(context: context) {
+                                                param.trimm
+                                            }
+                                        }
+                                    },
+                                    rightParen: .rightParenToken()
+                                )
                             ),
                             body: CodeBlockSyntax(
                                 statements: CodeBlockItemListSyntax {
                                     for param in parameterList {
-                                        let stringLit = param.secondName?.trimm ?? param.firstName.trimm
-                                        CodeBlockItemSyntax(
-                                            stringLiteral: "self.\(stringLit.trimm) = \(stringLit.trimm)"
-                                        )
+                                        if !param.isInjectedForEffect(context: context) {
+                                            let stringLit = param.secondName?.trimm ?? param.firstName.trimm
+                                            CodeBlockItemSyntax(
+                                                stringLiteral: "self.\(stringLit.trimm) = \(stringLit.trimm)"
+                                            )
+                                        }
                                     }
                                 }
                             )
@@ -240,5 +291,16 @@ public struct EffectStructMacro: PeerMacro {
             return false
         }
         return booleanExpression.literal.text == "true"
+    }
+}
+
+extension FunctionParameterSyntax {
+    func isInjectedForEffect(
+        context: some MacroExpansionContext
+    ) -> Bool {
+        return attributes.contains(where: {
+            guard case let .attribute(attr) = $0 else { return false }
+            return attr.attributeName.as(IdentifierTypeSyntax.self)?.name.text == "InjectedParam"
+        })
     }
 }

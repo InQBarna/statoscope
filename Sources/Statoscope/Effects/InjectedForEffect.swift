@@ -1,5 +1,5 @@
 //
-//  InjectionBox.swift
+//  InjectedEffect.swift
 //  Statoscope
 //
 //  Created by Sergi Hernanz on 6/6/25.
@@ -14,18 +14,32 @@ public struct InjectedForEffect<Value: Injectable> {
     public var wrappedValue: Value {
         box.node?._resolve() ?? .defaultValue
     }
-    
-    final class InjectionBox<Value: Injectable> {
+
+    final class InjectionBox<T: Injectable> {
         var node: InjectionTreeNode?
+    }
+}
+
+@propertyWrapper
+public struct InjectedParam<T: Injectable> {
+    public var wrappedValue: T
+    public init(wrappedValue: T) {
+        self.wrappedValue = wrappedValue
+    }
+}
+
+extension InjectedForEffect: Equatable {
+    public static func == (lhs: InjectedForEffect<Value>, rhs: InjectedForEffect<Value>) -> Bool {
+        type(of: lhs) == type(of: rhs)
     }
 }
 
 protocol AnyEffectInjectable {
     mutating func _injectNode(_ node: InjectionTreeNode)
 }
-extension InjectedForEffect: AnyEffectInjectable {
-    public mutating func _injectNode(_ node: InjectionTreeNode) {
-        box.node = node
+extension InjectedForEffect.InjectionBox: AnyEffectInjectable {
+    public func _injectNode(_ node: InjectionTreeNode) {
+        self.node = node
     }
 }
 extension Effect {

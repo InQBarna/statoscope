@@ -68,11 +68,11 @@ extension ScopeImplementation {
         let copiedSnapshot = effectsState
         effectsState = EffectsState(snapshotEffects: effectsState.currentRequestedEffects)
         ensureSetupDeinitObserver()
+        let injectionTreenode = self as? InjectionTreeNode
+        if nil == injectionTreenode {
+            LOG(.errors, "‼️ InjectionTreeNode not found for effects")
+        }
         Task { [weak self] in
-            let injectionTreenode = self as? InjectionTreeNode
-            if nil == injectionTreenode {
-                LOG(.errors, "‼️ InjectionTreeNode not found for effects")
-            }
             try await self?.effectsHandler.triggerNewEffectsState(
                 newSnapshot: copiedSnapshot,
                 injectionTreeNode: self as? InjectionTreeNode

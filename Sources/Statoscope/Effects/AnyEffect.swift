@@ -27,7 +27,7 @@ public struct AnyEffect<ResultType: Sendable>:
 
     /// Creates an anonymous effect
     public init(_ runner: @escaping () async throws -> ResultType) {
-        self.init(effect: EffectBox(runner: runner, _injectNode: { }))
+        self.init(effect: EffectBox(runner: runner, _privateInjectNode: { }))
     }
 
     /// Debug description provides info about the pristine Effect
@@ -37,7 +37,7 @@ public struct AnyEffect<ResultType: Sendable>:
 
     private struct EffectBox<BoxResultType>: Effect, CustomDebugStringConvertible {
         let runner: () async throws -> BoxResultType
-        let _injectNode: () -> Void
+        let _privateInjectNode: () -> Void
         func runEffect() async throws -> BoxResultType {
             try await runner()
         }
@@ -45,7 +45,7 @@ public struct AnyEffect<ResultType: Sendable>:
             "AnonymousEffect(closure: \(String(describing: runner)))"
         }
         func _injectNode(_ node: any InjectionTreeNode) {
-            _injectNode(node)
+            _privateInjectNode()
         }
     }
 
