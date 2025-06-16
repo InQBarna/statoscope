@@ -72,7 +72,8 @@ public class StoreTestPlan<T: ScopeImplementation> {
     private var ransExecuted = 0
     public func runTest(
         file: StaticString = #file, line: UInt = #line,
-        assertRelease: Bool = false
+        assertRelease: Bool = false,
+        assertNoPendingEffects: Bool = true
     ) throws {
         guard ransExecuted == 0 else {
             return XCTFail("‼️ Don't call runTest() more than once ‼️", file: file, line: line)
@@ -80,15 +81,16 @@ public class StoreTestPlan<T: ScopeImplementation> {
         guard !isAFork else {
             return XCTFail("‼️ Don't call runTest() on a forked StoreTestPlan ‼️", file: file, line: line)
         }
-        try uncheckedRunTest(file: file, line: line, assertRelease: assertRelease)
+        try uncheckedRunTest(file: file, line: line, assertRelease: assertRelease, assertNoPendingEffects: assertNoPendingEffects)
     }
 
     private func uncheckedRunTest(
         file: StaticString = #file, line: UInt = #line,
-        assertRelease: Bool = false
+        assertRelease: Bool = false,
+        assertNoPendingEffects: Bool = true
     ) throws {
         ransExecuted = ransExecuted + 1
-        try runAllSteps(file: file, line: line, assertRelease: assertRelease)
+        try runAllSteps(file: file, line: line, assertRelease: assertRelease, assertNoPendingEffects: assertNoPendingEffects)
         try forks.forEach { childFlow in
             childFlow.snapshot = snapshot
             try childFlow.uncheckedRunTest(file: file, line: line, assertRelease: assertRelease)
@@ -112,7 +114,8 @@ public class StoreTestPlan<T: ScopeImplementation> {
     private func runAllSteps(
         file: StaticString,
         line: UInt,
-        assertRelease: Bool
+        assertRelease: Bool,
+        assertNoPendingEffects: Bool
     ) throws {
         func runner(
             file: StaticString,
@@ -130,7 +133,9 @@ public class StoreTestPlan<T: ScopeImplementation> {
                 }
             }
             sut.clear(clearEffectsOnWhen, scope: sut)
-            sut.assertNoDeepEffects(file: file, line: line)
+            if assertNoPendingEffects {
+                sut.assertNoDeepEffects(file: file, line: line)
+            }
             return sut
         }
         if assertRelease {
@@ -240,10 +245,11 @@ public class WithStoreTestPlan<W: ScopeImplementation, S: ScopeImplementation>: 
 
     override public func runTest(
         file: StaticString = #file, line: UInt = #line,
-        assertRelease: Bool = false
+        assertRelease: Bool = false,
+        assertNoPendingEffects: Bool = true
     ) throws {
         try POP()
-            .runTest(file: file, line: line, assertRelease: assertRelease)
+            .runTest(file: file, line: line, assertRelease: assertRelease, assertNoPendingEffects: assertNoPendingEffects)
     }
 }
 
@@ -272,8 +278,7 @@ public class WithOptStoreTestPlan<W: ScopeImplementation, S: ScopeImplementation
         _ = parentPlan.addStep(
             Step(type: step.type) { [keyPath, file, line] sut in
                 guard let childScope: W = sut[keyPath: keyPath] else {
-                    XCTFail("WITH: Non existing model in first parameter: error unwrapping expecte non-nil subscope" +
-                            " \(type(of: W.self)) : \(type(of: W.self))",
+                    XCTFail("WITH: Error unwrapping \(keyPath): \(W.self)",
                             file: file, line: line)
                     throw TestPlanErrors.unwrappingNonOptionalSubscope
                 }
@@ -295,8 +300,9 @@ public class WithOptStoreTestPlan<W: ScopeImplementation, S: ScopeImplementation
     override public func runTest(
         file: StaticString = #file,
         line: UInt = #line,
-        assertRelease: Bool = false
+        assertRelease: Bool = false,
+        assertNoPendingEffects: Bool = true
     ) throws {
-        try parentPlan.runTest(file: file, line: line, assertRelease: assertRelease)
+        try parentPlan.runTest(file: file, line: line, assertRelease: assertRelease, assertNoPendingEffects: assertNoPendingEffects)
     }
 }
