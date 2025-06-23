@@ -55,7 +55,7 @@ final class InjectionStoreTests: XCTestCase {
         let sut = InjectionStore()
         XCTAssertThrowsError(try sut.resolve() as InjectableObject)
     }
-    
+
     func testResolveThrowingError() throws {
         class InjectableObject {
             let param: String

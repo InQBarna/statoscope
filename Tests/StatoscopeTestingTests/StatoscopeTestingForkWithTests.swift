@@ -43,7 +43,7 @@ private final class SampleScope:
 private final class SampleChildScope:
     Statostore,
     ObservableObject {
-    
+
     @Published var viewShowsLoadingMessage: String?
     @Subscope var grandson: SampleGrandsonScope? = SampleGrandsonScope()
 
@@ -62,9 +62,9 @@ private final class SampleChildScope:
 private final class SampleGrandsonScope:
     Statostore,
     ObservableObject {
-    
+
     @Published var viewShowsLoadingMessage: String?
-    
+
     enum When {
         case defaultWhen
     }
@@ -161,7 +161,7 @@ final class StatoscopeTestingForkWithTests: XCTestCase {
 
         wait(for: [mainCalled, forkCalled], timeout: 1)
     }
-    
+
     func testForkSecPathWithAndNoPop() throws {
         let forkCalled = expectation(description: "forkCalled")
         let mainCalled = expectation(description: "mainCalled")
@@ -189,7 +189,7 @@ final class StatoscopeTestingForkWithTests: XCTestCase {
 
         wait(for: [mainCalled, forkCalled], timeout: 1)
     }
-    
+
     func testForkMainPathDoubleWith() throws {
         let forkCalled = expectation(description: "forkCalled")
         let mainCalled = expectation(description: "mainCalled")
@@ -217,7 +217,7 @@ final class StatoscopeTestingForkWithTests: XCTestCase {
 
         wait(for: [mainCalled, forkCalled], timeout: 1)
     }
-    
+
     func testForkSecPathDoubleWith() throws {
         let forkCalled = expectation(description: "forkCalled")
         let mainCalled = expectation(description: "mainCalled")
@@ -245,7 +245,7 @@ final class StatoscopeTestingForkWithTests: XCTestCase {
 
         wait(for: [mainCalled, forkCalled], timeout: 1)
     }
-    
+
     func testWithBeforeForkSecPathDoubleWith() throws {
         let forkCalled = expectation(description: "forkCalled")
         let mainCalled = expectation(description: "mainCalled")

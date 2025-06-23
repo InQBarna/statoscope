@@ -13,9 +13,9 @@ import StatoscopeTesting
 private final class SampleScope:
     Statostore,
     ObservableObject {
-    
+
     let childDepth: Int
-    
+
     init(childDepth: Int) {
         self.childDepth = childDepth
     }
@@ -65,7 +65,7 @@ final class StatoscopeTestingSnapshot: XCTestCase {
         .runTest()
         wait(for: [snapshotCalled], timeout: 2)
     }
-    
+
     func testSnapshotNotCallingOnAppear() throws {
         let snapshotCalled = expectation(description: "snapshot called")
         snapshotCalled.assertForOverFulfill = false
@@ -80,7 +80,7 @@ final class StatoscopeTestingSnapshot: XCTestCase {
         .runTest()
         wait(for: [snapshotCalled], timeout: 2)
     }
-    
+
     func testSnapshotNotCallingOnAppearOnChildren() throws {
         let snapshotCalled = expectation(description: "snapshot called")
         snapshotCalled.assertForOverFulfill = false
@@ -115,7 +115,7 @@ final class StatoscopeTestingSnapshot: XCTestCase {
         .runTest()
         wait(for: [snapshotCalled], timeout: 2)
     }
-    
+
     func TODO_testWithTestSnapshotOnChild() throws {
         let snapshotCalled = expectation(description: "snapshot called")
         snapshotCalled.assertForOverFulfill = false

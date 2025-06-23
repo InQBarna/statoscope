@@ -43,7 +43,7 @@ public struct StatoscopeLogger {
 
     /// Overwrite statoscope logger method with this global variable
     public static var logReplacement: ((LogLevel, String) -> Void)?
-    
+
     private static var loggers: [LogLevel: OSLog] = Dictionary(uniqueKeysWithValues: LogLevel
         .allCases
         .map {
@@ -67,7 +67,7 @@ public struct StatoscopeLogger {
         return logReplacement != nil ||
             Self.logLevel.contains(level)
     }
-    
+
     static func LOG(_ level: LogLevel, prefix: String, describing: Any) {
         let safePrefix = prefix.count == 0 ? "" : prefix + " "
         if let logReplacement {
@@ -80,7 +80,7 @@ public struct StatoscopeLogger {
             }
         }
     }
-    
+
     static func LOG(_ level: LogLevel, prefix: String, _ string: @autoclosure () -> String) {
         let safePrefix = prefix.count == 0 ? "" : prefix + " "
         if let logReplacement {
@@ -106,7 +106,7 @@ public extension CollectionDifference.Change {
 }
 
 extension ScopeImplementation {
-    
+
     func logStateDiff(
         previousDescribingSelf: String,
         newDescribingSelf: String

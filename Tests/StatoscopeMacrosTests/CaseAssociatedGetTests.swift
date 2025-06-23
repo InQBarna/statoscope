@@ -33,7 +33,7 @@ final class CaseAssociatedGetTests: XCTestCase {
                 case associatedWithSomeLabels(Bool, intLabel: Int, String)
                 case associatedWithLabels(boolLabel: Bool, intLabel: Int, stringLabel: String)
                 case nonAssociatedCase
-            
+
                 var associatedBool: Bool? {
                     switch self {
                         case .associatedBool(let associatedValue):
@@ -42,7 +42,7 @@ final class CaseAssociatedGetTests: XCTestCase {
                         return nil
                     }
                 }
-            
+
                 var associatedTuple: (Bool, Int, String)? {
                     switch self {
                         case .associatedTuple(let param0, let param1, let param2):
@@ -51,7 +51,7 @@ final class CaseAssociatedGetTests: XCTestCase {
                         return nil
                     }
                 }
-            
+
                 var associatedObject: SomeObjectType? {
                     switch self {
                         case .associatedObject(let associatedValue):
@@ -60,7 +60,7 @@ final class CaseAssociatedGetTests: XCTestCase {
                         return nil
                     }
                 }
-            
+
                 var associatedWithSomeLabels: (Bool, intLabel: Int, String)? {
                     switch self {
                         case .associatedWithSomeLabels(let param0, let intLabel, let param2):

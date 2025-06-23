@@ -68,6 +68,10 @@ public struct EffectsState<When: Sendable>: Sendable {
     ///  )
     ///  ```
     public mutating func enqueue<E: Effect>(_ effect: E) where E.ResultType == When {
+        guard _updating else {
+            assertionFailure("Effects can only be enqueued from within an update")
+            return
+        }
         let currentMax = currentRequestedEffects.map(\.0).max() ?? 0
         let uuid = currentMax + 1
         enquedEffects.append((uuid, AnyEffect(effect: effect)))
@@ -127,7 +131,7 @@ public struct EffectsState<When: Sendable>: Sendable {
         enquedEffects.removeAll()
         cancelledEffects.removeAll()
     }
-    
+
     /// Erased list of effects expected to be ongoing. They may be already triggered or pending.
     /// Their type information erased (for testing purposes).
     ///
@@ -136,13 +140,13 @@ public struct EffectsState<When: Sendable>: Sendable {
     @_spi(SCT) public var _erasedEffects: [AnyEffect<When>] {
         currentRequestedEffects.map { $0.1 }
     }
-    
+
     /// List of effects expected to be ongoing. With their uuids (for testing purposes)
     ///
     /// - Note: This property is marked with a leading underscore to indicate that it is intended for private use
     /// within the StatoscopeTesting library and should not be used in production code.
-    // TODO: renombrar ó replantear métodos reset y este
     @_spi(SCT) public mutating func _cancelOlderEffect() throws -> AnyEffect<When> {
+        // TODO: renombrar ó replantear métodos reset y este
         guard let olderEffect = currentRequestedEffects.min(by: { lhs, rhs in lhs.0 < rhs.0 }) else {
             throw StatoscopeErrors.effectNotFound
         }
@@ -157,4 +161,6 @@ public struct EffectsState<When: Sendable>: Sendable {
         cancelledEffects.removeAll()
         return olderEffect.1
     }
+
+    var _updating: Bool = false
 }

@@ -81,7 +81,7 @@ public protocol InjectionTreeNode: InjectionTreeNodeProtocol, AnyObject {
 }
 
 public extension InjectionTreeNode {
-    
+
     var _parentNode: InjectionTreeNodeProtocol? {
         get {
             weakParent?.anyLink
@@ -90,7 +90,7 @@ public extension InjectionTreeNode {
             weakParent?.anyLink = InjectionTreeNodeBox.map(expr: newValue)
         }
     }
-    
+
     var _keyPathToSelfOnParent: AnyKeyPath? {
         get {
             weakParent?._keyPathToSelfOnParent
@@ -103,7 +103,7 @@ public extension InjectionTreeNode {
         }
     }
 }
-    
+
 @_spi(SCT) public extension InjectionTreeNode {
     /// Searches and returns the requested type inside the injection store or up to the injection tree
     ///
@@ -139,7 +139,8 @@ public extension InjectionTreeNode {
                 appendingLog +
                 ": \(T.self)" +
                 .newLine +
-                "⚠️ Please note Injected properties from ancestor scopes can't be accessed until Scope is assigned to a Subscope property wrapper" +
+                "⚠️ Please note Injected properties from ancestor scopes can't be accessed " +
+                "until Scope is assigned to a Subscope property wrapper" +
                 .newLine +
                 .newLine +
                 "🌳" +
@@ -148,12 +149,12 @@ public extension InjectionTreeNode {
         )
         throw NoInjectedValueFound(T.self, injectionTreeDescription: self.rootTreeDescription())
     }
-    
+
     /// Returns the root ancestor of the inection tree node
     @_spi(SCT) var _rootNode: InjectionTreeNodeProtocol? {
         root
     }
-    
+
     /// Returns the descendants in the injection tree node
     @_spi(SCT) var _childrenNodes: [InjectionTreeNodeProtocol] {
         children
@@ -165,7 +166,7 @@ public extension InjectionTreeNode {
 }
 
 public extension InjectionTreeNode {
-    
+
     @discardableResult
     func injectObject<T>(_ obj: T) -> Self {
         injectionStore.registerValue(obj)
@@ -234,12 +235,19 @@ extension InjectionTreeNode {
         assignChildAndCleanupChain(value, keyPath: keyPath)
     }
 
-    func assignChildOnPropertyWrapperSet<Value: InjectionTreeNodeProtocol>(_ value: Value?, keyPath: AnyKeyPath, isOptional: Bool) {
+    func assignChildOnPropertyWrapperSet<Value: InjectionTreeNodeProtocol>(
+        _ value: Value?,
+        keyPath: AnyKeyPath,
+        isOptional: Bool
+    ) {
         if isOptional, value?._parentNode != nil {
             (value as? InjectionTreeNode ?? self).logInjectionTree()
             return
         }
-        assignChildAndCleanupChain(value, keyPath: keyPath) { [weak objValue = value as? InjectionTreeNode, weak self] in
+        assignChildAndCleanupChain(
+            value,
+            keyPath: keyPath
+        ) { [weak objValue = value as? InjectionTreeNode, weak self] in
             (objValue ?? self)?.logInjectionTree()
         }
     }
@@ -321,7 +329,7 @@ extension InjectionTreeNode {
             }
         return [[selfAndDepsDescription], childTree].flatMap { $0 }
     }
-        
+
     internal func logInjectionTree() {
         StatoscopeLogger.LOG(
             .injection,

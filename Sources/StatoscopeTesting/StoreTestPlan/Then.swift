@@ -14,7 +14,7 @@ extension StoreTestPlan {
     internal func addThenStep(_ step: @escaping (T) throws -> Void) -> Self {
         addStep(Step(type: .then, run: step))
     }
-    
+
     @discardableResult
     public func THEN(
         _ checker: @escaping (_ sut: T) throws -> Void
@@ -34,7 +34,7 @@ extension StoreTestPlan {
             try checker(childScope)
         }
     }
-    
+
     @discardableResult
     public func THEN<S>(
         _ keyPath: KeyPath<T, S?>,
@@ -60,7 +60,15 @@ extension StoreTestPlan {
     ) throws -> Self {
         addThenStep { sut in
             if sut[keyPath: keyPath] != expectedValue {
-                XCTFail("[\(keyPath): '\(sut[keyPath: keyPath])' != '\(expectedValue)']", file: file, line: line)
+                // TODO: decide whether to use equalDiff or just !=
+                XCTFail(
+                    "[\(keyPath): \n" + (
+                        try equalDiff(expected: expectedValue, asserted: sut[keyPath: keyPath])
+                    ) + "\n]",
+                    file: file,
+                    line: line
+                )
+                // XCTFail("[\(keyPath): '\(sut[keyPath: keyPath])' != '\(expectedValue)']", file: file, line: line)
             }
         }
     }

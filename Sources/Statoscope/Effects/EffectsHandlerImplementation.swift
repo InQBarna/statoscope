@@ -27,7 +27,8 @@ actor EffectsHandlerImplementation<When: Sendable> {
     }
 
     func triggerNewEffectsState(
-        newSnapshot: EffectsState<When>
+        newSnapshot: EffectsState<When>,
+        injectionTreeNode: InjectionTreeNode?
     ) async throws {
 
         removeCancelledEffectsAndCancelTasks(effects: newSnapshot.cancelledEffects)
@@ -40,17 +41,31 @@ actor EffectsHandlerImplementation<When: Sendable> {
             throw StatoscopeErrors.effectsDisabledForPreviews
         }
 
+        try await runNewEffects(
+            newSnapshot: newSnapshot,
+            injectionTreeNode: injectionTreeNode
+        )
+    }
+
+    private func runNewEffects(
+        newSnapshot: EffectsState<When>,
+        injectionTreeNode: InjectionTreeNode?
+    ) async throws {
         var toEnqueueEffects: [(UInt, AnyEffect<When>)] = newSnapshot.enquedEffects
         let currentCount = newSnapshot.snapshotEffects.count
         var enqueued = 0
         while toEnqueueEffects.count > 0 {
-            let (uuid, effect) = toEnqueueEffects.removeFirst()
-            let newCount = currentCount + enqueued
-            if newCount > 1 {
-                StatoscopeLogger.LOG(.effects, prefix: logPrefix, "🪃 ↗ [\(uuid)] (x\(newCount))\t\(describeObject(effect))")
-            } else {
-                StatoscopeLogger.LOG(.effects, prefix: logPrefix, "🪃 ↗ [\(uuid)] \t\(describeObject(effect))")
+            var (uuid, effect) = toEnqueueEffects.removeFirst()
+            if let injectionTreeNode {
+                effect._injectNode(injectionTreeNode)
             }
+            let newCount = currentCount + enqueued
+            StatoscopeLogger.LOG(
+                .effects,
+                prefix: logPrefix,
+                newCount > 1 ? "🪃 ↗ [\(uuid)] (x\(newCount))\t\(describeObject(effect))" :
+                    "🪃 ↗ [\(uuid)] \t\(describeObject(effect))"
+            )
             enqueued += 1
             let task = await buildEffectTask(logPrefix: logPrefix, uuid: uuid, effect: effect)
             runningTasks[uuid] = task
@@ -62,14 +77,23 @@ actor EffectsHandlerImplementation<When: Sendable> {
                 case .success(let when):
                     guard !Task.isCancelled else {
                         assertionFailure("Can we ever get here ? I don't think so. Delete if never fails?")
-                        StatoscopeLogger.LOG(.effects, prefix: logPrefix,
-                                             "🪃 🚫 [\(uuid)] CANCELLED (right before sending result)\n\(describeObject(effect))")
+                        StatoscopeLogger.LOG(
+                            .effects,
+                            prefix: logPrefix,
+                            "🪃 🚫 [\(uuid)] CANCELLED (right before sending result)\n" +
+                            describeObject(effect)
+                        )
                         throw CancellationError()
                     }
                     effectCompleted(uuid, effect, when)
                 case .failure(let error):
-                    StatoscopeLogger.LOG(.effects, prefix: logPrefix,
-                                         "🪃 💥 [\(uuid)] Unhandled throw (use mapToResult to handle)\n \(describeObject(effect))\nError: \(error).")
+                    StatoscopeLogger.LOG(
+                        .effects,
+                        prefix: logPrefix,
+                        "🪃 💥 [\(uuid)] Unhandled throw (use mapToResult to handle)\n" +
+                        describeObject(effect) +
+                        "\nError: \(error)."
+                    )
                     effectCompleted(uuid, effect, nil)
                 }
             }
@@ -132,7 +156,11 @@ actor EffectsHandlerImplementation<When: Sendable> {
         requestedEffects
             .map { ($0.0, $0.1.pristine) }
             .forEach { effect in
-                StatoscopeLogger.LOG(.effects, prefix: logPrefix, "🪃 ✋ [\(effect.0)] CANCELLING\n\(describeObject(effect))")
+                StatoscopeLogger.LOG(
+                    .effects,
+                    prefix: logPrefix,
+                    "🪃 ✋ [\(effect.0)] CANCELLING\n\(describeObject(effect))"
+                )
             }
         requestedEffects.removeAll()
         cancelAllTasks()

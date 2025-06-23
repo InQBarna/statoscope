@@ -13,7 +13,7 @@ class NewsFeedTests: XCTestCase {
                 )
             ]
         )
-        
+
         try NewsFeedList.GIVEN {
             NewsFeedList()
         }

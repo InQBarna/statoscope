@@ -93,7 +93,7 @@ class EffectsPristineEqualsTests: XCTestCase {
         // Can't compare both effects
         // XCTAssert(anonymousEffect1.pristineEquals(anonymousEffect2))
     }
-    
+
     func testPristineIs() {
         let effect1Mapped = Effect1(param1: "param1")
             .map({ $0 + "-appended" })
@@ -113,7 +113,7 @@ class EffectsPristineEqualsTests: XCTestCase {
 }
 
 class EffectsRunBlockCall: XCTestCase {
-    
+
     func testAnonymousEffectsRun() async throws {
         let exp = expectation(description: "Effect ran")
         let anonymousEffect1 = AnyEffect {
@@ -125,7 +125,7 @@ class EffectsRunBlockCall: XCTestCase {
         await self.fulfillment(of: [exp], timeout: 1.0)
         XCTAssertEqual(res, "result")
     }
-    
+
     private struct FailableEffect: Effect, Equatable {
         let fail: Bool
         func runEffect() async throws -> String {
@@ -137,9 +137,9 @@ class EffectsRunBlockCall: XCTestCase {
             }
         }
     }
-    
+
     private struct MyError: Error, Equatable { }
-    
+
     func testMapToError() async throws {
         let exp = expectation(description: "mapToError called")
         let effect = FailableEffect(fail: true)
@@ -151,7 +151,7 @@ class EffectsRunBlockCall: XCTestCase {
         await fulfillment(of: [exp], timeout: 1.0)
         XCTAssertEqual(result, .failure(MyError()))
     }
-    
+
     func testMapToErrorSuccess() async throws {
         let exp = expectation(description: "mapToError not called")
         exp.isInverted = true
@@ -164,7 +164,7 @@ class EffectsRunBlockCall: XCTestCase {
         await fulfillment(of: [exp], timeout: 0.1)
         XCTAssertEqual(result, .success("result"))
     }
-    
+
     func testMapToResult() async throws {
         let effect = FailableEffect(fail: true)
             .mapToResult()
@@ -174,7 +174,7 @@ class EffectsRunBlockCall: XCTestCase {
         case .failure(let error): XCTAssert(error is InvalidStateError)
         }
     }
-    
+
     func testMapToResultSuccess() async throws {
         let effect = FailableEffect(fail: false)
             .mapToResult()
@@ -184,7 +184,7 @@ class EffectsRunBlockCall: XCTestCase {
         default: break
         }
     }
-    
+
     private struct FailableEffectTyped: Effect, Equatable {
         enum FailType {
             case controlledError
@@ -203,21 +203,21 @@ class EffectsRunBlockCall: XCTestCase {
             }
         }
     }
-    
+
     private enum MyErrorTyped: EffectError, Equatable {
         case unknown
         case controlledError
-        
+
         static var unknownError: MyErrorTyped = .unknown
     }
-    
+
     func testMapToErrorTyped() async throws {
         let effect = FailableEffectTyped(fail: .controlledError)
             .mapToResultWithErrorType(MyErrorTyped.self)
         let result = try await effect.runEffect()
         XCTAssertEqual(result, .failure(MyErrorTyped.controlledError))
     }
-    
+
     func testMapToErrorTypedUnexpected() async throws {
         let effect = FailableEffectTyped(fail: .unexpectedError)
             .mapToResultWithErrorType(MyErrorTyped.self)
@@ -225,7 +225,7 @@ class EffectsRunBlockCall: XCTestCase {
         XCTAssertEqual(result, .failure(MyErrorTyped.unknown))
         XCTAssertEqual(result, .failure(MyErrorTyped.unknownError))
     }
-    
+
     func testMapToErrorTypedSuccess() async throws {
         let effect = FailableEffectTyped(fail: nil)
             .mapToResultWithErrorType(MyErrorTyped.self)
@@ -262,7 +262,7 @@ class EffectPristineCompletesOrFailsTests: XCTestCase {
         let result = try effectA._pristineCompletes("fakeDone")
         XCTAssertEqual("fakeDone", result)
     }
-    
+
     func testPristineFails() async throws {
         let effectA = Effect1(param: "param1")
             .mapToResultWithError(EquatableError.init)

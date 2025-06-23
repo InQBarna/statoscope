@@ -14,7 +14,7 @@ private final class SampleScope:
     Statostore,
     ObservableObject {
     let childDepth: Int
-    
+
     init(childDepth: Int) {
         self.childDepth = childDepth
         self.atNonOptChild = NonOptSampleScope()
@@ -53,7 +53,7 @@ private struct SampleView: View {
 }
 
 final class StatoscopeTestingRunTests: XCTestCase {
-    
+
     func testRunTestsForgotten() throws {
         XCTExpectFailure("GIVEN should fail if runTest is not called at the end")
         try SampleScope.GIVEN {
@@ -62,7 +62,7 @@ final class StatoscopeTestingRunTests: XCTestCase {
         .WHEN(.navigateChild)
         .THEN_NotNil(\.atChild)
     }
-    
+
     func testRunTestsCalledTwice() throws {
         XCTExpectFailure("GIVEN should fail if runTest is called twice")
         let plan = StoreTestPlan {
@@ -86,7 +86,7 @@ final class StatoscopeTestingRunTests: XCTestCase {
         .POP()
         .THEN(\.childDepth, equals: 0)
     }
-    
+
     func testRunTestsCalledOnWith() throws {
         try SampleScope.GIVEN {
             SampleScope(childDepth: 0)
@@ -96,7 +96,7 @@ final class StatoscopeTestingRunTests: XCTestCase {
         .THEN(\.childDepth, equals: 1)
         .runTest()
     }
-    
+
     func testRunTestsForgottenWithNonOptWith() throws {
         XCTExpectFailure("GIVEN should fail if runTest is not called at the end")
         SampleScope.GIVEN {
@@ -104,7 +104,7 @@ final class StatoscopeTestingRunTests: XCTestCase {
         }
         .WITH(\.atNonOptChild)
     }
-    
+
     func testRunTestsCalledOnNonOptWith() throws {
         try SampleScope.GIVEN {
             SampleScope(childDepth: 0)

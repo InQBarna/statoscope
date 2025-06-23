@@ -14,7 +14,10 @@ import UIKit
 
 extension StoreTestPlan {
 
-    public func configureViewSnapshot<V: View>(_ test: XCTestCase, _ block: @escaping (T) -> V) -> Self {
+    public func configureViewSnapshot<V: View>(
+        _ test: XCTestCase,
+        _ block: @escaping (T) -> V
+    ) -> Self {
 #if canImport(UIKit)
         snapshot = { sut, name in
             let screenshot = block(sut).asImage()
@@ -24,6 +27,24 @@ extension StoreTestPlan {
                 attachment.name = name
             }
             test.add(attachment)
+        }
+#elseif canImport(AppKit)
+        snapshot = { sut, name in
+            let view = block(sut)
+            let image = NSImage(size: CGSize(width: 300, height: 300)) // or your size
+            let hostingView = NSHostingView(rootView: view)
+            hostingView.frame = NSRect(origin: .zero, size: image.size)
+            
+            let rep = hostingView.bitmapImageRepForCachingDisplay(in: hostingView.bounds)!
+            hostingView.cacheDisplay(in: hostingView.bounds, to: rep)
+            image.addRepresentation(rep)
+            
+            if let tiffData = image.tiffRepresentation {
+                let attachment = XCTAttachment(data: tiffData, uniformTypeIdentifier: "public.tiff")
+                attachment.lifetime = .keepAlways
+                if let name { attachment.name = name }
+                test.add(attachment)
+            }
         }
 #endif
         return self

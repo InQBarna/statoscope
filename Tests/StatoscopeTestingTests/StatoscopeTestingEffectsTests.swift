@@ -148,7 +148,7 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         .THEN_NoEffects()
         .runTest()
     }
-    
+
     func testNoEffectsFailsIfExisting() throws {
         XCTExpectFailure("THEN_NoEffects should fail if there are effects")
         try MyScope.GIVEN {
@@ -158,7 +158,7 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         .THEN_NoEffects()
         .runTest()
     }
-    
+
     func testNoEffectsChild() throws {
         try MyScope.GIVEN {
             MyScope()
@@ -167,7 +167,7 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         .THEN_NoEffects(\.child)
         .runTest()
     }
-    
+
     func testNoEffectsChildFailsIfExisting() throws {
         XCTExpectFailure("THEN_NoEffects on subscope should fail if there are effects")
         try MyScope.GIVEN {
@@ -178,7 +178,7 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         .THEN_NoEffects(\.child)
         .runTest()
     }
-    
+
     func testNoEffectsChildFailsIfChildNil() throws {
         XCTExpectFailure(
             "THEN_NoEffects on subscope should fail if unwrap fails",
@@ -192,7 +192,7 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         .THEN_NoEffects(\.child)
         .runTest()
     }
-    
+
     func testThenEnqueued() throws {
         try MyScope.GIVEN {
             MyScope()
@@ -204,7 +204,7 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         )
         .runTest()
     }
-    
+
     func testThenEnqueuedFailsIfNoExisting() throws {
         XCTExpectFailure("THEN_Enqueued should fail if there are effects")
         try MyScope.GIVEN {
@@ -230,7 +230,7 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         )
         .runTest()
     }
-    
+
     func testThenEnqueuedOnOptSubscope() throws {
         try MyScope.GIVEN {
             MyScope()
@@ -244,7 +244,7 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         )
         .runTest()
     }
-    
+
     func testThenEnqueuedOnOptSubscopeFailsIfNoExisting() throws {
         XCTExpectFailure("THEN_Enqueued should fail if there are effects")
         try MyScope.GIVEN {
@@ -257,7 +257,7 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         )
         .runTest()
     }
-    
+
     func testThenEnqueuedOnOptSubscopeFailsIfSubscopeNil() throws {
         XCTExpectFailure("THEN_Enqueued should fail if there are effects")
         try MyScope.GIVEN {
@@ -269,7 +269,7 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         )
         .runTest()
     }
-    
+
     func testThenEnqueuedOnSubscope() throws {
         try MyScope.GIVEN {
             MyScope()
@@ -283,7 +283,7 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         )
         .runTest()
     }
-    
+
     func testThenEnqueuedOnSubscopeFailsIfNoExisting() throws {
         XCTExpectFailure("THEN_Enqueued should fail if there are effects")
         try MyScope.GIVEN {
@@ -296,7 +296,7 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         )
         .runTest()
     }
-    
+
     func testThenNoEnqueued() throws {
         try MyScope.GIVEN {
             MyScope()
@@ -304,7 +304,7 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         .THEN_NoEnquedEffect(MyEffect<String>.self)
         .runTest()
     }
-    
+
     func testThenNoEnqueuedFailsIfExisting() throws {
         XCTExpectFailure("THEN_NoEnqueued should fail if there are effects")
         try MyScope.GIVEN {
@@ -314,7 +314,7 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         .THEN_NoEnquedEffect(MyEffect<String>.self)
         .runTest()
     }
-    
+
     func testThenNoEnqueuedHavingManyTypes() throws {
         try MyScope.GIVEN {
             MyScope()
@@ -324,7 +324,7 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         .THEN_NoEnquedEffect(MyOtherEffect.self)
         .runTest()
     }
-    
+
     func testThenNoEnqueuedOnSubscope() throws {
         try MyScope.GIVEN {
             MyScope()
@@ -333,7 +333,7 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         .THEN_NoEnquedEffect(\.child, MyEffect<String>.self)
         .runTest()
     }
-    
+
     func testThenNoEnqueuedFailsIfExistingOnSubscope() throws {
         XCTExpectFailure("THEN_NoEnqueued should fail if there are effects")
         try MyScope.GIVEN {
@@ -344,7 +344,7 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         .THEN_NoEnquedEffect(\.child, MyEffect<String>.self)
         .runTest()
     }
-    
+
     func testThenNoEnqueuedHavingManyTypesOnSubscope() throws {
         try MyScope.GIVEN {
             MyScope()
@@ -364,7 +364,7 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         .THEN_NoEnquedEffect(\.child, MyEffect<String>.self)
         .runTest()
     }
-    
+
     func testThenEnqueuedParameter() throws {
         try MyScope.GIVEN {
             MyScope()
@@ -374,7 +374,7 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         .THEN_EnquedEffect(parameter: \MyEffect<String>.milliseconds, equals: UInt64(1000))
         .runTest()
     }
-    
+
     func testThenEnqueuedParameterFailsIfNoEqual() throws {
         XCTExpectFailure("THEN_Enqueued should fail if there are effects")
         try MyScope.GIVEN {
@@ -392,7 +392,7 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         .THEN_EnquedEffect(parameter: \MyEffect<String>.milliseconds, equals: UInt64(1000))
         .runTest()
     }
-    
+
     func testEffectCompletes() throws {
         try MyScope.GIVEN {
             MyScope()
@@ -402,7 +402,7 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         .THEN(\.viewShowsContent, equals: .success("fakeComplete"))
         .runTest()
     }
-    
+
     func testEffectCompletesFailsWhenMissing() throws {
         XCTExpectFailure("THEN_EffectCompletes should fail if there is no suitable effect")
         try MyScope.GIVEN {
@@ -411,7 +411,7 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         .WHEN_EffectCompletes(MyEffect<String>.self, with: "fakeComplete")
         .runTest()
     }
-    
+
     func testEffectCompletesFailsWhenInvalidType() throws {
         XCTExpectFailure("THEN_EffectCompletes should fail if there is no suitable effect")
         try MyScope.GIVEN {
@@ -421,7 +421,7 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         .WHEN_EffectCompletes(MyOtherEffect.self, with: "")
         .runTest()
     }
-    
+
     // TODO: we should decide what to do if 2 equal effects enqueued
     func testEffectCompletesFailsWhenManySuitable() throws {
         XCTExpectFailure("THEN_EffectCompletes should fail if there is no suitable effect")
@@ -434,7 +434,7 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         .WHEN_EffectCompletes(MyEffect<String>.self, with: "")
         .runTest()
     }
-    
+
     func testEffectFails() throws {
         try MyScope.GIVEN {
             MyScope()
@@ -444,7 +444,7 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         .THEN(\.viewShowsContent, equals: .failure(MyError.noConnection))
         .runTest()
     }
-    
+
     func testEffectFailsFailsIfNoExisting() throws {
         XCTExpectFailure("THEN_EffectFails should fail if there is no suitable effect")
         try MyScope.GIVEN {

@@ -75,7 +75,87 @@ func describeObject(_ object: Any, appending: String = "") -> String {
     return describeObject(object, objects: &inoutObjects, appending: appending)
 }
 
-private func describeObject(_ object: Any, objects: inout [AnyObject], appending: String = "") -> String {
+private func printCollection(
+    _ mirrorChildren: Mirror.Children,
+    _ objects: inout [AnyObject],
+    _ appending: String
+) -> String {
+    "[" +
+    .newLine +
+    mirrorChildren.map { item in
+        describeObject(item.value, objects: &objects)
+    }
+    .joined(separator: ",\n")
+    .indentDumpedObject() +
+    .newLine +
+    "]" + appending
+}
+
+private func printDictionary(
+    _ mirrorChildren: Mirror.Children,
+    _ objects: inout [AnyObject],
+    _ appending: String
+) -> String {
+    "[" +
+    .newLine +
+    mirrorChildren.map { item in
+        if let (key, value) = item.value as? (Any, Any) {
+            describeObject(key, objects: &objects) +
+            ":" + .tab +
+            describeObject(value, objects: &objects)
+        } else {
+            describeObject(item.value, objects: &objects)
+        }
+    }
+    .joined(separator: ",\n")
+    .indentDumpedObject() +
+    .newLine +
+    "]" + appending
+}
+
+private func printObject(
+    _ object: Any,
+    _ mirrorChildren: Mirror.Children,
+    _ objects: inout [AnyObject],
+    _ appending: String
+) -> String {
+    let childrenDescribed: [String] = mirrorChildren
+        .compactMap { (child) in
+            guard !(child.value is IsInjectedToMirror) else {
+                return nil
+            }
+            guard let label = child.label else {
+                // Be carefull calling describeObject here
+                //  it creates an infinite recursion.
+                // For example for [AnyCancellable]
+                // Fixed in displayStyle .collection or .dictionary above
+                return describeObject(child.value, objects: &objects)
+            }
+            let valueDescription: String
+            if let fixedDescription = child.value as? WithFixedDebugDescription {
+                valueDescription = fixedDescription.fixedDebugDescription
+            } else if child.value is IsSubscopeToMirror {
+                valueDescription = String(describing: child.value)
+            } else if let anyEffect = child.value as? IsAnyEffectToMirror {
+                valueDescription = describeObject(anyEffect.objectToBeDescribed, objects: &objects)
+            } else {
+                valueDescription = describeObject(child.value, objects: &objects)
+            }
+            return "\(label): \(valueDescription)".indentDumpedObject()
+        }
+    return "\(type(of: object))(" +
+        .newLine +
+    childrenDescribed.joined(separator: .newLine) +
+        .newLine +
+    appending +
+    ")"
+}
+
+private func describeObject(
+    _ object: Any,
+    objects: inout [AnyObject],
+    appending: String = ""
+) -> String {
     let mirror = Mirror(reflecting: object)
     let mirrorChildren = mirror.children
     if mirror.displayStyle == .class {
@@ -96,64 +176,13 @@ private func describeObject(_ object: Any, objects: inout [AnyObject], appending
     } else if let anyEffect = object as? IsAnyEffectToMirror {
         return describeObject(anyEffect.objectToBeDescribed, objects: &objects, appending: appending)
     } else if mirror.displayStyle == .collection {
-        return "[" +
-            .newLine +
-            mirrorChildren.map { item in
-                describeObject(item.value, objects: &objects)
-            }
-            .joined(separator: ",\n")
-            .indentDumpedObject() +
-            .newLine +
-        "]" + appending
+        return printCollection(mirrorChildren, &objects, appending)
     } else if mirror.displayStyle == .dictionary {
-        return "[" +
-            .newLine +
-            mirrorChildren.map { item in
-                if let (key, value) = item.value as? (Any, Any) {
-                    describeObject(key, objects: &objects) +
-                    ":" + .tab +
-                    describeObject(value, objects: &objects)
-                } else {
-                    describeObject(item.value, objects: &objects)
-                }
-            }
-            .joined(separator: ",\n")
-            .indentDumpedObject() +
-            .newLine +
-            "]" + appending
+        return printDictionary(mirrorChildren, &objects, appending)
     } else if mirror.displayStyle == .enum,
               let firstChild = mirrorChildren.first {
         return "\(firstChild.label ?? "_"): \(describeObject(firstChild.value, objects: &objects))" + appending
     } else {
-        let childrenDescribed: [String] = mirrorChildren
-            .compactMap { (child) in
-                guard !(child.value is IsInjectedToMirror) else {
-                    return nil
-                }
-                guard let label = child.label else {
-                    // Be carefull calling describeObject here
-                    //  it creates an infinite recursion.
-                    // For example for [AnyCancellable]
-                    // Fixed in displayStyle .collection or .dictionary above
-                    return describeObject(child.value, objects: &objects)
-                }
-                let valueDescription: String
-                if let fixedDescription = child.value as? WithFixedDebugDescription {
-                    valueDescription = fixedDescription.fixedDebugDescription
-                } else if child.value is IsSubscopeToMirror {
-                    valueDescription = String(describing: child.value)
-                } else if let anyEffect = child.value as? IsAnyEffectToMirror {
-                    valueDescription = describeObject(anyEffect.objectToBeDescribed, objects: &objects)
-                } else {
-                    valueDescription = describeObject(child.value, objects: &objects)
-                }
-                return "\(label): \(valueDescription)".indentDumpedObject()
-            }
-        return "\(type(of: object))(" +
-            .newLine +
-            childrenDescribed.joined(separator: .newLine) +
-            .newLine +
-            appending +
-            ")"
+        return printObject(object, mirrorChildren, &objects, appending)
     }
 }

@@ -39,7 +39,7 @@ extension ScopeImplementation {
             LOG(.errors, "‼️ Exception on send method: \(error)")
         }
     }
-    
+
     private func logStateAndDiffIfEnabled(_ _updateUsingMiddlewares: () throws -> Void) rethrows {
         if StatoscopeLogger.logEnabled(.stateDiff) {
             let currentState = String(describing: self)
@@ -62,21 +62,30 @@ extension ScopeImplementation {
         LOG(.when, describing: when)
         assert(effectsState.enquedEffects.count == 0)
         assert(effectsState.cancelledEffects.count == 0)
+        effectsState._updating = true
         try logStateAndDiffIfEnabled {
             try updateUsingMiddlewares(when)
         }
+        effectsState._updating = false
         let copiedSnapshot = effectsState
         effectsState = EffectsState(snapshotEffects: effectsState.currentRequestedEffects)
         ensureSetupDeinitObserver()
+        let injectionTreenode = self as? InjectionTreeNode
+        if nil == injectionTreenode {
+            LOG(.errors, "‼️ InjectionTreeNode not found for effects")
+        }
         Task { [weak self] in
-            try await self?.effectsHandler.triggerNewEffectsState(newSnapshot: copiedSnapshot)
+            try await self?.effectsHandler.triggerNewEffectsState(
+                newSnapshot: copiedSnapshot,
+                injectionTreeNode: self as? InjectionTreeNode
+            )
         }
     }
 
     internal func LOG(_ level: LogLevel, describing: Any) {
         StatoscopeLogger.LOG(level, prefix: logPrefix, describing: describing)
     }
-    
+
     internal func LOG(_ level: LogLevel, _ string: String) {
         StatoscopeLogger.LOG(level, prefix: logPrefix, string)
     }

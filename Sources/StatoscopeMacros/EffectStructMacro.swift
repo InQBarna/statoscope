@@ -21,6 +21,32 @@ extension String {
     }
 }
 
+extension SyntaxProtocol {
+    var trimm: Self {
+        self
+            .trimmed
+            .with(\.leadingTrivia, [])
+            .with(\.trailingTrivia, [])
+    }
+}
+
+extension FunctionParameterSyntax {
+    var trimm: Self {
+        self
+        .with(\.firstName, firstName.trimmed)
+        .with(\.secondName, secondName?.trimmed)
+    }
+}
+
+extension AttributeSyntax {
+    static func effectInjection() -> AttributeSyntax {
+        .init(
+            atSign: .atSignToken(),
+            attributeName: IdentifierTypeSyntax(name: .identifier("InjectedForEffect"))
+        )
+    }
+}
+
 public struct EffectStructMacro: PeerMacro {
     public static func expansion<
         Context: MacroExpansionContext,
@@ -41,36 +67,65 @@ public struct EffectStructMacro: PeerMacro {
         guard let returnType = funcDecl.signature.returnClause?.type,
             returnType.as(IdentifierTypeSyntax.self)?.name.text != "Void" else {
           throw StatoscopeMacroError.message(
-            "@EffectStructMacro requires an function that returns a When"
+            "@EffectStructMacro requires a function that returns a When"
           )
         }
          */
 
+        let equatableRequested: Bool = extractEquatableParam(from: node)
         let parameterList = funcDecl.signature.parameterClause.parameters
         let newGenericParameterClause = buildGenericParameterClause(funcDecl: funcDecl)
+        let injectedAttr = AttributeSyntax(
+            atSign: .atSignToken(),
+            attributeName: IdentifierTypeSyntax(name: .identifier("InjectedForEffect"))
+        )
         let newStructDeclaration = StructDeclSyntax(
+            modifiers: DeclModifierListSyntax {
+                DeclModifierSyntax(name: .keyword(.public))
+            },
             name: .identifier(funcDecl.name.text.firstCharCapitalized + "Effect"),
             genericParameterClause: newGenericParameterClause,
             inheritanceClause: InheritanceClauseSyntax(
                 inheritedTypes: InheritedTypeListSyntax {
                     InheritedTypeSyntax(type: IdentifierTypeSyntax(name: "Effect"))
-                    InheritedTypeSyntax(type: IdentifierTypeSyntax(name: "Equatable"))
+                    if equatableRequested {
+                        InheritedTypeSyntax(type: IdentifierTypeSyntax(name: "Equatable"))
+                    }
                 }
             ),
             memberBlock: MemberBlockSyntax(
                 members: MemberBlockItemListSyntax {
                     for param in parameterList {
-                        MemberBlockItemSyntax(
-                            decl: VariableDeclSyntax(
-                                bindingSpecifier: .keyword(Keyword.let),
-                                bindings: [
-                                    PatternBindingSyntax(
-                                        pattern: IdentifierPatternSyntax(identifier: param.secondName ?? param.firstName),
-                                        typeAnnotation: TypeAnnotationSyntax(type: param.type)
-                                    )
-                                ]
+                        let isInjectedForEffect: Bool = param.isInjectedForEffect(context: context)
+                        if isInjectedForEffect {
+                            MemberBlockItemSyntax(
+                                decl: VariableDeclSyntax(
+                                    attributes: [.attribute(injectedAttr)],
+                                    bindingSpecifier: .keyword(Keyword.var),
+                                    bindings: [
+                                        PatternBindingSyntax(
+                                            pattern: IdentifierPatternSyntax(identifier: param.secondName?.trimm ?? param.firstName.trimm),
+                                            typeAnnotation: TypeAnnotationSyntax(
+                                                colon: .colonToken(),
+                                                type: param.type
+                                            )
+                                        )
+                                    ]
+                                )
                             )
-                        )
+                        } else {
+                            MemberBlockItemSyntax(
+                                decl: VariableDeclSyntax(
+                                    bindingSpecifier: .keyword(Keyword.let),
+                                    bindings: [
+                                        PatternBindingSyntax(
+                                            pattern: IdentifierPatternSyntax(identifier: param.secondName?.trimm ?? param.firstName.trimm),
+                                            typeAnnotation: TypeAnnotationSyntax(type: param.type)
+                                        )
+                                    ]
+                                )
+                            )
+                        }
                     }
                     MemberBlockItemSyntax(
                         decl: FunctionDeclSyntax(
@@ -81,6 +136,9 @@ public struct EffectStructMacro: PeerMacro {
                                 case .ifConfigDecl:
                                     return true
                                 }
+                            },
+                            modifiers: DeclModifierListSyntax {
+                                DeclModifierSyntax(name: .keyword(.public))
                             },
                             name: "runEffect",
                             signature: FunctionSignatureSyntax(
@@ -96,10 +154,43 @@ public struct EffectStructMacro: PeerMacro {
                                     CodeBlockItemSyntax(
                                         stringLiteral: "try await \(funcDecl.name)(" +
                                         parameterList.map({ param in
-                                            "\(param.firstName): \(param.secondName ?? param.firstName)"
+                                            "\(param.firstName.trimm): " +
+                                            "\(param.secondName?.trimm ?? param.firstName.trimm)"
                                         }).joined(separator: ", ") +
                                         ")"
                                     )
+                                }
+                            )
+                        )
+                    )
+                    MemberBlockItemSyntax(
+                        decl: InitializerDeclSyntax(
+                            modifiers: DeclModifierListSyntax {
+                                DeclModifierSyntax(name: .keyword(.public))
+                            },
+                            signature: FunctionSignatureSyntax(
+                                parameterClause: FunctionParameterClauseSyntax(
+                                    leftParen: .leftParenToken(),
+                                    parameters: FunctionParameterListSyntax {
+                                        for param in parameterList {
+                                            if !param.isInjectedForEffect(context: context) {
+                                                param.trimm
+                                            }
+                                        }
+                                    },
+                                    rightParen: .rightParenToken()
+                                )
+                            ),
+                            body: CodeBlockSyntax(
+                                statements: CodeBlockItemListSyntax {
+                                    for param in parameterList {
+                                        if !param.isInjectedForEffect(context: context) {
+                                            let stringLit = param.secondName?.trimm ?? param.firstName.trimm
+                                            CodeBlockItemSyntax(
+                                                stringLiteral: "self.\(stringLit.trimm) = \(stringLit.trimm)"
+                                            )
+                                        }
+                                    }
                                 }
                             )
                         )
@@ -109,7 +200,7 @@ public struct EffectStructMacro: PeerMacro {
         )
         return [DeclSyntax(newStructDeclaration)]
     }
-    
+
     private static func buildGenericParameterClause(funcDecl: FunctionDeclSyntax) -> GenericParameterClauseSyntax? {
         let functionParmTypes: [String] = funcDecl.signature.parameterClause.parameters
             .compactMap {
@@ -124,7 +215,7 @@ public struct EffectStructMacro: PeerMacro {
                 leftAngle: existing.leftAngle,
                 parameters: GenericParameterListSyntax(
                     existing.parameters.map { existingParam in
-                        
+
                         let currentParamIsGeneric = functionParmTypes.contains(existingParam.name.text)
                         if currentParamIsGeneric,
                            let existingParamInheritanceComposed = existingParam.inheritedType?.as(CompositionTypeSyntax.self) {
@@ -189,5 +280,27 @@ public struct EffectStructMacro: PeerMacro {
                 )
             )
         }
+    }
+
+    static func extractEquatableParam(
+      from node: AttributeSyntax
+    ) -> Bool {
+        guard let arguments = node.arguments?.as(LabeledExprListSyntax.self),
+              let equatableArgument = arguments.first(where: { $0.label?.text == "equatable" }),
+              let booleanExpression = equatableArgument.expression.as(BooleanLiteralExprSyntax.self) else {
+            return false
+        }
+        return booleanExpression.literal.text == "true"
+    }
+}
+
+extension FunctionParameterSyntax {
+    func isInjectedForEffect(
+        context: some MacroExpansionContext
+    ) -> Bool {
+        return attributes.contains(where: {
+            guard case let .attribute(attr) = $0 else { return false }
+            return attr.attributeName.as(IdentifierTypeSyntax.self)?.name.text == "InjectedParam"
+        })
     }
 }

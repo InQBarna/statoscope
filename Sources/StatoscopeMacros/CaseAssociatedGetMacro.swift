@@ -15,7 +15,7 @@ public struct CaseAssociatedGetMacro: MemberMacro {
       providingMembersOf declaration: some DeclGroupSyntax,
       in context: some MacroExpansionContext
     ) throws -> [DeclSyntax] {
-        
+
         // Only on functions at the moment.
         guard let enumDecl = declaration.as(EnumDeclSyntax.self) else {
           throw StatoscopeMacroError.message("@EnumDeclSyntax only works on enums")
@@ -44,7 +44,7 @@ public struct CaseAssociatedGetMacro: MemberMacro {
             )
         }
          */
-        
+
         return enumDecl.memberBlock.members
             .flatMap { caseSyntax in
                 caseSyntax.decl.as(EnumCaseDeclSyntax.self)?.elements ?? []
@@ -98,7 +98,7 @@ public struct CaseAssociatedGetMacro: MemberMacro {
                     return """
                     var \(caseDecl.name.trimmed): (\(raw: returnDeclTuple))? {
                         switch self {
-                            case .\(caseDecl.name.trimmed)(\(raw: caseLetAssign)): 
+                            case .\(caseDecl.name.trimmed)(\(raw: caseLetAssign)):
                             return (\(raw: returnTuple))
                             default: return nil
                         }

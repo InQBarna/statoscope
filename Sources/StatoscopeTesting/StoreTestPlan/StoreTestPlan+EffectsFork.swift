@@ -25,7 +25,7 @@ extension StoreTestPlan {
         _ = try elseFlow(elseTestPlan)
         return self
     }
-    
+
     @discardableResult
     public func FORK_EffectFails<EffectType: Effect>(
         _ expectedEffect: EffectType.Type,
@@ -39,7 +39,7 @@ extension StoreTestPlan {
         _ = try elseFlow(elseTestPlan)
         return self
     }
-    
+
     @discardableResult
     public func FORK_OlderEffectCompletes(
         with effectResult: T.When,

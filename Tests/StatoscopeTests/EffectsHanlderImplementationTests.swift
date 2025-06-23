@@ -52,7 +52,7 @@ class EffectsHanlderImplementationTests: XCTestCase {
         let snapshot = await sut.buildSnapshot()
         let currentEffects = await sut.effects
         XCTAssert(currentEffects.isEmpty)
-        try await sut.triggerNewEffectsState(newSnapshot: snapshot)
+        try await sut.triggerNewEffectsState(newSnapshot: snapshot, injectionTreeNode: nil)
         let newState = await sut.effects
         XCTAssert(newState.isEmpty)
         await fulfillment(of: [exp], timeout: 1)
@@ -69,7 +69,7 @@ class EffectsHanlderImplementationTests: XCTestCase {
         var snapshot = await sut.buildSnapshot()
         let effect = WaitMillisecondsEffect(milliseconds: Self.firstEffectMilliseconds)
         snapshot.enqueue(effect)
-        try await sut.triggerNewEffectsState(newSnapshot: snapshot)
+        try await sut.triggerNewEffectsState(newSnapshot: snapshot, injectionTreeNode: nil)
         let newEffects = await sut.effects
         XCTAssertEqual(newEffects.count, 1)
         XCTAssertEqual(newEffects.first as? WaitMillisecondsEffect, effect)
@@ -96,7 +96,7 @@ class EffectsHanlderImplementationTests: XCTestCase {
         let effect2 = WaitMillisecondsEffect(milliseconds: Self.secondEffectMilliseconds)
         snapshot.enqueue(effect1)
         snapshot.enqueue(effect2)
-        try await sut.triggerNewEffectsState(newSnapshot: snapshot)
+        try await sut.triggerNewEffectsState(newSnapshot: snapshot, injectionTreeNode: nil)
         let newEffects = await sut.effects
         XCTAssertEqual(newEffects.count, 2)
         XCTAssertEqual(newEffects.first as? WaitMillisecondsEffect, effect1)
@@ -125,7 +125,7 @@ class EffectsHanlderImplementationTests: XCTestCase {
         var snapshot = await sut.buildSnapshot()
         let effect = AutoCancelledEffect(milliseconds: Self.firstEffectMilliseconds)
         snapshot.enqueue(effect)
-        try await sut.triggerNewEffectsState(newSnapshot: snapshot)
+        try await sut.triggerNewEffectsState(newSnapshot: snapshot, injectionTreeNode: nil)
         let newEffects = await sut.effects
         XCTAssertEqual(newEffects.count, 1)
         XCTAssertEqual(newEffects.first as? AutoCancelledEffect, effect)
@@ -147,14 +147,14 @@ class EffectsHanlderImplementationTests: XCTestCase {
         var snapshot = await sut.buildSnapshot()
         let effect = WaitMillisecondsEffect(milliseconds: Self.firstEffectMilliseconds)
         snapshot.enqueue(effect)
-        try await sut.triggerNewEffectsState(newSnapshot: snapshot)
+        try await sut.triggerNewEffectsState(newSnapshot: snapshot, injectionTreeNode: nil)
         let newEffects = await sut.effects
         XCTAssertEqual(newEffects.count, 1)
         XCTAssertEqual(newEffects.first as? WaitMillisecondsEffect, effect)
 
         var snapshot2 = await sut.buildSnapshot()
         snapshot2.cancelAllEffects()
-        try await sut.triggerNewEffectsState(newSnapshot: snapshot2)
+        try await sut.triggerNewEffectsState(newSnapshot: snapshot2, injectionTreeNode: nil)
         await fulfillment(of: [exp], timeout: 1)
         let newEffectsAfterCompletion2 = await sut.effects
         XCTAssertEqual(newEffectsAfterCompletion2.count, 0)

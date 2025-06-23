@@ -14,7 +14,7 @@ final class Example0101 {
     struct DTO: Codable {
         let count: Int
     }
-    
+
     final class CloudCounter: ScopeImplementation {
         var viewDisplaysTotalCount: Int = 0
         var viewShowsLoadingAndDisablesButtons: Bool = false
@@ -23,12 +23,12 @@ final class Example0101 {
             case userTappedDecrementButton
             case networkPostCompleted(DTO)
         }
-        
+
         func update(_ when: When) throws {}
     }
-    
+
     final class CloudCounterTest: XCTestCase {
-        
+
         func testUserFlow() throws {
             XCTExpectFailure()
             try CloudCounter.GIVEN {
@@ -55,7 +55,7 @@ final class Example0101 {
             .THEN(\.viewDisplaysTotalCount, equals: 0)
             .runTest()
         }
-        
+
     }
 }
 
@@ -104,7 +104,7 @@ enum Example0104 {
                 viewDisplaysTotalCount = remoteCounter.count
             }
         }
-        
+
         private func postNewValueToNetwork(newValue: Int) throws {
             effectsState.enqueue(
                 AnyEffect {

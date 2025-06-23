@@ -31,7 +31,7 @@ extension StoreTestPlan {
             }
         }
     }
-    
+
     @discardableResult
     public func WHEN_EffectFails<EffectType: Effect>(
         _ expectedEffect: EffectType.Type,
@@ -51,7 +51,7 @@ extension StoreTestPlan {
             }
         }
     }
-    
+
     @discardableResult
     public func WHEN_OlderEffectCompletes(
         with effectResult: T.When,
@@ -66,7 +66,7 @@ extension StoreTestPlan {
             try sut._unsafeSendImplementation(effectResult)
         }
     }
-    
+
     @discardableResult
     public func THEN_NoEnquedEffect<EffectType: Effect>(
         _ expectedEffect: EffectType.Type,
@@ -113,7 +113,7 @@ extension StoreTestPlan {
             }
         }
     }
-    
+
     @discardableResult
     public func THEN_NoEffects<Subscope: ScopeImplementation>(
         _ keyPath: KeyPath<T, Subscope?>,

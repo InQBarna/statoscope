@@ -44,17 +44,17 @@ final class CloudCounter: ScopeImplementation {
             viewDisplaysTotalCount = remoteCounter.count
         }
     }
-    
+
     private func postNewValueToNetwork(newValue: Int) throws {
-        
+
         // Solution 1: cancel any previous network effect
         effectsState.cancelEffect { $0 is NetworkEffect<DTO> }
-        
+
         // Solution 2: do nothing if an effect is already running
         guard nil == effects.first(where: { $0 is NetworkEffect<DTO> }) else {
             throw InvalidStateError()
         }
-        
+
         enqueue(
             Network.Effect<DTO>(request: try Network.buildURLRequestPosting(dto: DTO(count: newValue)))
                 .map(When.networkPostCompleted)
