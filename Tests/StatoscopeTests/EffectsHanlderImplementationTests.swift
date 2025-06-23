@@ -68,6 +68,7 @@ class EffectsHanlderImplementationTests: XCTestCase {
         }
         var snapshot = await sut.buildSnapshot()
         let effect = WaitMillisecondsEffect(milliseconds: Self.firstEffectMilliseconds)
+        snapshot._updating = true
         snapshot.enqueue(effect)
         try await sut.triggerNewEffectsState(newSnapshot: snapshot, injectionTreeNode: nil)
         let newEffects = await sut.effects
@@ -94,6 +95,7 @@ class EffectsHanlderImplementationTests: XCTestCase {
         var snapshot = await sut.buildSnapshot()
         let effect1 = WaitMillisecondsEffect(milliseconds: Self.firstEffectMilliseconds)
         let effect2 = WaitMillisecondsEffect(milliseconds: Self.secondEffectMilliseconds)
+        snapshot._updating = true
         snapshot.enqueue(effect1)
         snapshot.enqueue(effect2)
         try await sut.triggerNewEffectsState(newSnapshot: snapshot, injectionTreeNode: nil)
@@ -124,6 +126,7 @@ class EffectsHanlderImplementationTests: XCTestCase {
         }
         var snapshot = await sut.buildSnapshot()
         let effect = AutoCancelledEffect(milliseconds: Self.firstEffectMilliseconds)
+        snapshot._updating = true
         snapshot.enqueue(effect)
         try await sut.triggerNewEffectsState(newSnapshot: snapshot, injectionTreeNode: nil)
         let newEffects = await sut.effects
@@ -146,7 +149,9 @@ class EffectsHanlderImplementationTests: XCTestCase {
         }
         var snapshot = await sut.buildSnapshot()
         let effect = WaitMillisecondsEffect(milliseconds: Self.firstEffectMilliseconds)
+        snapshot._updating = true
         snapshot.enqueue(effect)
+        snapshot._updating = false
         try await sut.triggerNewEffectsState(newSnapshot: snapshot, injectionTreeNode: nil)
         let newEffects = await sut.effects
         XCTAssertEqual(newEffects.count, 1)

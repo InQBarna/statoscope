@@ -55,7 +55,9 @@ actor EffectsHandlerImplementation<When: Sendable> {
         let currentCount = newSnapshot.snapshotEffects.count
         var enqueued = 0
         while toEnqueueEffects.count > 0 {
-            var (uuid, effect) = toEnqueueEffects.removeFirst()
+            let uuidAndEffect = toEnqueueEffects.removeFirst()
+            let uuid = uuidAndEffect.0
+            let effect = uuidAndEffect.1
             if let injectionTreeNode {
                 effect._injectNode(injectionTreeNode)
             }
