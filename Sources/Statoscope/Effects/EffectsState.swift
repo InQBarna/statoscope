@@ -68,6 +68,10 @@ public struct EffectsState<When: Sendable>: Sendable {
     ///  )
     ///  ```
     public mutating func enqueue<E: Effect>(_ effect: E) where E.ResultType == When {
+        guard _updating else {
+            assertionFailure("Effects can only be enqueued from within an update")
+            return
+        }
         let currentMax = currentRequestedEffects.map(\.0).max() ?? 0
         let uuid = currentMax + 1
         enquedEffects.append((uuid, AnyEffect(effect: effect)))
@@ -157,4 +161,6 @@ public struct EffectsState<When: Sendable>: Sendable {
         cancelledEffects.removeAll()
         return olderEffect.1
     }
+
+    var _updating: Bool = false
 }

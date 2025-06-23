@@ -62,9 +62,11 @@ extension ScopeImplementation {
         LOG(.when, describing: when)
         assert(effectsState.enquedEffects.count == 0)
         assert(effectsState.cancelledEffects.count == 0)
+        effectsState._updating = true
         try logStateAndDiffIfEnabled {
             try updateUsingMiddlewares(when)
         }
+        effectsState._updating = false
         let copiedSnapshot = effectsState
         effectsState = EffectsState(snapshotEffects: effectsState.currentRequestedEffects)
         ensureSetupDeinitObserver()
