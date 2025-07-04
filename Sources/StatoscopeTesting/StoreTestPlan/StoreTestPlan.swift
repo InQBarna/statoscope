@@ -126,8 +126,8 @@ public class StoreTestPlan<T: ScopeImplementation> {
             for step in steps {
                 try step.run(sut)
                 switch step.type {
-                case .when:
-                    safeSnapshot(sut: sut, name: nil)
+                case .when(let descr):
+                    safeSnapshot(sut: sut, name: descr)
                 default:
                     break
                 }

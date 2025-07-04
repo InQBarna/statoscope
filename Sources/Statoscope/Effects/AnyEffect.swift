@@ -149,11 +149,11 @@ public struct AnyEffect<ResultType: Sendable>:
     }
 }
 
-internal protocol IsAnyEffectToMirror {
+internal protocol HasObjectToBeDescribedForMirror {
     var objectToBeDescribed: Any { get }
 }
 
-extension AnyEffect: IsAnyEffectToMirror {
+extension AnyEffect: HasObjectToBeDescribedForMirror {
     var objectToBeDescribed: Any {
         pristine
     }

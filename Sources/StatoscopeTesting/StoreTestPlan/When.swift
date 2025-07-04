@@ -86,7 +86,7 @@ extension StoreTestPlan {
         line: UInt = #line,
         _ when: T.When
     ) -> Self {
-        addWhenStep { sut in
+        addWhenStep(String(describing: when)) { sut in
             sut.effectsState.clear(clearEffects, scope: sut)
             XCTAssertThrowsError(try sut._unsafeSendImplementation(when), file: file, line: line)
         }
@@ -100,7 +100,7 @@ extension StoreTestPlan {
         line: UInt = #line,
         _ when: Subscope.When
     ) throws -> Self {
-        addWhenStep { sut in
+        addWhenStep(String(describing: keyPath) + ": " + String(describing: when)) { sut in
             sut.effectsState.clear(clearEffects, scope: sut)
             XCTAssertThrowsError(try sut[keyPath: keyPath]._unsafeSendImplementation(when), file: file, line: line)
         }
@@ -114,7 +114,7 @@ extension StoreTestPlan {
         line: UInt = #line,
         _ when: Subscope.When
     ) throws -> Self {
-        addWhenStep { sut in
+        addWhenStep(String(describing: keyPath) + ": " + String(describing: when)) { sut in
             guard let childScope = sut[keyPath: keyPath] else {
                 XCTFail("WHEN: Non existing model in first parameter: error unwrapping expecte non-nil subscope" +
                         " \(type(of: T.self)) : \(type(of: Subscope.self))",
@@ -160,7 +160,7 @@ private extension StoreTestPlan {
     func privateWHEN(
         _ when: T.When
     ) throws -> Self {
-        addWhenStep { [clearEffectsOnWhen = self.clearEffectsOnWhen] sut in
+        addWhenStep(String(describing: when)) { [clearEffectsOnWhen = self.clearEffectsOnWhen] sut in
             sut.effectsState.clear(clearEffectsOnWhen, scope: sut)
             try sut._unsafeSendImplementation(when)
         }
@@ -187,7 +187,8 @@ private extension StoreTestPlan {
         file: StaticString = #file,
         line: UInt = #line
     ) throws -> Self {
-        addWhenStep(String(describing: when)) { [clearEffectsOnWhen = self.clearEffectsOnWhen] sut in
+        let descr = String(describing: keyPath) + ": " + String(describing: when)
+        return addWhenStep(descr) { [clearEffectsOnWhen = self.clearEffectsOnWhen] sut in
             guard let childScope = sut[keyPath: keyPath] else {
                 XCTFail("WHEN: Non existing model in first parameter: error unwrapping expecte non-nil subscope" +
                         " \(type(of: T.self)) : \(type(of: Subscope.self))",

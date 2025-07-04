@@ -31,9 +31,9 @@ extension Published: WithFixedDebugDescription {
         }
         if let value = (storageValue as? Publisher)
             .map(Mirror.init)?.descendant("subject", "currentValue") {
-            return String(describing: value)
+            return describeObject(value)
         } else {
-            return String(describing: storageValue)
+            return describeObject(storageValue)
         }
     }
 }
@@ -136,7 +136,7 @@ private func printObject(
                 valueDescription = fixedDescription.fixedDebugDescription
             } else if child.value is IsSubscopeToMirror {
                 valueDescription = String(describing: child.value)
-            } else if let anyEffect = child.value as? IsAnyEffectToMirror {
+            } else if let anyEffect = child.value as? HasObjectToBeDescribedForMirror {
                 valueDescription = describeObject(anyEffect.objectToBeDescribed, objects: &objects)
             } else {
                 valueDescription = describeObject(child.value, objects: &objects)
@@ -173,7 +173,7 @@ private func describeObject(
         } else {
             return String(describing: object) + appending
         }
-    } else if let anyEffect = object as? IsAnyEffectToMirror {
+    } else if let anyEffect = object as? HasObjectToBeDescribedForMirror {
         return describeObject(anyEffect.objectToBeDescribed, objects: &objects, appending: appending)
     } else if mirror.displayStyle == .collection {
         return printCollection(mirrorChildren, &objects, appending)

@@ -19,7 +19,7 @@ extension StoreTestPlan {
         file: StaticString = #file,
         line: UInt = #line
     ) throws -> Self {
-        addWhenStep { sut in
+        addWhenStep(String(describing: effectResult)) { sut in
             switch grabSingleEffect(expectedEffect, sut: sut, clearingFound: true) {
             case .failure(let error):
                 XCTFailForEffectSearchError(error, file: file, line: line)
@@ -39,7 +39,7 @@ extension StoreTestPlan {
         file: StaticString = #file,
         line: UInt = #line
     ) throws -> Self {
-        addWhenStep { sut in
+        addWhenStep(String(describing: effectResult)) { sut in
             switch grabSingleEffect(expectedEffect, sut: sut, clearingFound: true) {
             case .failure(let error):
                 XCTFailForEffectSearchError(error, file: file, line: line)
@@ -58,7 +58,7 @@ extension StoreTestPlan {
         file: StaticString = #file,
         line: UInt = #line
     ) throws -> Self {
-        addWhenStep { sut in
+        addWhenStep(String(describing: effectResult)) { sut in
             guard nil != (try? sut.effectsState._cancelOlderEffect()) else {
                 return XCTFail("No effect on sut \(type(of: sut)): " +
                                "\(sut.effectsState._erasedEffects)", file: file, line: line)

@@ -6,7 +6,7 @@
 //
 
 @propertyWrapper
-public struct InjectedForEffect<Value: Injectable> {
+public struct InjectedForEffect<Value: Injectable>: CustomDebugStringConvertible {
     private let box = InjectionBox<Value>()
 
     public init() {}
@@ -17,6 +17,16 @@ public struct InjectedForEffect<Value: Injectable> {
 
     final class InjectionBox<T: Injectable> {
         var node: InjectionTreeNode?
+    }
+
+    public var debugDescription: String {
+        String(describing: wrappedValue)
+    }
+}
+
+extension InjectedForEffect: HasObjectToBeDescribedForMirror {
+    var objectToBeDescribed: Any {
+        return wrappedValue
     }
 }
 
