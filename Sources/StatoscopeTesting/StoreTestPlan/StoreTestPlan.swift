@@ -93,7 +93,7 @@ public class StoreTestPlan<T: ScopeImplementation> {
         try runAllSteps(file: file, line: line, assertRelease: assertRelease, assertNoPendingEffects: assertNoPendingEffects)
         try forks.forEach { childFlow in
             childFlow.snapshot = snapshot
-            try childFlow.uncheckedRunTest(file: file, line: line, assertRelease: assertRelease)
+            try childFlow.uncheckedRunTest(file: file, line: line, assertRelease: assertRelease, assertNoPendingEffects: assertNoPendingEffects)
         }
     }
 
