@@ -51,6 +51,7 @@ public struct StatoscopeLogger {
         }
     )
 
+    @inline(__always)
     static func LOG(_ level: LogLevel, _ string: String) {
         if let logReplacement {
             logReplacement(level, "\(string)")
@@ -63,11 +64,13 @@ public struct StatoscopeLogger {
         }
     }
 
+    @inline(__always)
     static func logEnabled(_ level: LogLevel) -> Bool {
         return logReplacement != nil ||
             Self.logLevel.contains(level)
     }
 
+    @inline(__always)
     static func LOG(_ level: LogLevel, prefix: String, describing: Any) {
         let safePrefix = prefix.count == 0 ? "" : prefix + " "
         if let logReplacement {
@@ -81,6 +84,7 @@ public struct StatoscopeLogger {
         }
     }
 
+    @inline(__always)
     static func LOG(_ level: LogLevel, prefix: String, _ string: @autoclosure () -> String) {
         let safePrefix = prefix.count == 0 ? "" : prefix + " "
         if let logReplacement {

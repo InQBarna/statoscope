@@ -38,12 +38,14 @@ public protocol StoreProtocol {
 }
 
 extension StoreProtocol {
+    @_transparent
     @discardableResult
     public func send(_ when: ScopeImpl.When) -> Self {
         _scopeImpl._sendImplementation(when)
         return self
     }
 
+    @_transparent
     @discardableResult
     public func sendUnsafe(_ when: ScopeImpl.When) throws -> Self {
         try _scopeImpl._unsafeSendImplementation(when)

@@ -40,6 +40,7 @@ extension ScopeImplementation {
         }
     }
 
+    @_transparent
     private func logStateAndDiffIfEnabled(_ _updateUsingMiddlewares: () throws -> Void) rethrows {
         if StatoscopeLogger.logEnabled(.stateDiff) {
             let currentState = String(describing: self)
@@ -82,10 +83,12 @@ extension ScopeImplementation {
         }
     }
 
+    @inline(__always)
     internal func LOG(_ level: LogLevel, describing: Any) {
         StatoscopeLogger.LOG(level, prefix: logPrefix, describing: describing)
     }
 
+    @inline(__always)
     internal func LOG(_ level: LogLevel, _ string: String) {
         StatoscopeLogger.LOG(level, prefix: logPrefix, string)
     }
@@ -154,6 +157,7 @@ extension ScopeImplementation {
         }
     }
 
+    @inline(__always)
     private func updateUsingMiddlewares(_ when: When) throws {
         if let middleware = middleWare {
             try middleware.middleWare(self, when) { mappedWhen in
@@ -178,8 +182,25 @@ public protocol HierarchialScopeMiddleWare {
 
 public struct WhenFromSubscope<When: Sendable> {
     public let subscopeKeyPath: AnyKeyPath
+    @usableFromInline
     public let subscope: () -> AnyScopeImplementation<When>
     public let when: When
+
+    @inline(__always)
+    public init(
+        subscopeKeyPath: AnyKeyPath,
+        subscope: @escaping @autoclosure () -> AnyScopeImplementation<When>,
+        when: When
+    ) {
+        self.subscopeKeyPath = subscopeKeyPath
+        self.subscope = subscope
+        self.when = when
+    }
+
+    @inline(__always)
+    public func getSubscope() -> AnyScopeImplementation<When> {
+        subscope()
+    }
 }
 
 public protocol _AnyScopeImplementation {
@@ -188,13 +209,21 @@ public protocol _AnyScopeImplementation {
 }
 
 public struct AnyScopeImplementation<When: Sendable>: _AnyScopeImplementation {
-    let scopeSendUnsafe: (When) throws -> Void
+    public let scopeSendUnsafe: (When) throws -> Void
+
+    @inline(__always)
+    public init(scopeSendUnsafe: @escaping (When) throws -> Void) {
+        self.scopeSendUnsafe = scopeSendUnsafe
+    }
+
+    @_transparent
     public func _unsafeSendImplementation(_ when: When) throws {
         try scopeSendUnsafe(when)
     }
 }
 
 extension _AnyScopeImplementation {
+    @inline(__always)
     func eraseToAnyScopeImpl<AnyWhen: Sendable>() -> AnyScopeImplementation<AnyWhen>? {
         guard let scopeSendUnsafe = self._unsafeSendImplementation as? ((AnyWhen) throws -> Void) else {
             return nil
@@ -218,6 +247,7 @@ private extension ScopeImplementation {
         return nil
     }
 
+    @inline(__always)
     func parentEnclosedHierarchialUpdateMethod(_ when: When) -> (() throws -> Void)? {
         guard let parent = firstHierarchialScopeMiddlewareParent(),
               let selfAsInjectionNode = self as? InjectionTreeNode,
@@ -228,7 +258,7 @@ private extension ScopeImplementation {
         let selfKeyPathOnParent = selfAsInjectionNode._keyPathToSelfOnParent ?? \Self.self
         let whenFromSubscope = WhenFromSubscope(
             subscopeKeyPath: selfKeyPathOnParent,
-            subscope: { erased },
+            subscope: erased,
             when: when
         )
         return {
