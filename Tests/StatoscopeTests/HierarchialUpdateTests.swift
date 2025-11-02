@@ -34,9 +34,13 @@ class HierarchialUpdateTests: XCTestCase {
             func update(_ when: Void) throws {
                 exp.fulfill()
             }
-            func updateSubscope<When: Sendable>(_ subEffect: WhenFromSubscope<When>) throws {
+            func updateSubscope<Child: ScopeImplementation>(
+                _ child: Child,
+                _ when: Child.When,
+                _ keyPath: AnyKeyPath
+            ) throws {
                 scopeUpdateExp.fulfill()
-                try subEffect.subscope()._unsafeSendImplementation(subEffect.when)
+                try child._unsafeSendImplementation(when)
             }
         }
         final class Child: Statostore, ObservableObject {

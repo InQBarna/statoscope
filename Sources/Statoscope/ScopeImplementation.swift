@@ -30,8 +30,8 @@ extension ScopeImplementation {
 
     public func _sendImplementation(_ when: When) {
         do {
-            if let parentEnclosedUpdateMethod = parentEnclosedHierarchialUpdateMethod(when) {
-                try parentEnclosedUpdateMethod()
+            if shouldUseParentEnclosedHierarchialUpdate() {
+                try callParentEnclosedHierarchialUpdate(when)
             } else {
                 try _unsafeSendImplementation(when)
             }
@@ -174,64 +174,16 @@ public protocol HierarchialScopeMiddleWare {
     /// Intercepts the business logic for this scope and subscopes of the state
     ///
     /// Method responsible of enclosing the update method of this object's subscopes
-    /// It can enforce, filer or enclose events like a middleware
+    /// It can enforce, filter or enclose events like a middleware
     ///
-    /// * Parameter whenFromSubscope: the received event
-    func updateSubscope<SubWhen: Sendable>(_ whenFromSubscope: WhenFromSubscope<SubWhen>) throws
-}
-
-public struct WhenFromSubscope<When: Sendable> {
-    public let subscopeKeyPath: AnyKeyPath
-    @usableFromInline
-    public let subscope: () -> AnyScopeImplementation<When>
-    public let when: When
-
-    @inline(__always)
-    public init(
-        subscopeKeyPath: AnyKeyPath,
-        subscope: @escaping @autoclosure () -> AnyScopeImplementation<When>,
-        when: When
-    ) {
-        self.subscopeKeyPath = subscopeKeyPath
-        self.subscope = subscope
-        self.when = when
-    }
-
-    @inline(__always)
-    public func getSubscope() -> AnyScopeImplementation<When> {
-        subscope()
-    }
-}
-
-public protocol _AnyScopeImplementation {
-    associatedtype When: Sendable
-    func _unsafeSendImplementation(_ when: When) throws
-}
-
-public struct AnyScopeImplementation<When: Sendable>: _AnyScopeImplementation {
-    public let scopeSendUnsafe: (When) throws -> Void
-
-    @inline(__always)
-    public init(scopeSendUnsafe: @escaping (When) throws -> Void) {
-        self.scopeSendUnsafe = scopeSendUnsafe
-    }
-
-    @_transparent
-    public func _unsafeSendImplementation(_ when: When) throws {
-        try scopeSendUnsafe(when)
-    }
-}
-
-extension _AnyScopeImplementation {
-    @inline(__always)
-    func eraseToAnyScopeImpl<AnyWhen: Sendable>() -> AnyScopeImplementation<AnyWhen>? {
-        guard let scopeSendUnsafe = self._unsafeSendImplementation as? ((AnyWhen) throws -> Void) else {
-            return nil
-        }
-        return AnyScopeImplementation(
-            scopeSendUnsafe: scopeSendUnsafe
-        )
-    }
+    /// * Parameter child: the child scope sending the event
+    /// * Parameter when: the event from the child scope
+    /// * Parameter keyPath: the keypath from parent to child
+    func updateSubscope<Child: ScopeImplementation>(
+        _ child: Child,
+        _ when: Child.When,
+        _ keyPath: AnyKeyPath
+    ) throws
 }
 
 private extension ScopeImplementation {
@@ -248,21 +200,19 @@ private extension ScopeImplementation {
     }
 
     @inline(__always)
-    func parentEnclosedHierarchialUpdateMethod(_ when: When) -> (() throws -> Void)? {
+    func shouldUseParentEnclosedHierarchialUpdate() -> Bool {
+        return firstHierarchialScopeMiddlewareParent() != nil
+    }
+
+    @inline(__always)
+    func callParentEnclosedHierarchialUpdate(_ when: When) throws {
         guard let parent = firstHierarchialScopeMiddlewareParent(),
-              let selfAsInjectionNode = self as? InjectionTreeNode,
-              let erased: AnyScopeImplementation<When> = self.eraseToAnyScopeImpl() else {
-            return nil
+              let selfAsInjectionNode = self as? InjectionTreeNode else {
+            return
         }
         /// this is an internal method so it should be safe if retaining some scopes
         let selfKeyPathOnParent = selfAsInjectionNode._keyPathToSelfOnParent ?? \Self.self
-        let whenFromSubscope = WhenFromSubscope(
-            subscopeKeyPath: selfKeyPathOnParent,
-            subscope: erased,
-            when: when
-        )
-        return {
-            try parent.updateSubscope(whenFromSubscope)
-        }
+        // Direct call - no closure allocation!
+        try parent.updateSubscope(self, when, selfKeyPathOnParent)
     }
 }
