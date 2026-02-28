@@ -130,7 +130,7 @@ import SwiftUI
 
 extension Tutorial03 {
     
-    func sendCrashReport(error: any Error) { /* ... */ }
+    static func sendCrashReport(error: any Error) { /* ... */ }
 
     private struct CounterView: View {
 
@@ -141,7 +141,7 @@ extension Tutorial03 {
                     print("WHEN: \(when)")
                     try forward(when)
                 } catch {
-                    sendCrashReport(error)
+                    Tutorial03.sendCrashReport(error: error) 
                 }
             }
         // @extract:begin 01-03-01-codeview-0002
