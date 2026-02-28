@@ -56,7 +56,9 @@ import Combine
 public final class ReducerStore<R: Reducer>: Statostore, ObservableObject {
 
     /// The single published state managed by this store
-    @Published public private(set) var state: R.State
+    ///
+    /// Note: Setter is internal to allow SubStateBinding to update child state
+    @Published public internal(set) var state: R.State
 
     /// Expose When type from reducer
     public typealias When = R.When
@@ -74,7 +76,7 @@ public final class ReducerStore<R: Reducer>: Statostore, ObservableObject {
     /// Update implementation that delegates to the reducer's static method
     ///
     /// This method is called by the framework when events are sent via `send(_:)`.
-    /// It creates a mutable copy of state, wraps the injection tree in a dependencies object,
+    /// It creates a mutable copy of state and scopeLinks, wraps the injection tree in a dependencies object,
     /// passes everything to the reducer's static update method, and assigns the updated state
     /// back to trigger @Published.
     ///
@@ -82,8 +84,14 @@ public final class ReducerStore<R: Reducer>: Statostore, ObservableObject {
     @_spi(Internal)
     public func update(_ when: When) throws {
         var mutableState = state
-        let dependencies = ReducerDependenciesImpl(node: self as? InjectionTreeNode)
-        try R.update(when, state: &mutableState, effectsState: &effectsState, dependencies: dependencies)
+        let dependencies = ReducerDependenciesImpl(node: self, parentStore: self)
+        try R.update(
+            when,
+            state: &mutableState,
+            effectsState: &effectsState,
+            dependencies: dependencies
+        )
         state = mutableState
     }
+
 }

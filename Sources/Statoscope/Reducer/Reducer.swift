@@ -59,6 +59,10 @@ public protocol Reducer {
     associatedtype When
 
     /// The state type for this reducer
+    ///
+    /// State can contain:
+    /// - `SuperStateBinding<ParentState>` for parent access (like @Superscope)
+    /// - `SubStateBinding<ChildState>` for child management (like @Subscope)
     associatedtype State
 
     /// Pure update logic that mutates state based on events
@@ -74,6 +78,8 @@ public protocol Reducer {
     /// - Enqueue effects via `effectsState.enqueue(_:)`
     /// - Cancel effects via `effectsState.cancelEffect(_:)`
     /// - Resolve dependencies via `dependencies.resolve()`
+    /// - Access parent via `state.parent` (SuperStateBinding)
+    /// - Create children via `state.child = dependencies.createChild(...)`
     /// - Keep logic pure and deterministic (no side effects except effects enqueueing)
     /// - Being static emphasizes that reducers are stateless, pure functions
     ///
