@@ -1,15 +1,17 @@
 import Statoscope
 
-private final class Counter: Scope {
+enum Tutorial0101 {
 
-    var viewDisplaysTotalCount: Int = 0
+    final class Counter: Statostore, ObservableObject {
 
-    enum When {
-        case userTappedIncrementButton
-        case userTappedDecrementButton
-    }
+        @Published var viewDisplaysTotalCount: Int = 0
 
-    func update(_ when: When) throws {
-        // TODO
+        enum When {
+            case userTappedIncrementButton
+            case userTappedDecrementButton
+        }
+
+        func update(_ when: When) throws {
+        }
     }
 }

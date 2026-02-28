@@ -1,6 +1,9 @@
 import Statoscope
 
-private final class Counter: Scope {
+enum Tutorial0101 {
 
-    var viewDisplaysTotalCount: Int = 0
+    final class Counter: Statostore, ObservableObject {
+
+        @Published var viewDisplaysTotalCount: Int = 0
+    }
 }

@@ -48,19 +48,13 @@
             Before building the real scope implementation via the `update` method, we strongly recommend writing tests on top of the state + when models. However, we are moving forward and introducing tests as the last section of this document
                 
             @Step {
-                Now it’s time to implement the `update` method, which contains the state maintenance and business logic of your app’s scope.
-                
+                Now it's time to implement the `update` method, which contains the state maintenance and business logic of your app's scope.
+
                 For this counter example, the logic involves updating the count when the user taps either the increment or decrement button, ensuring that the count never drops below zero.
-                
+
+                Since we'll be using SwiftUI to display the state, the scope adopts `Statostore` (which provides the core functionality) and `ObservableObject` protocol, with `@Published` for state variables that the view will observe and reflect.
+
                 @Code(name: "Counter.swift", file: StateAndWhen-Counter-05.swift)
-            }
-            
-            @Step {
-                We will soon create a view to display the state. Since we’ll be 
-                using SwiftUI, adopt the `ObservableObject` protocol and use `@Published` 
-                for the state variables that the view will observe and reflect.
-                
-                @Code(name: "Counter.swift", file: StateAndWhen-Counter-06.swift)
             }
         }
     }

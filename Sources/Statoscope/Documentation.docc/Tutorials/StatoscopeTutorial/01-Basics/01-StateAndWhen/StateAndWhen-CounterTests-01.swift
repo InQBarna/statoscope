@@ -1,8 +1,11 @@
 import StatoscopeTesting
+import XCTest
 
-final class CounterTest: XCTestCase {
+extension Tutorial0101 {
 
-    func testUserFlow() throws {
+    final class CounterTests: XCTestCase {
+
+        func testBasicCounterFlow() throws {
+        }
     }
-
 }

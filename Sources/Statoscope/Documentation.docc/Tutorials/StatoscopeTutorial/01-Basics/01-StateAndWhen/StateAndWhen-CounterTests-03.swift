@@ -1,18 +1,21 @@
 import StatoscopeTesting
+import XCTest
 
-final class CounterTest: XCTestCase {
+extension Tutorial0101 {
 
-    func testUserFlow() throws {
-        try Counter.GIVEN {
-            Counter()
+    final class CounterTests: XCTestCase {
+
+        func testBasicCounterFlow() throws {
+            try Counter.GIVEN {
+                Counter()
+            }
+            .THEN(\.viewDisplaysTotalCount, equals: 0)
+            .WHEN(.userTappedIncrementButton)
+            .THEN(\.viewDisplaysTotalCount, equals: 1)
+            .WHEN(.userTappedDecrementButton)
+            .THEN(\.viewDisplaysTotalCount, equals: 0)
+            .WHEN(.userTappedDecrementButton)
+            .THEN(\.viewDisplaysTotalCount, equals: 0)  // Can't go below 0
         }
-        .THEN(\.viewDisplaysTotalCount, equals: 0)
-        .WHEN(.userTappedIncrementButton)
-        .THEN(\.viewDisplaysTotalCount, equals: 1)
-        .WHEN(.userTappedDecrementButton)
-        .THEN(\.viewDisplaysTotalCount, equals: 0)
-        .WHEN(.userTappedDecrementButton)
-        .THEN(\.viewDisplaysTotalCount, equals: 0)
     }
-
 }
