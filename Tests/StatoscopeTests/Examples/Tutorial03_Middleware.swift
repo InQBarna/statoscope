@@ -6,11 +6,21 @@
 //
 
 import Foundation
-import StatoscopeTesting
+// @extract:begin 01-03-01-code-0001
+// @extract:begin 01-03-01-code-0004
+// @extract:begin 01-03-01-codeview-0002
+// @extract:begin 01-03-01-codeview-0003
 import Statoscope
-import XCTest
+// @extract:end 01-03-01-code-0001
+// @extract:end 01-03-01-codeview-0002
+// @extract:end 01-03-01-codeview-0003
 
-/// Tutorial 03: Middleware for logging and error handling
+func setupVerboseLevel() {
+    StatoscopeLogger.logLevel = LogLevel.all
+}
+// @extract:begin 01-03-01-code-0001
+// @extract:end 01-03-01-code-0004
+
 enum Tutorial03 {
 
     final class Counter: Statostore, ObservableObject {
@@ -24,6 +34,7 @@ enum Tutorial03 {
         }
 
         func update(_ when: When) throws {
+            // @extract:end 01-03-01-code-0001
             switch when {
             case .userTappedIncrementButton:
                 viewDisplaysTotalCount += 1
@@ -32,9 +43,18 @@ enum Tutorial03 {
             case .errorCase:
                 throw InvalidStateError()
             }
+            // @extract:begin 01-03-01-code-0001
         }
+        // @extract:end 01-03-01-code-0001
+        // @extract:begin 01-03-01-code-0001
     }
+}
+// @extract:end 01-03-01-code-0001
 
+import StatoscopeTesting
+import XCTest
+
+extension Tutorial03 {
     final class MiddlewareTests: XCTestCase {
 
         func testMiddlewareInterceptsEvents() throws {
@@ -80,6 +100,7 @@ enum Tutorial03 {
             .runTest()
         }
 
+        // @extract:begin 01-03-01-code-0005
         func testMiddlewareCanLogEvents() throws {
             var logs: [String] = []
 
@@ -99,5 +120,47 @@ enum Tutorial03 {
             }
             .runTest()
         }
+        // @extract:end 01-03-01-code-0005
     }
 }
+
+// @extract:begin 01-03-01-codeview-0002
+// @extract:begin 01-03-01-codeview-0003
+import SwiftUI
+
+extension Tutorial03 {
+    
+    func sendCrashReport(error: any Error) { /* ... */ }
+
+    private struct CounterView: View {
+
+        @StateObject var model = Counter()
+        // @extract:end 01-03-01-codeview-0002
+            .addMiddleWare { store, when, forward in
+                do {
+                    print("WHEN: \(when)")
+                    try forward(when)
+                } catch {
+                    sendCrashReport(error)
+                }
+            }
+        // @extract:begin 01-03-01-codeview-0002
+
+        var body: some View {
+            VStack {
+                Text("\(model.viewDisplaysTotalCount)")
+                HStack {
+                    Button("+") {
+                        model.send(.userTappedIncrementButton)
+                    }
+                    Button("-") {
+                        model.send(.userTappedDecrementButton)
+                    }
+                }
+            }
+        }
+    }
+
+}
+// @extract:end 01-03-01-codeview-0002
+// @extract:end 01-03-01-codeview-0003

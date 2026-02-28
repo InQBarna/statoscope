@@ -18,13 +18,13 @@
             @Step {
                 And the CounterView with no protection to avoid the throw.
                         
-                @Code(name: "CounterView.swift", file: 01-03-01-code-0002.swift)
+                @Code(name: "CounterView.swift", file: 01-03-01-codeview-0002.swift)
             }
             @Step {
                 A middleware can be added to trap all events in the scope. Logging is straightforward,
                 either for terminal logging, analytics, or crash reports. 
                         
-                @Code(name: "CounterView.swift", file: 01-03-01-code-0003.swift)
+                @Code(name: "CounterView.swift", file: 01-03-01-codeview-0003.swift)
             }
             
             Having a comprehensive crash and analytics reporting is mandatory in production apps. 

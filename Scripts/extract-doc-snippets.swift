@@ -12,6 +12,7 @@ struct Config {
     static let tutorialToDocDir: [String: String] = [
         "Tutorial01_StateAndWhen.swift": "01-StateAndWhen",
         "Tutorial02_StateWhenAndEffects.swift": "02-StateWhenAndEffects",
+        "Tutorial02b_TypedEffects.swift": "02-StateWhenAndEffects",
         "Tutorial03_Middleware.swift": "03-Middleware",
         "Tutorial04_Injection.swift": "04-Injection",
         "Tutorial05_Scopes.swift": "05-Scopes",
