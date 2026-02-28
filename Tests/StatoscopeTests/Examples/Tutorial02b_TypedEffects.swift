@@ -1,24 +1,20 @@
 //
-//  Tutorial02_StateWhenAndEffects.swift
+//  Tutorial02b_TypedEffects.swift
 //  Statoscope
 //
-//  Examples from Tutorial 02: State, When and Effects
+//  Examples from Tutorial 02: State, When and Effects (Typed Effects)
 //
 
 import Foundation
-// @extract:begin 01-02-01-code-0001
-// @extract:begin 01-02-01-code-0002
-// @extract:begin 01-02-01-code-0003
-// @extract:begin 01-02-01-code-0004
+// @extract:begin 01-02-02-code-0001
+// @extract:begin 01-02-02-code-0002
+// @extract:begin 01-02-02-code-0003
 import Statoscope
 
-enum Tutorial02 {
+enum Tutorial02b {
 
-    // @extract:end 01-02-01-code-0001
-    // @extract:end 01-02-01-code-0002
-    // @extract:end 01-02-01-code-0003
-    // @extract:begin 01-02-01-code-0004
     enum Network {
+        // @extract:end 01-02-02-code-0001
         static func buildURLRequestPosting(dto: DTO) throws -> URLRequest {
             guard let url = URL(string: "http://statoscope.com") else {
                 throw InvalidStateError()
@@ -29,11 +25,19 @@ enum Tutorial02 {
             request.httpBody = try JSONEncoder().encode(dto)
             return request
         }
-    }
+        // @extract:end 01-02-02-code-0002
 
-    // @extract:begin 01-02-01-code-0001
-    // @extract:begin 01-02-01-code-0002
-    // @extract:begin 01-02-01-code-0003
+        // @extract:begin 01-02-02-code-0001
+        struct Effect<Response: Decodable>: Statoscope.Effect, Equatable {
+            let request: URLRequest
+            func runEffect() async throws -> Response {
+                try JSONDecoder().decode(Response.self, from: try await URLSession.shared.data(for: request).0)
+            }
+        }
+        // @extract:begin 01-02-02-code-0002
+    }
+    // @extract:end 01-02-02-code-0001
+
     struct DTO: Codable, Equatable {
         let count: Int
     }
@@ -49,8 +53,6 @@ enum Tutorial02 {
         }
 
         func update(_ when: When) throws {
-            // @extract:end 01-02-01-code-0001
-            // @extract:end 01-02-01-code-0002
             switch when {
             case .userTappedIncrementButton:
                 viewDisplaysTotalCount = viewDisplaysTotalCount + 1
@@ -69,38 +71,50 @@ enum Tutorial02 {
                 viewShowsLoadingAndDisablesButtons = false
                 viewDisplaysTotalCount = remoteCounter.count
             }
-            // @extract:begin 01-02-01-code-0001
-            // @extract:begin 01-02-01-code-0002
         }
-        // @extract:end 01-02-01-code-0001
-        // @extract:end 01-02-01-code-0002
 
         private func postNewValueToNetwork(newValue: Int) throws {
-            // @extract:end 01-02-01-code-0003
+            // @extract:end 01-02-02-code-0002
+            // Solution 1: Cancel any previous
+            effectsState.cancelEffect { $0 is Network.Effect<DTO> }
+            // Solution 2: do nothing if an effect is already running
+            guard nil == effects.first(where: { $0 is Network.Effect<DTO> }) else {
+                throw InvalidStateError()
+            }
+
+            // @extract:begin 01-02-02-code-0002
             effectsState.enqueue(
-                AnyEffect {
-                    let request = try Network.buildURLRequestPosting(dto: DTO(count: self.viewDisplaysTotalCount))
-                    let resDTO = try JSONDecoder().decode(DTO.self, from: try await URLSession.shared.data(for: request).0)
-                    return When.networkPostCompleted(resDTO)
-                }
+                Network.Effect<DTO>(request: try Network.buildURLRequestPosting(dto: DTO(count: newValue)))
+                    .map(When.networkPostCompleted)
             )
-            // @extract:begin 01-02-01-code-0003
         }
-        // @extract:begin 01-02-01-code-0001
-        // @extract:begin 01-02-01-code-0002
+        // @extract:begin 01-02-02-code-0002
+        // @extract:begin 01-02-02-code-0003
     }
+    // @extract:begin 01-02-02-code-0001
 }
-// @extract:end 01-02-01-code-0002
-// @extract:end 01-02-01-code-0003
-// @extract:end 01-02-01-code-0004
+// @extract:end 01-02-02-code-0001
+// @extract:end 01-02-02-code-0002
+// @extract:end 01-02-02-code-0003
+
+// @extract:begin 01-02-02-code-0004
+// @extract:begin 01-02-02-code-0005
 
 import StatoscopeTesting
 import XCTest
 
-extension Tutorial02 {
+extension Tutorial02b {
     final class CloudCounterTests: XCTestCase {
 
         func testBasicFlow() throws {
+            
+            // @extract:end 01-02-02-code-0004
+            var expectedNetworkRequest = URLRequest(url: try XCTUnwrap(URL(string: "http://statoscope.com")))
+            expectedNetworkRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            expectedNetworkRequest.httpMethod = "POST"
+            expectedNetworkRequest.httpBody = try JSONEncoder().encode(DTO(count: 0))
+
+            // @extract:begin 01-02-02-code-0004
             try CloudCounter.GIVEN {
                 CloudCounter()
             }
@@ -110,6 +124,9 @@ extension Tutorial02 {
             .WHEN(.userTappedIncrementButton)
             .THEN(\.viewDisplaysTotalCount, equals: 1)
             .THEN(\.viewShowsLoadingAndDisablesButtons, equals: true)
+            // @extract:end 01-02-02-code-0004
+            .THEN_EnquedEffect(Network.Effect<DTO>(request: expectedNetworkRequest))
+            // @extract:begin 01-02-02-code-0004
             .WHEN(.networkPostCompleted(DTO(count: 1)))
             .THEN(\.viewDisplaysTotalCount, equals: 1)
             .THEN(\.viewShowsLoadingAndDisablesButtons, equals: false)
@@ -127,4 +144,5 @@ extension Tutorial02 {
         }
     }
 }
-// @extract:end 01-02-01-code-0001
+// @extract:end 01-02-02-code-0005
+// @extract:end 01-02-02-code-0004
