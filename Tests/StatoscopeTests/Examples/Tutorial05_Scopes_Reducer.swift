@@ -1,0 +1,299 @@
+//
+//  Tutorial05_Scopes_Reducer.swift
+//  Statoscope
+//
+//  Examples from Tutorial 05: Hierarchical Scopes (Reducer Pattern)
+//
+
+import Foundation
+import StatoscopeTesting
+@_spi(Internal) @testable import Statoscope
+import XCTest
+
+/// Tutorial 05: Parent-Child Scope Composition (Reducer Pattern)
+enum Tutorial05Reducer {
+
+    // MARK: - Dependencies
+
+    struct DateProvider: Injectable {
+        var currentDate: () -> Date
+        static var defaultValue = DateProvider(currentDate: Date.init)
+    }
+
+    struct Favorite: Codable, Equatable {
+        let id: String
+        let dateAdded: Date
+    }
+
+    struct PersistenceProvider: Injectable {
+        let get: () throws -> [Favorite]
+        let set: ([Favorite]) throws -> Void
+        static var defaultValue = PersistenceProvider(get: { [] }, set: { _ in })
+    }
+
+    struct ArticleDTO: Codable, Equatable {
+        let id: String
+        let title: String
+        let content: String
+    }
+
+    struct FeedListDTO: Codable, Equatable {
+        let articles: [ArticleDTO]
+    }
+
+    // MARK: - Parent Reducer
+
+    @Reducer
+    struct NewsFeedReducer {
+        struct State: Injectable {
+            static var defaultValue: State { State() }
+            var loadingFeatureToggles: Bool = true
+            @SubState var atList: NewsFeedListReducer.State?
+        }
+
+        enum When {
+            case systemLoadedScope
+            case featureTogglesLoaded(favoritesEnabled: Bool)
+        }
+
+        static func update(
+            _ when: When,
+            state: inout State,
+            effectsState: inout EffectsState<When>,
+            dependencies: ReducerDependencies
+        ) throws {
+            switch when {
+            case .systemLoadedScope:
+                state.loadingFeatureToggles = true
+                // Simulate loading feature toggles
+                effectsState.enqueue(
+                    AnyEffect { true }  // Simulate favoritesEnabled = true
+                        .map { When.featureTogglesLoaded(favoritesEnabled: $0) }
+                )
+
+            case .featureTogglesLoaded(let favoritesEnabled):
+                state.loadingFeatureToggles = false
+                // Create child scope with feature toggle parameter
+                var listState = NewsFeedListReducer.State()
+                listState.favoritesEnabled = favoritesEnabled
+                state.atList = listState
+            }
+        }
+    }
+
+    // MARK: - Child Reducer (List)
+
+    @Reducer
+    struct NewsFeedListReducer {
+        struct State: Injectable {
+            static var defaultValue: State { State() }
+            var favoritesEnabled: Bool = false
+            var loading: Bool = false
+            var loadedDTO: FeedListDTO?
+            @SubState var readingArticle: NewsFeedArticleReducer.State?
+            var favorites: [Favorite] = []
+        }
+
+        enum When {
+            case systemLoadedScope
+            case networkListDidFinish(FeedListDTO)
+            case navigateFromListToChild(id: String)
+            case favorite(id: String)
+        }
+
+        static func update(
+            _ when: When,
+            state: inout State,
+            effectsState: inout EffectsState<When>,
+            dependencies: ReducerDependencies
+        ) throws {
+            switch when {
+            case .systemLoadedScope:
+                let persistence: PersistenceProvider = try dependencies.resolve()
+
+                state.loading = true
+                state.favorites = try persistence.get()
+                effectsState.enqueue(
+                    AnyEffect {
+                        FeedListDTO(articles: [
+                            ArticleDTO(id: "1", title: "Article 1", content: "Content 1"),
+                            ArticleDTO(id: "2", title: "Article 2", content: "Content 2")
+                        ])
+                    }
+                    .map(When.networkListDidFinish)
+                )
+
+            case .networkListDidFinish(let dto):
+                state.loading = false
+                state.loadedDTO = dto
+
+            case .navigateFromListToChild(let id):
+                // Create child article scope
+                var articleState = NewsFeedArticleReducer.State()
+                articleState.favoritesEnabled = state.favoritesEnabled
+                articleState.id = id
+                state.readingArticle = articleState
+
+            case .favorite(let id):
+                guard state.favoritesEnabled else { return }
+
+                let date: DateProvider = try dependencies.resolve()
+                let persistence: PersistenceProvider = try dependencies.resolve()
+
+                if let favIndex = state.favorites.firstIndex(where: { $0.id == id }) {
+                    state.favorites.remove(at: favIndex)
+                } else {
+                    state.favorites.append(Favorite(id: id, dateAdded: date.currentDate()))
+                }
+                try persistence.set(state.favorites)
+            }
+        }
+    }
+
+    // MARK: - Child Reducer (Article Detail)
+
+    @Reducer
+    struct NewsFeedArticleReducer {
+        struct State: Injectable {
+            static var defaultValue: State { State() }
+            var favoritesEnabled: Bool = false
+            var id: String = ""
+            var loading: Bool = false
+            var loadedDTO: ArticleDTO?
+            var favorites: [Favorite] = []
+        }
+
+        enum When {
+            case systemLoadedScope
+            case networkDidFinish(ArticleDTO)
+            case favorite(id: String)
+        }
+
+        static func update(
+            _ when: When,
+            state: inout State,
+            effectsState: inout EffectsState<When>,
+            dependencies: ReducerDependencies
+        ) throws {
+            switch when {
+            case .systemLoadedScope:
+                let persistence: PersistenceProvider = try dependencies.resolve()
+                let articleId = state.id  // Copy to avoid capturing inout parameter
+
+                state.loading = true
+                state.favorites = try persistence.get()
+                effectsState.enqueue(
+                    AnyEffect {
+                        ArticleDTO(id: articleId, title: "Article \(articleId)", content: "Content for \(articleId)")
+                    }
+                    .map(When.networkDidFinish)
+                )
+
+            case .networkDidFinish(let dto):
+                state.loading = false
+                state.loadedDTO = dto
+
+            case .favorite(let id):
+                guard state.favoritesEnabled else { return }
+
+                let date: DateProvider = try dependencies.resolve()
+                let persistence: PersistenceProvider = try dependencies.resolve()
+
+                if let favIndex = state.favorites.firstIndex(where: { $0.id == id }) {
+                    state.favorites.remove(at: favIndex)
+                } else {
+                    state.favorites.append(Favorite(id: id, dateAdded: date.currentDate()))
+                }
+                try persistence.set(state.favorites)
+            }
+        }
+    }
+
+    // MARK: - Tests
+
+    final class ScopesTests: XCTestCase {
+
+        func testParentCreatesChildWithParameters() throws {
+            try NewsFeedReducer.Store.GIVEN {
+                NewsFeedReducer.Store(initialState: NewsFeedReducer.State())
+            }
+            .THEN(\.state.loadingFeatureToggles, equals: true)
+            .THEN { scope in
+                XCTAssertNil(scope.state.atList)
+            }
+            .WHEN(.systemLoadedScope)
+            .WHEN_OlderEffectCompletes(with: .featureTogglesLoaded(favoritesEnabled: true))
+            .THEN(\.state.loadingFeatureToggles, equals: false)
+            .THEN { scope in
+                XCTAssertNotNil(scope.state.atList)
+                XCTAssertEqual(scope.state.atList?.favoritesEnabled, true)
+            }
+            .runTest()
+        }
+
+        func testChildInheritsFeatureToggle() throws {
+            let fixedDate = Date(timeIntervalSince1970: 1000)
+            var savedFavorites: [Favorite] = []
+
+            var initialState = NewsFeedListReducer.State()
+            initialState.favoritesEnabled = true
+
+            try NewsFeedListReducer.Store.GIVEN {
+                NewsFeedListReducer.Store(initialState: initialState)
+                    .injectObject(DateProvider { fixedDate })
+                    .injectObject(
+                        PersistenceProvider(
+                            get: { savedFavorites },
+                            set: { savedFavorites = $0 }
+                        )
+                    )
+            }
+            .WHEN(.systemLoadedScope)
+            .THEN(\.state.loading, equals: true)
+            .WHEN_OlderEffectCompletes(with: .networkListDidFinish(
+                FeedListDTO(articles: [
+                    ArticleDTO(id: "1", title: "Article 1", content: "Content 1")
+                ])
+            ))
+            .THEN(\.state.loading, equals: false)
+            .WHEN(.favorite(id: "1"))
+            .THEN(\.state.favorites, equals: [Favorite(id: "1", dateAdded: fixedDate)])
+            .runTest()
+        }
+
+        func testFavoritesDisabledWhenToggleOff() throws {
+            var initialState = NewsFeedListReducer.State()
+            initialState.favoritesEnabled = false
+
+            try NewsFeedListReducer.Store.GIVEN {
+                NewsFeedListReducer.Store(initialState: initialState)
+                    .injectObject(DateProvider { Date(timeIntervalSince1970: 1000) })
+                    .injectObject(
+                        PersistenceProvider(get: { [] }, set: { _ in })
+                    )
+            }
+            .WHEN(.favorite(id: "1"))
+            .THEN(\.state.favorites, equals: [])  // No favorite added when disabled
+            .runTest()
+        }
+
+        func testNavigationCreatesChildScope() throws {
+            var initialState = NewsFeedListReducer.State()
+            initialState.favoritesEnabled = true
+
+            try NewsFeedListReducer.Store.GIVEN {
+                NewsFeedListReducer.Store(initialState: initialState)
+            }
+            .THEN { scope in
+                XCTAssertNil(scope.state.readingArticle)
+            }
+            .WHEN(.navigateFromListToChild(id: "1"))
+            .THEN { scope in
+                XCTAssertNotNil(scope.state.readingArticle)
+                XCTAssertEqual(scope.state.readingArticle?.id, "1")
+                XCTAssertEqual(scope.state.readingArticle?.favoritesEnabled, true)
+            }
+            .runTest()
+        }
+    }
+}

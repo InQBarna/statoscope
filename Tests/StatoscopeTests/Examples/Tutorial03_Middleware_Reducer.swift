@@ -1,31 +1,34 @@
 //
-//  Tutorial03_Middleware.swift
+//  Tutorial03_Middleware_Reducer.swift
 //  Statoscope
 //
-//  Examples from Tutorial 03: Middleware
+//  Examples from Tutorial 03: Middleware (Reducer Pattern)
 //
 
 import Foundation
-// @extract:begin 01-03-01-code-0001
-// @extract:begin 01-03-01-code-0004
-// @extract:begin 01-03-01-codeview-0002
-// @extract:begin 01-03-01-codeview-0003
-import Statoscope
-// @extract:end 01-03-01-code-0001
-// @extract:end 01-03-01-codeview-0002
-// @extract:end 01-03-01-codeview-0003
+// @extract:begin Middleware-Reducer-Counter-01
+// @extract:begin Middleware-Reducer-Counter-04
+// @extract:begin Middleware-Reducer-CounterView-02
+// @extract:begin Middleware-Reducer-CounterView-03
+@_spi(Internal) @testable import Statoscope
+// @extract:end Middleware-Reducer-Counter-01
+// @extract:end Middleware-Reducer-CounterView-02
+// @extract:end Middleware-Reducer-CounterView-03
 
 private func setupVerboseLevel() {
     StatoscopeLogger.logLevel = LogLevel.all
 }
-// @extract:begin 01-03-01-code-0001
-// @extract:end 01-03-01-code-0004
+// @extract:begin Middleware-Reducer-Counter-01
+// @extract:end Middleware-Reducer-Counter-04
 
-enum Tutorial03 {
+/// Tutorial 03: Middleware with Reducer pattern
+enum Tutorial03Reducer {
 
-    final class Counter: Statostore, ObservableObject {
-
-        @Published var viewDisplaysTotalCount: Int = 0
+    @Reducer
+    struct CounterReducer {
+        struct State {
+            var viewDisplaysTotalCount: Int = 0
+        }
 
         enum When {
             case userTappedIncrementButton
@@ -33,40 +36,45 @@ enum Tutorial03 {
             case errorCase  // Will throw an error
         }
 
-        func update(_ when: When) throws {
-            // @extract:end 01-03-01-code-0001
+        static func update(
+            _ when: When,
+            state: inout State,
+            effectsState: inout EffectsState<When>,
+            dependencies: ReducerDependencies
+        ) throws {
+            // @extract:end Middleware-Reducer-Counter-01
             switch when {
             case .userTappedIncrementButton:
-                viewDisplaysTotalCount += 1
+                state.viewDisplaysTotalCount += 1
             case .userTappedDecrementButton:
-                viewDisplaysTotalCount = max(0, viewDisplaysTotalCount - 1)
+                state.viewDisplaysTotalCount = max(0, state.viewDisplaysTotalCount - 1)
             case .errorCase:
                 throw InvalidStateError()
             }
-            // @extract:begin 01-03-01-code-0001
+            // @extract:begin Middleware-Reducer-Counter-01
         }
-        // @extract:end 01-03-01-code-0001
-        // @extract:begin 01-03-01-code-0001
+        // @extract:end Middleware-Reducer-Counter-01
+        // @extract:begin Middleware-Reducer-Counter-01
     }
 }
-// @extract:end 01-03-01-code-0001
+// @extract:end Middleware-Reducer-Counter-01
 
 import StatoscopeTesting
 import XCTest
 
-extension Tutorial03 {
+extension Tutorial03Reducer {
     final class MiddlewareTests: XCTestCase {
 
         func testMiddlewareInterceptsEvents() throws {
-            var interceptedEvents: [Counter.When] = []
+            var interceptedEvents: [CounterReducer.When] = []
 
-            let counter = Counter()
+            let counter = CounterReducer.Store(initialState: CounterReducer.State())
                 .addMiddleWare { _, when, forward in
                     interceptedEvents.append(when)
                     try forward(when)
                 }
 
-            try Counter.GIVEN {
+            try CounterReducer.Store.GIVEN {
                 counter
             }
             .WHEN(.userTappedIncrementButton)
@@ -80,7 +88,7 @@ extension Tutorial03 {
         func testMiddlewareCanHandleErrors() throws {
             var errorsCaught: [Error] = []
 
-            let counter = Counter()
+            let counter = CounterReducer.Store(initialState: CounterReducer.State())
                 .addMiddleWare { _, when, forward in
                     do {
                         try forward(when)
@@ -89,7 +97,7 @@ extension Tutorial03 {
                     }
                 }
 
-            try Counter.GIVEN {
+            try CounterReducer.Store.GIVEN {
                 counter
             }
             .WHEN(.errorCase)
@@ -100,55 +108,55 @@ extension Tutorial03 {
             .runTest()
         }
 
-        // @extract:begin 01-03-01-code-0005
+        // @extract:begin Middleware-Reducer-Counter-05
         func testMiddlewareCanLogEvents() throws {
             var logs: [String] = []
 
-            let counter = Counter()
+            let counter = CounterReducer.Store(initialState: CounterReducer.State())
                 .addMiddleWare { _, when, forward in
                     logs.append("Event: \(when)")
                     try forward(when)
                 }
 
-            try Counter.GIVEN {
+            try CounterReducer.Store.GIVEN {
                 counter
             }
             .WHEN(.userTappedIncrementButton)
-            .THEN(\.viewDisplaysTotalCount, equals: 1)
+            .THEN(\.state.viewDisplaysTotalCount, equals: 1)
             .THEN { _ in
                 XCTAssertTrue(logs.contains("Event: userTappedIncrementButton"))
             }
             .runTest()
         }
-        // @extract:end 01-03-01-code-0005
+        // @extract:end Middleware-Reducer-Counter-05
     }
 }
 
-// @extract:begin 01-03-01-codeview-0002
-// @extract:begin 01-03-01-codeview-0003
+// @extract:begin Middleware-Reducer-CounterView-02
+// @extract:begin Middleware-Reducer-CounterView-03
 import SwiftUI
 
-extension Tutorial03 {
-    
+extension Tutorial03Reducer {
+
     static func sendCrashReport(error: any Error) { /* ... */ }
 
     private struct CounterView: View {
 
-        @StateObject var model = Counter()
-        // @extract:end 01-03-01-codeview-0002
+        @StateObject var model = CounterReducer.Store(initialState: CounterReducer.State())
+        // @extract:end Middleware-Reducer-CounterView-02
             .addMiddleWare { store, when, forward in
                 do {
                     print("WHEN: \(when)")
                     try forward(when)
                 } catch {
-                    Tutorial03.sendCrashReport(error: error) 
+                    Tutorial03Reducer.sendCrashReport(error: error)
                 }
             }
-        // @extract:begin 01-03-01-codeview-0002
+        // @extract:begin Middleware-Reducer-CounterView-02
 
         var body: some View {
             VStack {
-                Text("\(model.viewDisplaysTotalCount)")
+                Text("\(model.state.viewDisplaysTotalCount)")
                 HStack {
                     Button("+") {
                         model.send(.userTappedIncrementButton)
@@ -162,5 +170,5 @@ extension Tutorial03 {
     }
 
 }
-// @extract:end 01-03-01-codeview-0002
-// @extract:end 01-03-01-codeview-0003
+// @extract:end Middleware-Reducer-CounterView-02
+// @extract:end Middleware-Reducer-CounterView-03

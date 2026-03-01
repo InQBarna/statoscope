@@ -96,11 +96,15 @@ public struct ReducerMacro: MemberMacro {
         let superStateProperties = findSuperStateProperties(in: stateStruct)
         let subStateProperties = findSubStateProperties(in: stateStruct)
 
+        // Check if State conforms to Injectable
+        let stateIsInjectable = stateConformsToInjectable(in: stateStruct)
+
         // Generate Store class as nested member
         let storeClass = try generateStoreClass(
             reducerName: reducerName,
             superStateProperties: superStateProperties,
-            subStateProperties: subStateProperties
+            subStateProperties: subStateProperties,
+            stateIsInjectable: stateIsInjectable
         )
 
         return [storeClass]
@@ -184,6 +188,17 @@ public struct ReducerMacro: MemberMacro {
         return properties
     }
 
+    /// Check if State struct conforms to Injectable protocol
+    private static func stateConformsToInjectable(in stateStruct: StructDeclSyntax) -> Bool {
+        guard let inheritanceClause = stateStruct.inheritanceClause else {
+            return false
+        }
+
+        return inheritanceClause.inheritedTypes.contains { inheritedType in
+            inheritedType.type.as(IdentifierTypeSyntax.self)?.name.text == "Injectable"
+        }
+    }
+
     /// Infer reducer type from state type
     /// "ParentState" → "ParentReducer"
     /// "ChildReducer.State" → "ChildReducer"
@@ -207,7 +222,8 @@ public struct ReducerMacro: MemberMacro {
     private static func generateStoreClass(
         reducerName: String,
         superStateProperties: [(name: String, type: String)],
-        subStateProperties: [(name: String, type: String)]
+        subStateProperties: [(name: String, type: String)],
+        stateIsInjectable: Bool
     ) throws -> DeclSyntax {
 
         // Generate @Superscope properties
@@ -272,14 +288,23 @@ public struct ReducerMacro: MemberMacro {
             """
         }.joined(separator: "\n                    ")
 
-        return DeclSyntax("""
-        public final class Store: Statostore, ObservableObject, Injectable {
-            public typealias When = \(raw: reducerName).When
+        // Conditionally include Injectable conformance
+        let conformances = stateIsInjectable
+            ? "Statostore, ObservableObject, Injectable"
+            : "Statostore, ObservableObject"
+
+        // Conditionally generate Injectable defaultValue
+        let injectableConformance = stateIsInjectable ? """
 
             // Injectable conformance
             public static var defaultValue: Store {
                 Store(initialState: State.defaultValue)
             }
+        """ : ""
+
+        return DeclSyntax("""
+        public final class Store: \(raw: conformances) {
+            public typealias When = \(raw: reducerName).When\(raw: injectableConformance)
 
             // @Superscope properties
             \(raw: superscopeDecls.isEmpty ? "// No superscope properties" : superscopeDecls)

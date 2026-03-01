@@ -14,8 +14,7 @@ import Combine
 enum Counter {
     @Reducer
     struct Reducer {
-        struct State: Injectable {
-            static var defaultValue: State { State() }
+        struct State {
             var count: Int = 0
             var name: String = ""
         }
@@ -49,8 +48,7 @@ enum Counter {
 enum AsyncCounter {
     @Reducer
     struct Reducer {
-        struct State: Injectable {
-            static var defaultValue: State { State() }
+        struct State {
             var count: Int = 0
             var isLoading: Bool = false
         }
@@ -80,8 +78,7 @@ enum AsyncCounter {
 enum ErrorThrowing {
     @Reducer
     struct Reducer {
-        struct State: Injectable {
-            static var defaultValue: State { State() }
+        struct State {
             var counter: Int = 0
         }
         
@@ -115,8 +112,7 @@ struct Logger: Injectable {
 enum LoggingCounter {
     @Reducer
     struct Reducer {
-        struct State: Injectable {
-            static var defaultValue: State { State() }
+        struct State {
             var count: Int = 0
         }
         
@@ -169,7 +165,9 @@ enum ParentChild {
                 
             case .createChild:
                 // ✅ Clean! No manual parent binding
-                state.child = ChildReducer.State(value: 0)
+                var childState = ChildReducer.State()
+                childState.value = 0
+                state.child = childState
                 
             case .updateChild:
                 state.child?.value = 42
@@ -180,8 +178,7 @@ enum ParentChild {
     @Reducer
     struct ChildReducer {
         struct State: Injectable {
-            static var defaultValue: State { State(value: 0) }
-            
+            static var defaultValue: State { State() }
             @SuperState var parent: ParentReducer.State
             var value: Int = 0
         }
@@ -430,11 +427,11 @@ final class ReducerTests: XCTestCase {
 
     func testInjectableConformance() {
         // Verify that State types have Injectable conformance
-        let defaultCounter = Counter.Reducer.State.defaultValue
+        let defaultCounter = Counter.Reducer.State()
         XCTAssertEqual(defaultCounter.count, 0)
         XCTAssertEqual(defaultCounter.name, "")
 
-        let defaultParent = ParentChild.ParentReducer.State.defaultValue
+        let defaultParent = ParentChild.ParentReducer.State()
         XCTAssertEqual(defaultParent.count, 0)
         XCTAssertNil(defaultParent.child)
     }
