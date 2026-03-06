@@ -11,6 +11,9 @@ import XCTest
 
 // MARK: - Test Scopes
 
+// Shared event log for capturing execution order across all scopes
+private var globalEventLog: [String] = []
+
 /// Root scope that intercepts all descendant events
 final class RootScope: Statostore, HierarchialScopeMiddleWare, ObservableObject {
     @Subscope var parent: ParentScope?
@@ -36,14 +39,18 @@ final class RootScope: Statostore, HierarchialScopeMiddleWare, ObservableObject 
     ) throws {
         // BEFORE forwarding
         beforeCount += 1
-        interceptedEvents.append("Root BEFORE: \(when)")
+        let beforeMsg = "Root BEFORE: \(when)"
+        interceptedEvents.append(beforeMsg)
+        globalEventLog.append(beforeMsg)
 
-        // Forward to child (Phase 1: single-level only)
+        // Forward to next level in chain
         try child._unsafeSendImplementation(when)
 
         // AFTER child completes
         afterCount += 1
-        interceptedEvents.append("Root AFTER: \(when)")
+        let afterMsg = "Root AFTER: \(when)"
+        interceptedEvents.append(afterMsg)
+        globalEventLog.append(afterMsg)
     }
 }
 
@@ -76,7 +83,9 @@ final class ParentScope: Statostore, HierarchialScopeMiddleWare, ObservableObjec
     ) throws {
         // BEFORE forwarding
         beforeCount += 1
-        interceptedEvents.append("Parent BEFORE: \(when)")
+        let beforeMsg = "Parent BEFORE: \(when)"
+        interceptedEvents.append(beforeMsg)
+        globalEventLog.append(beforeMsg)
 
         // Check if we should delegate to self
         if let childWhen = when as? ChildScope.When {
@@ -86,12 +95,15 @@ final class ParentScope: Statostore, HierarchialScopeMiddleWare, ObservableObjec
             }
         }
 
-        // Forward to child (Phase 1: single-level only)
+        // Forward to next level in chain
+        // Framework handles multi-level: calls next parent or final child
         try child._unsafeSendImplementation(when)
 
         // AFTER child completes
         afterCount += 1
-        interceptedEvents.append("Parent AFTER: \(when)")
+        let afterMsg = "Parent AFTER: \(when)"
+        interceptedEvents.append(afterMsg)
+        globalEventLog.append(afterMsg)
     }
 }
 
@@ -203,22 +215,49 @@ final class HierarchicalDelegationTests: XCTestCase {
         XCTAssertEqual(parent.child?.executedEvents.count, 3)
     }
 
-    // MARK: - Multi-Level Tests (Future Phase)
+    // MARK: - Multi-Level Tests (Phase 2)
 
-    // TODO: Multi-level parent chains require additional framework support
-    // Phase 1 only supports single-level parent-child interception
-    // These tests document the expected behavior for future implementation
+    func testMultipleLevelsIntercept() throws {
+        let root = RootScope()
+        root.parent = ParentScope()
+        root.parent?.child = ChildScope()
 
-    func testMultipleLevelsIntercept_NotYetSupported() throws {
-        // This test is disabled until Phase 2 implements proper multi-level chain handling
-        // Expected behavior: Root → Parent → Child with each level intercepting
-        throw XCTSkip("Multi-level interception requires Phase 2 implementation")
+        // Child sends event
+        root.parent?.child?.send(.taskCompleted("task1"))
+
+        // Root intercepts ALL events in subtree: child event + parent's self-delegation = 2
+        XCTAssertEqual(root.beforeCount, 2, "Root intercepts child event + parent self-delegation")
+        XCTAssertEqual(root.afterCount, 2, "Root reacts after both events")
+
+        // Parent intercepts: child event + self delegation = 2
+        XCTAssertEqual(root.parent?.beforeCount, 2, "Parent intercepts child + self delegation")
+        XCTAssertEqual(root.parent?.afterCount, 2, "Parent reacts after both")
+
+        // Parent should have delegated to itself
+        XCTAssertEqual(root.parent?.receivedDelegations, ["task1"])
+
+        // Child should have executed once
+        XCTAssertEqual(root.parent?.child?.executedEvents.count, 1)
     }
 
-    func testTopDownOrderPreservation_NotYetSupported() throws {
-        // This test is disabled until Phase 2 implements proper multi-level chain handling
-        // Expected order: Root BEFORE → Parent BEFORE → Child → Parent AFTER → Root AFTER
-        throw XCTSkip("Multi-level interception requires Phase 2 implementation")
+    func testTopDownOrderPreservation() throws {
+        globalEventLog = []  // Reset global log
+        let root = RootScope()
+        root.parent = ParentScope()
+        root.parent?.child = ChildScope()
+
+        // Child sends event
+        root.parent?.child?.send(.simpleAction)
+
+        // Verify order: Root BEFORE → Parent BEFORE → Child → Parent AFTER → Root AFTER
+        let expectedOrder = [
+            "Root BEFORE: simpleAction",
+            "Parent BEFORE: simpleAction",
+            "Parent AFTER: simpleAction",
+            "Root AFTER: simpleAction"
+        ]
+
+        XCTAssertEqual(globalEventLog, expectedOrder, "Top-down flow not preserved")
     }
 
     // MARK: - Blocking Tests
@@ -276,9 +315,29 @@ final class HierarchicalDelegationTests: XCTestCase {
         XCTAssertNotNil(parent.child, "Parent should create child")
     }
 
-    func testDeepHierarchy_NotYetSupported() throws {
-        // This test requires multi-level parent chains which are not yet supported in Phase 1
-        // Expected: Root → Parent → Child with all levels intercepting
-        throw XCTSkip("Multi-level interception requires Phase 2 implementation")
+    func testDeepHierarchy() throws {
+        // Create 3-level hierarchy: Root → Parent → Child
+        let root = RootScope()
+        root.parent = ParentScope()
+        root.parent?.child = ChildScope()
+
+        // Send multiple events
+        for i in 1...5 {
+            root.parent?.child?.send(.taskCompleted("task\(i)"))
+        }
+
+        // Root intercepts ALL events in subtree: 5 child + 5 parent self-delegations = 10
+        XCTAssertEqual(root.beforeCount, 10, "Root intercepts all events: 5 child + 5 parent self = 10")
+        XCTAssertEqual(root.afterCount, 10, "Root reacts 10 times")
+
+        // Parent intercepts: 5 child events + 5 self delegations = 10 total
+        XCTAssertEqual(root.parent?.beforeCount, 10, "Parent intercepts 5 child + 5 self = 10")
+        XCTAssertEqual(root.parent?.afterCount, 10, "Parent reacts 10 times")
+
+        // Child executed all 5 events
+        XCTAssertEqual(root.parent?.child?.executedEvents.count, 5, "Child executes 5 events")
+
+        // Parent delegated all 5
+        XCTAssertEqual(root.parent?.receivedDelegations.count, 5, "Parent delegated 5 times")
     }
 }

@@ -35,8 +35,8 @@ let package = Package(
             dependencies: [
               "StatoscopeMacros"
             ],
-            path: "Sources/Statoscope",
-            plugins: [.plugin(name: "SwiftLintBuildToolPlugin", package: "SwiftLintPlugins")]
+            path: "Sources/Statoscope"
+            // plugins: [.plugin(name: "SwiftLintBuildToolPlugin", package: "SwiftLintPlugins")]
         ),
         .testTarget(
             name: "StatoscopeTests",

@@ -226,9 +226,66 @@ private extension ScopeImplementation {
 
         let selfKeyPathOnParent = selfAsInjectionNode._keyPathToSelfOnParent ?? \Self.self
 
-        // Start with ROOT (first in top-down array)
-        // Root's updateSubscope() will forward to next level recursively
-        // This creates: Root → Grandparent → Parent → Child flow
-        try parents.first?.updateSubscope(self, when, selfKeyPathOnParent)
+        // Build continuation chain for multi-level interception
+        // Innermost continuation executes the actual child update
+        var continuation: () throws -> Void = { [weak self] in
+            try self?.update(when)
+        }
+
+        // Wrap each parent around the continuation, starting from immediate parent
+        // This creates nested calls: root { parent { child } }
+        for parent in parents.reversed() {  // Reverse to go from immediate parent → root
+            let previousContinuation = continuation
+            let parentRef = parent  // Capture parent reference
+
+            continuation = { [weak self] in
+                guard self != nil else { return }
+
+                // Create a virtual scope that continues the chain when update() is called
+                let chainScope = ChainContinuationScope<When>(
+                    continuation: previousContinuation
+                )
+
+                // Parent intercepts with virtual scope
+                // When parent calls chainScope.update(), it continues the chain
+                try parentRef.updateSubscope(chainScope, when, selfKeyPathOnParent)
+            }
+        }
+
+        // Execute the outermost continuation (root level)
+        try continuation()
+    }
+}
+
+/// Virtual scope that represents a continuation in the parent chain
+/// When update() is called, it executes the next level in the chain
+private final class ChainContinuationScope<W>: ScopeImplementation {
+    typealias When = W
+
+    let continuation: () throws -> Void
+    var effectsState: EffectsState<W>
+    var effectsHandler: EffectsHandlerImplementation<W>
+
+    init(continuation: @escaping () throws -> Void) {
+        self.continuation = continuation
+        self.effectsState = EffectsState(snapshotEffects: [])
+        self.effectsHandler = EffectsHandlerImplementation(
+            logPrefix: "ChainContinuationScope:",
+            effectCompleted: { _, _, _ in }
+        )
+    }
+
+    func update(_ when: W) throws {
+        // Continue the chain by executing the next level
+        try continuation()
+    }
+
+    func _unsafeSendImplementation(_ when: W) throws {
+        // Also support _unsafeSendImplementation for compatibility
+        try continuation()
+    }
+
+    func addMiddleWare(_ update: @escaping (ChainContinuationScope<W>, W, (W) throws -> Void) throws -> Void) -> Self {
+        return self
     }
 }
