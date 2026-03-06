@@ -261,51 +261,37 @@ private extension ScopeImplementation {
     func callParentEnclosedHierarchialUpdate(_ when: When) throws {
         let parents = allHierarchialScopeMiddlewareParents()
         guard !parents.isEmpty else {
-            // No middleware parents, execute child directly
-            try update(when)
+            try _unsafeSendImplementation(when)
             return
         }
 
-        guard let selfAsInjectionNode = self as? InjectionTreeNode else {
-            try update(when)
-            return
-        }
-
-        let selfKeyPathOnParent = selfAsInjectionNode._keyPathToSelfOnParent ?? \Self.self
-
-        // Build continuation chain for multi-level interception
-        // Innermost continuation executes the actual child update
+        // Innermost continuation must go through _unsafeSendImplementation, not update()
+        // directly — otherwise effects are never triggered, _updating is never set,
+        // and the child's own middleware chain is skipped.
         var continuation: () throws -> Void = { [weak self] in
-            try self?.update(when)
+            try self?._unsafeSendImplementation(when)
         }
 
-        // Wrap each parent around the continuation, starting from immediate parent
-        // This creates nested calls: root { parent { child } }
-        for parent in parents.reversed() {  // Reverse to go from immediate parent → root
+        // Build chain from immediate parent outward to root.
+        // parents is top-down (root first), reversed() gives immediate parent first.
+        // All parents receive the real event source (self) as event.child so that
+        // type casts work at every level. Each level only intercepts events from its
+        // direct children — grandparents see the original grandchild, not a proxy.
+        for parent in parents.reversed() {
             let previousContinuation = continuation
-            let parentRef = parent  // Capture parent reference
+            let parentRef = parent
 
             continuation = { [weak self] in
                 guard let self = self else { return }
-
-                // Create a virtual scope that continues the chain
-                let chainScope = ChainContinuationScope<When>(
-                    continuation: previousContinuation
-                )
-
-                // Create SubscopeEvent with forward closure
                 let event = SubscopeEvent(
-                    child: chainScope,
+                    child: self,
                     when: when,
-                    forwardClosure: previousContinuation  // Forward = continue chain
+                    forwardClosure: previousContinuation
                 )
-
-                // Parent intercepts with event
                 try parentRef.updateSubscope(event)
             }
         }
 
-        // Execute the outermost continuation (root level)
         try continuation()
     }
 }

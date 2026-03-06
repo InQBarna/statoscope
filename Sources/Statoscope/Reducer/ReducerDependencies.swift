@@ -110,12 +110,11 @@ public protocol ReducerDependencies {
 }
 
 /// Internal implementation of ReducerDependencies that wraps an InjectionTreeNode
-@_spi(Internal)
 public struct ReducerDependenciesImpl: ReducerDependencies {
     private let node: InjectionTreeNode?
     private weak var parentStore: (any ObservableObject)?
 
-    init(node: InjectionTreeNode?, parentStore: (any ObservableObject)? = nil) {
+    public init(node: InjectionTreeNode?, parentStore: (any ObservableObject)? = nil) {
         self.node = node
         self.parentStore = parentStore
     }

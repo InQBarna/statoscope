@@ -13,7 +13,14 @@ import SwiftSyntaxMacros
 import SwiftDiagnostics
 
 extension DeclModifierListSyntax {
-    private static let visibilityModifiers: Set = ["private", "fileprivate", "internal", "package", "public", "open"]
+    private static let visibilityModifiers: Set = [
+        "private",
+        "fileprivate",
+        "internal",
+        "package",
+        "public",
+        "open"
+    ]
 
     func visibilityText() -> String? {
         self.map(\.name.text)

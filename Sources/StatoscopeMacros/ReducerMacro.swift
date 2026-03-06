@@ -52,8 +52,21 @@ import SwiftDiagnostics
 ///     public static var defaultValue: State { State() }
 /// }
 /// ```
-public struct ReducerMacro: MemberMacro {
+public struct ReducerMacro: MemberMacro, ExtensionMacro {
 
+    // ExtensionMacro: adds `Reducer` conformance to the outer struct automatically
+    public static func expansion(
+        of node: AttributeSyntax,
+        attachedTo declaration: some DeclGroupSyntax,
+        providingExtensionsOf type: some TypeSyntaxProtocol,
+        conformingTo protocols: [TypeSyntax],
+        in context: some MacroExpansionContext
+    ) throws -> [ExtensionDeclSyntax] {
+        guard !protocols.isEmpty else { return [] }
+        return [try ExtensionDeclSyntax("extension \(type): Reducer {}")]
+    }
+
+    // MemberMacro: generates the nested Store class
     public static func expansion<
         Context: MacroExpansionContext,
         Declaration: DeclGroupSyntax
@@ -323,30 +336,41 @@ public struct ReducerMacro: MemberMacro {
             }
         """ : ""
 
-        // Conditionally generate updateSubscope method for MiddlewareReducer
+        // Generate per-@SubState typed dispatch for MiddlewareReducer.
+        // Each @SubState child gets its own if-let block that casts to the concrete
+        // reducer type, tying childState and childWhen together via Child: Reducer.
+        let substateDispatch = subStateProperties.map { prop in
+            let reducerType = inferReducerType(from: prop.type)
+            return """
+                    if let childStore = event.child as? \(reducerType).Store,
+                       let childWhen = event.when as? \(reducerType).When {
+                        delegateWhen = try \(reducerName).updateSubstate(
+                            \(reducerType).self,
+                            childState: childStore.state,
+                            childWhen: childWhen,
+                            parentState: &mutableState
+                        )
+                    }
+            """
+        }.joined(separator: " else ")
+
         let middlewareMethod = isMiddlewareReducer ? """
 
             // HierarchialScopeMiddleWare conformance
             public func updateSubscope<Child: ScopeImplementation>(
                 _ event: SubscopeEvent<Child>
             ) throws {
-                // BEFORE: Call static middleware method
                 var mutableState = state
+                var delegateWhen: When? = nil
 
-                let delegateWhen = try \(reducerName).updateSubscope(
-                    childState: event.child,
-                    childWhen: event.when,
-                    parentState: &mutableState
-                )
+                \(substateDispatch.isEmpty ? "// No @SubState children to dispatch" : substateDispatch)
 
                 state = mutableState
 
-                // Send delegation event if returned
                 if let delegateWhen = delegateWhen {
                     send(delegateWhen)
                 }
 
-                // FORWARD: Always forward to child (framework responsibility)
                 try event.forward()
             }
         """ : ""

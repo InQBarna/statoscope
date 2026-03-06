@@ -26,20 +26,18 @@
 ///         case childDelegated(String)
 ///     }
 ///
-///     static func updateSubscope<ChildState, ChildWhen>(
-///         childState: ChildState,
-///         childWhen: ChildWhen,
+///     static func updateSubstate<Child: Reducer>(
+///         _ childType: Child.Type,
+///         childState: Child.State,
+///         childWhen: Child.When,
 ///         parentState: inout State
 ///     ) throws -> When? {
-///         // Type-cast to specific child
-///         if let childWhen = childWhen as? ChildReducer.When {
-///             if case .taskCompleted(let task) = childWhen {
-///                 // React BEFORE child processes event
-///                 return .childDelegated(task)  // Delegate to parent
-///             }
+///         // Child.State and Child.When are tied — both belong to the same Reducer
+///         guard let when = childWhen as? ChildReducer.When else { return nil }
+///         if case .taskCompleted(let task) = when {
+///             return .childDelegated(task)
 ///         }
-///         return nil  // No delegation
-///         // Framework automatically forwards to child
+///         return nil
 ///     }
 ///
 ///     static func update(_ when: When, state: inout State, ...) throws {
@@ -70,9 +68,10 @@ public protocol MiddlewareReducer {
     ///
     /// - Note: If you return a When value, it will be sent to the parent's update() method
     ///         BEFORE the child's event is forwarded to the child.
-    static func updateSubscope<ChildState, ChildWhen>(
-        childState: ChildState,
-        childWhen: ChildWhen,
+    static func updateSubstate<Child: Reducer>(
+        _ childType: Child.Type,
+        childState: Child.State,
+        childWhen: Child.When,
         parentState: inout State
     ) throws -> When?
 }

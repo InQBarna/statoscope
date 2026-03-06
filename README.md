@@ -93,6 +93,55 @@ However... we want the update method to be the last piece of the software to be 
   * **GIVEN**, **WHEN**, **THEN**: Used to create the scope, send events and check the state after the event
   * **runTest()**: executes the test steps of the ACCEPTANCE AS CODE declaration
 
+### Basic with @Reducer macro
+
+The `@Reducer` macro eliminates boilerplate by generating the store class for you. Just annotate a plain struct with `@Reducer` and define a nested `State`, `When`, and a static `update` function:
+
+```swift
+@Reducer
+struct Counter {
+    struct State {
+        var viewDisplaysTotalCount: Int = 0
+    }
+
+    enum When {
+        case userTappedIncrementButton
+        case userTappedDecrementButton
+    }
+
+    static func update(
+        _ when: When,
+        state: inout State,
+        effectsState: inout EffectsState<When>,
+        dependencies: ReducerDependencies
+    ) throws {
+        switch when {
+        case .userTappedIncrementButton:
+            state.viewDisplaysTotalCount += 1
+        case .userTappedDecrementButton:
+            state.viewDisplaysTotalCount = max(0, state.viewDisplaysTotalCount - 1)
+        }
+    }
+}
+```
+
+The macro generates `Counter.Store` — a fully functional `Statostore, ObservableObject`. Tests use the same fluent API:
+
+```swift
+try Counter.Store.GIVEN {
+    Counter.Store(initialState: Counter.State())
+}
+.THEN(\.state.viewDisplaysTotalCount, equals: 0)
+.WHEN(.userTappedIncrementButton)
+.THEN(\.state.viewDisplaysTotalCount, equals: 1)
+.runTest()
+```
+
+Key differences from the traditional pattern:
+- `update` is a **static** function — no `self`, purely functional
+- State is always a **single struct** accessed via `store.state`
+- No class boilerplate to write — the macro generates `Counter.Store`
+
 ### Basic with effects
 
 (Side) **Effect**s are triggered tasks that may finish affecting your app state. That's why effects are expressed in the Statoscope library with 2 an ending *When* case. In the following example the Counter feature is synchronized with a service by using a network api call: an *Effect*. There are many user experiences to achieve this feature, hopefully the Test (Acceptance as code) in the following snippets cleanly state

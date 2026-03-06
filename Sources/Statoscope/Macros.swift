@@ -62,4 +62,5 @@ public macro SubState() = #externalMacro(module: "StatoscopeMacros", type: "SubS
 /// - Bridge to static update() method
 /// - Allows Reducer to be nested in namespaces (e.g., inside enums)
 @attached(member, names: named(Store))
+@attached(extension, conformances: Reducer)
 public macro Reducer() = #externalMacro(module: "StatoscopeMacros", type: "ReducerMacro")
