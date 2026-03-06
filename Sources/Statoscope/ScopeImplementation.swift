@@ -187,31 +187,48 @@ public protocol HierarchialScopeMiddleWare {
 
 private extension ScopeImplementation {
 
-    func firstHierarchialScopeMiddlewareParent() -> HierarchialScopeMiddleWare? {
+    /// Collect ALL parents implementing HierarchialScopeMiddleWare
+    /// Returns array from root to immediate parent (top-down order)
+    func allHierarchialScopeMiddlewareParents() -> [HierarchialScopeMiddleWare] {
+        var parents: [HierarchialScopeMiddleWare] = []
         var iterator: InjectionTreeNodeProtocol? = self as? InjectionTreeNodeProtocol
+
+        // Walk up tree to collect all implementing parents
         while iterator != nil {
-            if let iteratorIsHierarchialMiddleware = iterator as? HierarchialScopeMiddleWare {
-                return iteratorIsHierarchialMiddleware
+            if let parent = iterator as? HierarchialScopeMiddleWare {
+                parents.append(parent)
             }
-            iterator = iterator?._parentNode
+            iterator = iterator?._parentNode  // Move to parent
         }
-        return nil
+
+        // Reverse to get top-down order (Root first, immediate parent last)
+        return parents.reversed()
     }
 
     @inline(__always)
     func shouldUseParentEnclosedHierarchialUpdate() -> Bool {
-        return firstHierarchialScopeMiddlewareParent() != nil
+        return !allHierarchialScopeMiddlewareParents().isEmpty
     }
 
     @inline(__always)
     func callParentEnclosedHierarchialUpdate(_ when: When) throws {
-        guard let parent = firstHierarchialScopeMiddlewareParent(),
-              let selfAsInjectionNode = self as? InjectionTreeNode else {
+        let parents = allHierarchialScopeMiddlewareParents()
+        guard !parents.isEmpty else {
+            // No middleware parents, execute child directly
+            try update(when)
             return
         }
-        /// this is an internal method so it should be safe if retaining some scopes
+
+        guard let selfAsInjectionNode = self as? InjectionTreeNode else {
+            try update(when)
+            return
+        }
+
         let selfKeyPathOnParent = selfAsInjectionNode._keyPathToSelfOnParent ?? \Self.self
-        // Direct call - no closure allocation!
-        try parent.updateSubscope(self, when, selfKeyPathOnParent)
+
+        // Start with ROOT (first in top-down array)
+        // Root's updateSubscope() will forward to next level recursively
+        // This creates: Root → Grandparent → Parent → Child flow
+        try parents.first?.updateSubscope(self, when, selfKeyPathOnParent)
     }
 }

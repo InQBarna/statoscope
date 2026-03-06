@@ -303,6 +303,197 @@ This pattern is appropriate for:
 - When you don't need state snapshots
 - When state is naturally independent
 
+## Reducer Pattern (Alternative to Traditional Statostore)
+
+### Overview
+
+The Reducer pattern provides a simpler, more constrained alternative to traditional Statostore for single-state management. It emphasizes pure functions and centralized state in a single struct.
+
+**Key Differences from Traditional Statostore:**
+- Single `@Published var state` instead of multiple `@Published` properties
+- Static `update()` method instead of instance method
+- Explicit `scopeLinks` parameter for parent-child relationships
+- More constrained and testable
+
+### Basic Reducer Example
+
+```swift
+struct CounterState {
+    var count: Int = 0
+    var name: String = ""
+}
+
+struct CounterReducer: Reducer {
+    enum When {
+        case increment
+        case setName(String)
+    }
+
+    static func update(
+        _ when: When,
+        state: inout CounterState,
+        effectsState: inout EffectsState<When>,
+        dependencies: ReducerDependencies,
+        scopeLinks: inout NoScopeLinks
+    ) throws {
+        switch when {
+        case .increment:
+            state.count += 1
+        case .setName(let name):
+            state.name = name
+        }
+    }
+}
+
+// Use with ReducerStore
+let store = ReducerStore<CounterReducer>(initialState: CounterState())
+store.send(.increment)
+print(store.state.count) // 1
+```
+
+### Parent-Child Scope Links
+
+Reducers support parent-child relationships through the `scopeLinks` parameter, enabling:
+- Type-safe parent state access
+- Automatic SwiftUI observation chains
+- Declarative child scope management
+
+**Define Scope Links:**
+
+```swift
+// Child's scope links include weak parent reference
+struct ChildScopeLinks {
+    weak var parent: ReducerStore<ParentReducer>?
+}
+
+// Parent's scope links include strong child references
+struct ParentScopeLinks {
+    var child: ReducerStore<ChildReducer>?
+}
+```
+
+**Parent Reducer (creates child):**
+
+```swift
+struct ParentReducer: Reducer {
+    typealias ScopeLinks = ParentScopeLinks
+
+    enum When {
+        case createChild
+        case increment
+    }
+
+    static func update(
+        _ when: When,
+        state: inout ParentState,
+        effectsState: inout EffectsState<When>,
+        dependencies: ReducerDependencies,
+        scopeLinks: inout ParentScopeLinks
+    ) throws {
+        switch when {
+        case .createChild:
+            // Create child with automatic parent linking
+            scopeLinks.child = dependencies.createChildStore(
+                ChildReducer.self,
+                initialState: ChildState()
+            ) { parent in
+                ChildScopeLinks(parent: parent as? ReducerStore<ParentReducer>)
+            }
+
+        case .increment:
+            state.count += 1
+        }
+    }
+}
+```
+
+**Child Reducer (accesses parent):**
+
+```swift
+struct ChildReducer: Reducer {
+    typealias ScopeLinks = ChildScopeLinks
+
+    enum When {
+        case syncWithParent
+    }
+
+    static func update(
+        _ when: When,
+        state: inout ChildState,
+        effectsState: inout EffectsState<When>,
+        dependencies: ReducerDependencies,
+        scopeLinks: inout ChildScopeLinks
+    ) throws {
+        switch when {
+        case .syncWithParent:
+            // Access parent state (live reference!)
+            if let parent = scopeLinks.parent {
+                state.value = parent.state.count
+            }
+        }
+    }
+}
+```
+
+**Parent Observation:**
+
+When a child's `scopeLinks.parent` is set, ReducerStore automatically:
+1. Observes the parent's `objectWillChange` publisher
+2. Republishes parent changes to the child's `objectWillChange`
+3. Ensures SwiftUI views observing the child update when parent changes
+
+This solves the SwiftUI navigation view caching issue where child views don't re-render when parent state changes.
+
+### Reducer with Effects
+
+```swift
+struct AsyncReducer: Reducer {
+    enum When {
+        case startLoad
+        case loadCompleted(Result<Data, Error>)
+    }
+
+    static func update(
+        _ when: When,
+        state: inout AsyncState,
+        effectsState: inout EffectsState<When>,
+        dependencies: ReducerDependencies,
+        scopeLinks: inout NoScopeLinks
+    ) throws {
+        switch when {
+        case .startLoad:
+            state.isLoading = true
+            effectsState.enqueue(
+                FetchDataEffect()
+                    .mapToResult()
+                    .map(When.loadCompleted)
+            )
+
+        case .loadCompleted(let result):
+            state.isLoading = false
+            // Handle result...
+        }
+    }
+}
+```
+
+### When to Use Reducers vs Traditional Statostore
+
+**Use Reducer when:**
+- You want centralized state in a single struct
+- You need easy state snapshots (`let snapshot = store.state`)
+- You prefer static pure functions
+- You want compile-time guarantees about state shape
+- You're building new features
+
+**Use Traditional Statostore when:**
+- You have existing code using multiple `@Published` properties
+- You prefer instance methods with access to `self`
+- You need more flexibility in state structure
+- Migrating existing code would be too costly
+
+Both patterns work with the same testing, effects, and injection infrastructure.
+
 ## Testing Patterns
 
 ### Flow Testing (GIVEN/WHEN/THEN)
