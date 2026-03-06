@@ -35,12 +35,10 @@ class HierarchialUpdateTests: XCTestCase {
                 exp.fulfill()
             }
             func updateSubscope<Child: ScopeImplementation>(
-                _ child: Child,
-                _ when: Child.When,
-                _ keyPath: AnyKeyPath
+                _ event: SubscopeEvent<Child>
             ) throws {
                 scopeUpdateExp.fulfill()
-                try child._unsafeSendImplementation(when)
+                try event.forward()
             }
         }
         final class Child: Statostore, ObservableObject {

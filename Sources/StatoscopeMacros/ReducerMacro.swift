@@ -99,12 +99,16 @@ public struct ReducerMacro: MemberMacro {
         // Check if State conforms to Injectable
         let stateIsInjectable = stateConformsToInjectable(in: stateStruct)
 
+        // Check if Reducer conforms to MiddlewareReducer
+        let isMiddlewareReducer = reducerConformsToMiddleware(in: structDecl)
+
         // Generate Store class as nested member
         let storeClass = try generateStoreClass(
             reducerName: reducerName,
             superStateProperties: superStateProperties,
             subStateProperties: subStateProperties,
-            stateIsInjectable: stateIsInjectable
+            stateIsInjectable: stateIsInjectable,
+            isMiddlewareReducer: isMiddlewareReducer
         )
 
         return [storeClass]
@@ -199,6 +203,17 @@ public struct ReducerMacro: MemberMacro {
         }
     }
 
+    /// Check if Reducer struct conforms to MiddlewareReducer protocol
+    private static func reducerConformsToMiddleware(in structDecl: StructDeclSyntax) -> Bool {
+        guard let inheritanceClause = structDecl.inheritanceClause else {
+            return false
+        }
+
+        return inheritanceClause.inheritedTypes.contains { inheritedType in
+            inheritedType.type.as(IdentifierTypeSyntax.self)?.name.text == "MiddlewareReducer"
+        }
+    }
+
     /// Infer reducer type from state type
     /// "ParentState" → "ParentReducer"
     /// "ChildReducer.State" → "ChildReducer"
@@ -223,7 +238,8 @@ public struct ReducerMacro: MemberMacro {
         reducerName: String,
         superStateProperties: [(name: String, type: String)],
         subStateProperties: [(name: String, type: String)],
-        stateIsInjectable: Bool
+        stateIsInjectable: Bool,
+        isMiddlewareReducer: Bool
     ) throws -> DeclSyntax {
 
         // Generate @Superscope properties
@@ -288,10 +304,15 @@ public struct ReducerMacro: MemberMacro {
             """
         }.joined(separator: "\n                    ")
 
-        // Conditionally include Injectable conformance
-        let conformances = stateIsInjectable
-            ? "Statostore, ObservableObject, Injectable"
-            : "Statostore, ObservableObject"
+        // Conditionally include Injectable and HierarchialScopeMiddleWare conformances
+        var conformancesList = ["Statostore", "ObservableObject"]
+        if stateIsInjectable {
+            conformancesList.append("Injectable")
+        }
+        if isMiddlewareReducer {
+            conformancesList.append("HierarchialScopeMiddleWare")
+        }
+        let conformances = conformancesList.joined(separator: ", ")
 
         // Conditionally generate Injectable defaultValue
         let injectableConformance = stateIsInjectable ? """
@@ -299,6 +320,34 @@ public struct ReducerMacro: MemberMacro {
             // Injectable conformance
             public static var defaultValue: Store {
                 Store(initialState: State.defaultValue)
+            }
+        """ : ""
+
+        // Conditionally generate updateSubscope method for MiddlewareReducer
+        let middlewareMethod = isMiddlewareReducer ? """
+
+            // HierarchialScopeMiddleWare conformance
+            public func updateSubscope<Child: ScopeImplementation>(
+                _ event: SubscopeEvent<Child>
+            ) throws {
+                // BEFORE: Call static middleware method
+                var mutableState = state
+
+                let delegateWhen = try \(reducerName).updateSubscope(
+                    childState: event.child,
+                    childWhen: event.when,
+                    parentState: &mutableState
+                )
+
+                state = mutableState
+
+                // Send delegation event if returned
+                if let delegateWhen = delegateWhen {
+                    send(delegateWhen)
+                }
+
+                // FORWARD: Always forward to child (framework responsibility)
+                try event.forward()
             }
         """ : ""
 
@@ -354,7 +403,7 @@ public struct ReducerMacro: MemberMacro {
                     dependencies: dependencies
                 )
                 state = mutableState  // Uses setter: wires children
-            }
+            }\(raw: middlewareMethod)
         }
         """
         )

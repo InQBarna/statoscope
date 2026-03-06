@@ -33,22 +33,20 @@ final class RootScope: Statostore, HierarchialScopeMiddleWare, ObservableObject 
     }
 
     func updateSubscope<Child: ScopeImplementation>(
-        _ child: Child,
-        _ when: Child.When,
-        _ keyPath: AnyKeyPath
+        _ event: SubscopeEvent<Child>
     ) throws {
         // BEFORE forwarding
         beforeCount += 1
-        let beforeMsg = "Root BEFORE: \(when)"
+        let beforeMsg = "Root BEFORE: \(event.when)"
         interceptedEvents.append(beforeMsg)
         globalEventLog.append(beforeMsg)
 
         // Forward to next level in chain
-        try child._unsafeSendImplementation(when)
+        try event.forward()
 
         // AFTER child completes
         afterCount += 1
-        let afterMsg = "Root AFTER: \(when)"
+        let afterMsg = "Root AFTER: \(event.when)"
         interceptedEvents.append(afterMsg)
         globalEventLog.append(afterMsg)
     }
@@ -77,18 +75,16 @@ final class ParentScope: Statostore, HierarchialScopeMiddleWare, ObservableObjec
     }
 
     func updateSubscope<Child: ScopeImplementation>(
-        _ child: Child,
-        _ when: Child.When,
-        _ keyPath: AnyKeyPath
+        _ event: SubscopeEvent<Child>
     ) throws {
         // BEFORE forwarding
         beforeCount += 1
-        let beforeMsg = "Parent BEFORE: \(when)"
+        let beforeMsg = "Parent BEFORE: \(event.when)"
         interceptedEvents.append(beforeMsg)
         globalEventLog.append(beforeMsg)
 
         // Check if we should delegate to self
-        if let childWhen = when as? ChildScope.When {
+        if let childWhen = event.when as? ChildScope.When {
             if case .taskCompleted(let task) = childWhen {
                 // Delegate before forwarding
                 send(.childDelegated(task))
@@ -96,12 +92,11 @@ final class ParentScope: Statostore, HierarchialScopeMiddleWare, ObservableObjec
         }
 
         // Forward to next level in chain
-        // Framework handles multi-level: calls next parent or final child
-        try child._unsafeSendImplementation(when)
+        try event.forward()
 
         // AFTER child completes
         afterCount += 1
-        let afterMsg = "Parent AFTER: \(when)"
+        let afterMsg = "Parent AFTER: \(event.when)"
         interceptedEvents.append(afterMsg)
         globalEventLog.append(afterMsg)
     }
@@ -142,20 +137,18 @@ final class AuthParent: Statostore, HierarchialScopeMiddleWare, ObservableObject
     }
 
     func updateSubscope<Child: ScopeImplementation>(
-        _ child: Child,
-        _ when: Child.When,
-        _ keyPath: AnyKeyPath
+        _ event: SubscopeEvent<Child>
     ) throws {
-        if let childWhen = when as? RestrictedChild.When {
+        if let childWhen = event.when as? RestrictedChild.When {
             // Block unauthorized events
             if case .unauthorizedAction = childWhen, isAuthEnabled {
                 blockedEvents.append(childWhen)
-                return  // Don't forward to child - event blocked!
+                return  // Don't forward - event blocked!
             }
         }
 
-        // Forward allowed events - use _unsafeSendImplementation to bypass hierarchy check
-        try child._unsafeSendImplementation(when)
+        // Forward allowed events
+        try event.forward()
     }
 }
 

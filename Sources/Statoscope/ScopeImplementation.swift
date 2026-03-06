@@ -169,19 +169,66 @@ extension ScopeImplementation {
 }
 
 // MARK: HierarchyMiddleware functionality
+
+/// Event from a child scope, encapsulating the child, event, and forwarding continuation
+public struct SubscopeEvent<Child: ScopeImplementation> {
+    /// The child scope that sent the event
+    public let child: Child
+
+    /// The event from the child scope
+    public let when: Child.When
+
+    /// Internal forwarding closure (continues the middleware chain)
+    @usableFromInline
+    internal let forwardClosure: () throws -> Void
+
+    @inline(__always)
+    @_spi(Internal)
+    public init(
+        child: Child,
+        when: Child.When,
+        forwardClosure: @escaping () throws -> Void
+    ) {
+        self.child = child
+        self.when = when
+        self.forwardClosure = forwardClosure
+    }
+
+    /// Forward the event to the next level in the middleware chain
+    ///
+    /// This must be called to continue processing the event. If not called,
+    /// the event is blocked and will not reach the child's update() method.
+    @inline(__always)
+    public func forward() throws {
+        try forwardClosure()
+    }
+}
+
 public protocol HierarchialScopeMiddleWare {
     /// Intercepts the business logic for this scope and subscopes of the state
     ///
     /// Method responsible of enclosing the update method of this object's subscopes
     /// It can enforce, filter or enclose events like a middleware
     ///
-    /// * Parameter child: the child scope sending the event
-    /// * Parameter when: the event from the child scope
-    /// * Parameter keyPath: the keypath from parent to child
+    /// Example:
+    /// ```swift
+    /// func updateSubscope<Child: ScopeImplementation>(
+    ///     _ event: SubscopeEvent<Child>
+    /// ) throws {
+    ///     // BEFORE: Inspect, log, or react to event
+    ///     print("Child event: \(event.when)")
+    ///
+    ///     // FORWARD: Continue the chain (or omit to block)
+    ///     try event.forward()
+    ///
+    ///     // AFTER: React after child processed event
+    ///     print("Child completed")
+    /// }
+    /// ```
+    ///
+    /// * Parameter event: The subscope event containing child, when, and forward()
     func updateSubscope<Child: ScopeImplementation>(
-        _ child: Child,
-        _ when: Child.When,
-        _ keyPath: AnyKeyPath
+        _ event: SubscopeEvent<Child>
     ) throws
 }
 
@@ -239,16 +286,22 @@ private extension ScopeImplementation {
             let parentRef = parent  // Capture parent reference
 
             continuation = { [weak self] in
-                guard self != nil else { return }
+                guard let self = self else { return }
 
-                // Create a virtual scope that continues the chain when update() is called
+                // Create a virtual scope that continues the chain
                 let chainScope = ChainContinuationScope<When>(
                     continuation: previousContinuation
                 )
 
-                // Parent intercepts with virtual scope
-                // When parent calls chainScope.update(), it continues the chain
-                try parentRef.updateSubscope(chainScope, when, selfKeyPathOnParent)
+                // Create SubscopeEvent with forward closure
+                let event = SubscopeEvent(
+                    child: chainScope,
+                    when: when,
+                    forwardClosure: previousContinuation  // Forward = continue chain
+                )
+
+                // Parent intercepts with event
+                try parentRef.updateSubscope(event)
             }
         }
 
