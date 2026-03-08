@@ -57,7 +57,6 @@ public struct SubStateBinding<ChildState> {
     /// Creates a sub state binding from a child store
     ///
     /// - Parameter store: The child reducer store
-    @_spi(Internal)
     public init<R: Reducer>(store: ReducerStore<R>) where R.State == ChildState {
         self.store = store
         self.stateGetter = { store.state }
@@ -71,7 +70,6 @@ public struct SubStateBinding<ChildState> {
     /// Creates a sub state binding from macro-generated Store using reflection
     ///
     /// - Parameter macroStore: The child macro-generated Store (e.g., ChildReducer.Store)
-    @_spi(Internal)
     public init<S>(macroStore: S) where S: ObservableObject & AnyObject {
         self.store = macroStore
         self.pendingState = nil
@@ -96,7 +94,6 @@ public struct SubStateBinding<ChildState> {
     /// Creates a pending sub state binding (Store will be created by parent)
     ///
     /// - Parameter wrappedValue: The initial child state
-    @_spi(Internal)
     public init(wrappedValue: ChildState) {
         self.store = nil
         self.pendingState = wrappedValue
@@ -110,7 +107,6 @@ public struct SubStateBinding<ChildState> {
     ///   - storeGetter: Closure that returns the current state
     ///   - storeSetter: Closure that updates the state
     ///   - underlyingStore: The underlying Store object
-    @_spi(Internal)
     public init(
         storeGetter: @escaping () -> ChildState?,
         storeSetter: @escaping (ChildState) -> Void,
@@ -151,19 +147,16 @@ public struct SubStateBinding<ChildState> {
     }
 
     /// Access to underlying store (for framework use)
-    @_spi(Internal)
     public var _underlyingStore: (any ObservableObject)? {
         store
     }
 
     /// Check if this binding is pending Store creation
-    @_spi(Internal)
     public var _isPending: Bool {
         store == nil && pendingState != nil
     }
 
     /// Get the pending state (for Store creation)
-    @_spi(Internal)
     public var _pendingState: ChildState? {
         pendingState
     }

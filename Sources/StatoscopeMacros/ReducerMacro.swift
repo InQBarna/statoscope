@@ -66,7 +66,7 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
         return [try ExtensionDeclSyntax("extension \(type): Reducer {}")]
     }
 
-    // MemberMacro: generates the nested Store class
+    // MemberMacro: generates the nested Store class and wireChildren
     public static func expansion<
         Context: MacroExpansionContext,
         Declaration: DeclGroupSyntax
@@ -124,7 +124,39 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
             isMiddlewareReducer: isMiddlewareReducer
         )
 
-        return [storeClass]
+        // Generate wireChildren static method on the outer struct
+        let wireChildrenMethod = generateWireChildrenMethod(subStateProperties: subStateProperties)
+
+        return [storeClass, wireChildrenMethod]
+    }
+
+    /// Generates `public static func wireChildren(state:childStores:)` on the outer struct.
+    /// This allows ReducerStore<R> to create child Stores for pending SubStateBindings.
+    private static func generateWireChildrenMethod(
+        subStateProperties: [(name: String, type: String)]
+    ) -> DeclSyntax {
+        let body = subStateProperties.map { prop in
+            let reducerType = inferReducerType(from: prop.type)
+            return """
+            if let binding = state._$\(prop.name), binding._isPending, let pendingState = binding._pendingState {
+                    let store = \(reducerType).Store(initialState: pendingState)
+                    childStores["\(prop.name)"] = store
+                    state._$\(prop.name) = SubStateBinding<\(prop.type)>(
+                        storeGetter: { store.state },
+                        storeSetter: { store.state = $0 },
+                        underlyingStore: store
+                    )
+                } else if state._$\(prop.name) == nil {
+                    childStores.removeValue(forKey: "\(prop.name)")
+                }
+            """
+        }.joined(separator: "\n            ")
+
+        return DeclSyntax("""
+        public static func wireChildren(state: inout State, childStores: inout [String: any ObservableObject]) {
+            \(raw: body)
+        }
+        """)
     }
 
     // MARK: - Helper Methods
@@ -289,33 +321,29 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
             """
         }.joined(separator: "\n                    ")
 
-        // Generate state setter child wiring
-        let childWiring = subStateProperties.map { prop in
-            let reducerType = inferReducerType(from: prop.type)
-            return """
-            if let new\(prop.name.capitalized)Binding = finalState._$\(prop.name) {
-                        if _\(prop.name) == nil {
-                            // Check if this is a pending binding (needs Store creation)
-                            if new\(prop.name.capitalized)Binding._isPending, let pendingState = new\(prop.name.capitalized)Binding._pendingState {
-                                // Create child Store from pending state
-                                let childStore = \(reducerType).Store(initialState: pendingState)
-                                _\(prop.name) = childStore
-                                // Update binding with direct closure access
-                                finalState._$\(prop.name) = SubStateBinding<\(prop.type)>(
-                                    storeGetter: { childStore.state },
-                                    storeSetter: { childStore.state = $0 },
-                                    underlyingStore: childStore
-                                )
-                            } else {
-                                // Use existing Store from binding
-                                _\(prop.name) = new\(prop.name.capitalized)Binding._underlyingStore as? \(reducerType).Store
-                            }
+        // Generate per-property sync from wireChildren result in update()
+        // wireChildren() populates the dict with newly created stores.
+        // We then sync each @Subscope property from the dict, and handle nil removal.
+        let updateWiringSync: String
+        if subStateProperties.isEmpty {
+            updateWiringSync = ""
+        } else {
+            let syncPerProp = subStateProperties.map { prop in
+                let reducerType = inferReducerType(from: prop.type)
+                return """
+                if let newStore = _wiredStores["\(prop.name)"] as? \(reducerType).Store {
+                            _\(prop.name) = newStore
+                        } else if mutableState._$\(prop.name) == nil {
+                            _\(prop.name) = nil
                         }
-                    } else if finalState._$\(prop.name) == nil {
-                        _\(prop.name) = nil
-                    }
+                """
+            }.joined(separator: "\n                ")
+            updateWiringSync = """
+            var _wiredStores: [String: any ObservableObject] = [:]
+                        \(reducerName).wireChildren(state: &mutableState, childStores: &_wiredStores)
+                        \(syncPerProp)
             """
-        }.joined(separator: "\n                    ")
+        }
 
         // Conditionally include Injectable and HierarchialScopeMiddleWare conformances
         var conformancesList = ["Statostore", "ObservableObject"]
@@ -348,7 +376,8 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
                             \(reducerType).self,
                             childState: childStore.state,
                             childWhen: childWhen,
-                            parentState: &mutableState
+                            parentState: &mutableState,
+                            dependencies: dependencies
                         )
                     }
             """
@@ -361,11 +390,14 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
                 _ event: SubscopeEvent<Child>
             ) throws {
                 var mutableState = state
+                let dependencies = ReducerDependenciesImpl(node: self, parentStore: self)
                 var delegateWhen: When? = nil
 
                 \(substateDispatch.isEmpty ? "// No @SubState children to dispatch" : substateDispatch)
 
-                state = mutableState
+                // Wire child stores for any pending SubStateBindings created by updateSubstate
+                \(updateWiringSync.isEmpty ? "// No child wiring needed" : updateWiringSync)
+                _rawState = mutableState
 
                 if let delegateWhen = delegateWhen {
                     send(delegateWhen)
@@ -402,13 +434,7 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
                     return mutableState
                 }
                 set {
-                    \(raw: childWiring.isEmpty ? "let" : "var") finalState = newValue
-
-                    // Detect SubStateBinding assignments and wire to @Subscope
-                    \(raw: childWiring.isEmpty ? "// No child wiring needed" : childWiring)
-
-                    // Update raw state with final values (including updated bindings)
-                    _rawState = finalState
+                    _rawState = newValue
                 }
             }
 
@@ -426,7 +452,9 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
                     effectsState: &effectsState,
                     dependencies: dependencies
                 )
-                state = mutableState  // Uses setter: wires children
+                // Wire child stores for any pending SubStateBindings and sync @Subscope properties
+                \(raw: updateWiringSync.isEmpty ? "// No child wiring needed" : updateWiringSync)
+                _rawState = mutableState
             }\(raw: middlewareMethod)
         }
         """

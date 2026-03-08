@@ -94,4 +94,20 @@ public protocol Reducer {
         effectsState: inout EffectsState<When>,
         dependencies: ReducerDependencies
     ) throws
+
+    /// Creates child Stores for any pending SubStateBinding properties in state.
+    ///
+    /// Generated automatically by the `@Reducer` macro for reducers with `@SubState`
+    /// properties. Detects "pending" bindings (created by assigning a raw child state)
+    /// and instantiates the corresponding child Store.
+    ///
+    /// - Parameters:
+    ///   - state: Mutable state — pending bindings are replaced with live store-backed bindings
+    ///   - childStores: Keyed by property name; holds strong references to child Stores
+    static func wireChildren(state: inout State, childStores: inout [String: any ObservableObject])
+}
+
+extension Reducer {
+    /// Default no-op for reducers with no `@SubState` children
+    public static func wireChildren(state: inout State, childStores: inout [String: any ObservableObject]) {}
 }

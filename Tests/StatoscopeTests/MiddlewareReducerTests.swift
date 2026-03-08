@@ -29,7 +29,8 @@ struct ParentMiddlewareReducer: MiddlewareReducer {
         _ childType: Child.Type,
         childState: Child.State,
         childWhen: Child.When,
-        parentState: inout State
+        parentState: inout State,
+        dependencies: ReducerDependencies
     ) throws -> When? {
         parentState.interceptedEvents += 1
 
@@ -99,7 +100,8 @@ struct RootMiddlewareReducer: MiddlewareReducer {
         _ childType: Child.Type,
         childState: Child.State,
         childWhen: Child.When,
-        parentState: inout State
+        parentState: inout State,
+        dependencies: ReducerDependencies
     ) throws -> When? {
         parentState.rootInterceptions += 1
         return nil
@@ -114,6 +116,50 @@ struct RootMiddlewareReducer: MiddlewareReducer {
         switch when {
         case .createParent:
             state.parent = ParentMiddlewareReducer.State()
+        }
+    }
+}
+
+/// Parent with two children. When primaryChild sends taskCompleted, updateSubstate
+/// creates secondaryChild. This exercises wireChildren in updateSubscope:
+/// since secondaryChild's _$secondaryChild is nil in mutableState when the event
+/// arrives, assignment creates a pending SubStateBinding — which must be wired.
+@Reducer
+struct TwoChildParentReducer: MiddlewareReducer {
+    struct State: Injectable {
+        static var defaultValue: State { State() }
+        @SubState var primaryChild: ChildReducer.State?
+        @SubState var secondaryChild: ChildReducer.State?
+    }
+
+    enum When {
+        case setup
+    }
+
+    static func updateSubstate<Child: Reducer>(
+        _ childType: Child.Type,
+        childState: Child.State,
+        childWhen: Child.When,
+        parentState: inout State,
+        dependencies: ReducerDependencies
+    ) throws -> When? {
+        guard let when = childWhen as? ChildReducer.When,
+              case .taskCompleted = when else { return nil }
+        // Create secondaryChild when primaryChild sends taskCompleted
+        // At this point _$secondaryChild is nil, so this creates a pending binding
+        parentState.secondaryChild = ChildReducer.State()
+        return nil
+    }
+
+    static func update(
+        _ when: When,
+        state: inout State,
+        effectsState: inout EffectsState<When>,
+        dependencies: ReducerDependencies
+    ) throws {
+        switch when {
+        case .setup:
+            state.primaryChild = ChildReducer.State()
         }
     }
 }
@@ -264,5 +310,76 @@ final class MiddlewareReducerTests: XCTestCase {
         let child = ChildReducer.Store(initialState: ChildReducer.State())
 
         XCTAssertFalse(child is HierarchialScopeMiddleWare, "Store without MiddlewareReducer should not conform")
+    }
+
+    // MARK: - ReducerStore wireChildren Tests
+
+    func testReducerStoreCreatesChildStoreViaPendingBinding() throws {
+        // Using ReducerStore<R> (not the macro-generated Store) — wireChildren is called after update()
+        let parent = ReducerStore<ParentMiddlewareReducer>(
+            initialState: ParentMiddlewareReducer.State()
+        )
+
+        // Before: no child
+        XCTAssertNil(parent.state.child)
+
+        // state.child = ChildReducer.State() creates a pending SubStateBinding.
+        // wireChildren() detects it and creates the ChildReducer.Store automatically.
+        parent.send(.createChild)
+
+        XCTAssertNotNil(parent.state.child, "Child state should be accessible after createChild")
+
+        // The underlying store should be held strongly in _childStores
+        let childStore = parent.state._$child?._underlyingStore
+        XCTAssertNotNil(childStore, "Child Store must be created by wireChildren, not left as a pending binding")
+    }
+
+    // MARK: - wireChildren in updateSubscope
+
+    func testUpdateSubscopeWiresChildrenCreatedByUpdateSubstate() throws {
+        // TwoChildParentReducer creates secondaryChild inside updateSubstate when
+        // primaryChild sends taskCompleted. secondaryChild._$secondaryChild starts nil,
+        // so the assignment creates a pending SubStateBinding — wireChildren must be
+        // called from updateSubscope to convert it to a real Store.
+        let parent = TwoChildParentReducer.Store(initialState: TwoChildParentReducer.State())
+        parent.send(.setup)
+
+        guard let primary = parent._primaryChild else {
+            XCTFail("primaryChild store not created")
+            return
+        }
+
+        XCTAssertNil(parent._secondaryChild, "secondaryChild should not exist yet")
+
+        // primaryChild.send(.taskCompleted) → updateSubstate → parentState.secondaryChild = ChildReducer.State()
+        // updateSubscope must call wireChildren to convert the pending binding to a real Store
+        primary.send(.taskCompleted("trigger"))
+
+        XCTAssertNotNil(
+            parent._secondaryChild,
+            "wireChildren must be called from updateSubscope to create the secondaryChild Store"
+        )
+        XCTAssertNotNil(
+            parent.state.secondaryChild,
+            "state.secondaryChild must be accessible after creation via updateSubstate"
+        )
+    }
+
+    func testReducerStoreChildStoreIsReusedOnSubsequentUpdates() throws {
+        let parent = ReducerStore<ParentMiddlewareReducer>(
+            initialState: ParentMiddlewareReducer.State()
+        )
+        parent.send(.createChild)
+
+        let storeAfterCreate = parent.state._$child?._underlyingStore
+
+        // Another event — wireChildren should NOT create a second Store
+        parent.send(.createChild)
+
+        let storeAfterSecond = parent.state._$child?._underlyingStore
+        XCTAssertTrue(
+            storeAfterCreate === (storeAfterSecond as AnyObject),
+            "wireChildren must not replace an existing (non-pending) child store"
+        )
     }
 }

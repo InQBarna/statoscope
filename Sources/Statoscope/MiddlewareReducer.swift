@@ -30,7 +30,8 @@
 ///         _ childType: Child.Type,
 ///         childState: Child.State,
 ///         childWhen: Child.When,
-///         parentState: inout State
+///         parentState: inout State,
+///         dependencies: ReducerDependencies
 ///     ) throws -> When? {
 ///         // Child.State and Child.When are tied — both belong to the same Reducer
 ///         guard let when = childWhen as? ChildReducer.When else { return nil }
@@ -63,6 +64,7 @@ public protocol MiddlewareReducer {
     ///   - childState: The child scope's state (type-erased, cast to specific type if needed)
     ///   - childWhen: The child's event (type-erased, cast to specific type if needed)
     ///   - parentState: Parent's mutable state for modifications
+    ///   - dependencies: Access to injected dependencies (same as in update())
     ///
     /// - Returns: Optional parent When to send for delegation (executed BEFORE child's update)
     ///
@@ -72,6 +74,7 @@ public protocol MiddlewareReducer {
         _ childType: Child.Type,
         childState: Child.State,
         childWhen: Child.When,
-        parentState: inout State
+        parentState: inout State,
+        dependencies: ReducerDependencies
     ) throws -> When?
 }
