@@ -384,3 +384,129 @@ final class MiddlewareReducerTests: XCTestCase {
         )
     }
 }
+
+// MARK: - defaultTrigger Test Reducers
+
+@Reducer
+struct AutoInitChildReducer {
+    struct State: Injectable {
+        static var defaultValue: State { State() }
+        var initializeCount: Int = 0
+        var lastEvent: String = ""
+    }
+
+    enum When {
+        case onAppear
+        case doSomething
+    }
+
+    // Declare default trigger: sent automatically when child store is wired
+    static var defaultTrigger: When? { .onAppear }
+
+    static func update(
+        _ when: When,
+        state: inout State,
+        effectsState: inout EffectsState<When>,
+        dependencies: ReducerDependencies
+    ) throws {
+        switch when {
+        case .onAppear:
+            state.initializeCount += 1
+            state.lastEvent = "onAppear"
+        case .doSomething:
+            state.lastEvent = "doSomething"
+        }
+    }
+}
+
+@Reducer
+struct AutoInitParentReducer {
+    struct State: Injectable {
+        static var defaultValue: State { State() }
+        @SubState var child: AutoInitChildReducer.State?
+    }
+
+    enum When {
+        case createChild
+        case destroyChild
+    }
+
+    static func update(
+        _ when: When,
+        state: inout State,
+        effectsState: inout EffectsState<When>,
+        dependencies: ReducerDependencies
+    ) throws {
+        switch when {
+        case .createChild:
+            state.child = AutoInitChildReducer.State()
+        case .destroyChild:
+            state.child = nil
+        }
+    }
+}
+
+// MARK: - defaultTrigger Tests
+
+final class DefaultTriggerReducerTests: XCTestCase {
+
+    func testDefaultTriggerIsSentWhenChildIsWired() throws {
+        let parent = AutoInitParentReducer.Store(initialState: AutoInitParentReducer.State())
+
+        XCTAssertNil(parent._child, "No child before createChild")
+
+        parent.send(.createChild)
+
+        guard let child = parent._child else {
+            XCTFail("Child store not created")
+            return
+        }
+
+        // defaultTrigger .onAppear should have been dispatched automatically
+        XCTAssertEqual(child.state.initializeCount, 1, "defaultTrigger should fire once on wiring")
+        XCTAssertEqual(child.state.lastEvent, "onAppear")
+    }
+
+    func testDefaultTriggerFiresOnlyOnce() throws {
+        let parent = AutoInitParentReducer.Store(initialState: AutoInitParentReducer.State())
+        parent.send(.createChild)
+
+        guard let child = parent._child else {
+            XCTFail("Child store not created")
+            return
+        }
+
+        // Send additional events — initializeCount must not increase
+        child.send(.doSomething)
+        XCTAssertEqual(child.state.initializeCount, 1, "defaultTrigger fires only on wiring, not on subsequent events")
+    }
+
+    func testDefaultTriggerFiresAgainWhenChildIsRecreated() throws {
+        let parent = AutoInitParentReducer.Store(initialState: AutoInitParentReducer.State())
+        parent.send(.createChild)
+        parent.send(.destroyChild)
+        parent.send(.createChild)
+
+        guard let child = parent._child else {
+            XCTFail("Child store not recreated")
+            return
+        }
+
+        // A new store is created — defaultTrigger fires again
+        XCTAssertEqual(child.state.initializeCount, 1, "New child store gets its own defaultTrigger")
+    }
+
+    func testNoDefaultTriggerForReducerWithoutIt() throws {
+        // ChildReducer (used in other tests) has no defaultTrigger
+        let parent = ParentMiddlewareReducer.Store(initialState: ParentMiddlewareReducer.State())
+        parent.send(.createChild)
+
+        guard let child = parent._child else {
+            XCTFail("Child store not created")
+            return
+        }
+
+        // No default trigger — child should have no executed events
+        XCTAssertEqual(child.state.executedEvents.count, 0, "No defaultTrigger means no automatic event")
+    }
+}

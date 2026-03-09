@@ -105,9 +105,37 @@ public protocol Reducer {
     ///   - state: Mutable state — pending bindings are replaced with live store-backed bindings
     ///   - childStores: Keyed by property name; holds strong references to child Stores
     static func wireChildren(state: inout State, childStores: inout [String: any ObservableObject])
+
+    /// Event to dispatch immediately after this reducer's Store is wired as a child scope.
+    ///
+    /// Return a `When` event to automatically trigger it once, right after the child store
+    /// is connected to the scope hierarchy (i.e. after `parentNode` is set via `@Subscope`).
+    ///
+    /// ## Example
+    /// ```swift
+    /// @Reducer
+    /// struct ProfileReducer {
+    ///     enum When {
+    ///         case onAppear   // triggered automatically on creation
+    ///         case dataLoaded([Item])
+    ///     }
+    ///
+    ///     static var defaultTrigger: When { .onAppear }
+    ///
+    ///     static func update(_ when: When, state: inout State, ...) throws { ... }
+    /// }
+    /// ```
+    /// When a parent creates `state.child = ProfileReducer.State()`, the child store
+    /// is wired and `.onAppear` is dispatched automatically.
+    ///
+    /// Returns `nil` by default (no automatic trigger).
+    static var defaultTrigger: When? { get }
 }
 
 extension Reducer {
     /// Default no-op for reducers with no `@SubState` children
     public static func wireChildren(state: inout State, childStores: inout [String: any ObservableObject]) {}
+
+    /// Default: no automatic trigger on wiring
+    public static var defaultTrigger: When? { nil }
 }

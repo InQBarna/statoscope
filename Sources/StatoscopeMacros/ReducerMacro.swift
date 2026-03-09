@@ -416,6 +416,10 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
                 return """
                 if let newStore = _wiredStores["\(prop.name)"] as? \(reducerType).Store {
                             _\(prop.name) = newStore
+                            let _defaultTrigger_\(prop.name): \(reducerType).When? = \(reducerType).defaultTrigger
+                            if let trigger = _defaultTrigger_\(prop.name) {
+                                newStore.send(trigger)
+                            }
                         } else if mutableState._$\(prop.name) == nil {
                             _\(prop.name) = nil
                         }
