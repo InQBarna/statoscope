@@ -28,7 +28,26 @@ public macro Copy() = #externalMacro(module: "StatoscopeMacros", type: "CopyMacr
 /// Generates storage and computed property accessor for parent state binding.
 @attached(accessor)
 @attached(peer, names: arbitrary)
-public macro SuperState() = #externalMacro(module: "StatoscopeMacros", type: "SuperStateMacro")
+public macro SuperState(observed: Bool = false) = #externalMacro(module: "StatoscopeMacros", type: "SuperStateMacro")
+
+/// Macro for incremental migration: references a parent Statostore (not yet migrated to Reducer)
+///
+/// Usage in `Reducer.State`:
+/// ```swift
+/// struct State {
+///     @SuperScope(observed: true) var parent: ParentStore  // ParentStore is a Statostore
+/// }
+/// ```
+///
+/// The `@Reducer` macro detects `@SuperScope` and generates
+/// `@Superscope(observed: true) var _parent: ParentStore` on the Store class,
+/// injecting a `ParentStoreBinding` so `state.parent` resolves the live store
+/// from the injection tree.
+///
+/// For use directly on a Store class (StoreImpl), use `@Superscope` instead.
+@attached(accessor)
+@attached(peer, names: arbitrary)
+public macro SuperScope(observed: Bool = false) = #externalMacro(module: "StatoscopeMacros", type: "SuperScopeMacro")
 
 /// Macro that expands a property to use SubStateBinding for child state management
 ///

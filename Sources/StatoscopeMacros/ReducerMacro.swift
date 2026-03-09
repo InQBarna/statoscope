@@ -105,8 +105,9 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
             return []
         }
 
-        // Analyze State properties for @SuperState and @SubState
+        // Analyze State properties for @SuperState, @SuperScope, and @SubState
         let superStateProperties = findSuperStateProperties(in: stateStruct)
+        let parentStoreProperties = findSuperScopeProperties(in: stateStruct)
         let subStateProperties = findSubStateProperties(in: stateStruct)
 
         // Check if State conforms to Injectable
@@ -119,6 +120,7 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
         let storeClass = try generateStoreClass(
             reducerName: reducerName,
             superStateProperties: superStateProperties,
+            parentStoreProperties: parentStoreProperties,
             subStateProperties: subStateProperties,
             stateIsInjectable: stateIsInjectable,
             isMiddlewareReducer: isMiddlewareReducer
@@ -184,26 +186,81 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
     }
 
     /// Find properties marked with @SuperState
-    private static func findSuperStateProperties(in stateStruct: StructDeclSyntax) -> [(name: String, type: String)] {
-        var properties: [(String, String)] = []
+    private static func findSuperStateProperties(in stateStruct: StructDeclSyntax) -> [(name: String, type: String, observed: Bool)] {
+        var properties: [(String, String, Bool)] = []
 
         for member in stateStruct.memberBlock.members {
             guard let varDecl = member.decl.as(VariableDeclSyntax.self) else { continue }
 
             // Check if it has @SuperState attribute
-            let hasSuperState = varDecl.attributes.contains { attr in
-                guard case .attribute(let attribute) = attr else { return false }
-                return attribute.attributeName.as(IdentifierTypeSyntax.self)?.name.text == "SuperState"
+            var superStateAttribute: AttributeSyntax?
+            for attr in varDecl.attributes {
+                guard case .attribute(let attribute) = attr else { continue }
+                if attribute.attributeName.as(IdentifierTypeSyntax.self)?.name.text == "SuperState" {
+                    superStateAttribute = attribute
+                    break
+                }
             }
 
-            guard hasSuperState else { continue }
+            guard let attribute = superStateAttribute else { continue }
+
+            // Extract observed: Bool argument (defaults to false)
+            var observed = false
+            if let args = attribute.arguments?.as(LabeledExprListSyntax.self) {
+                for arg in args {
+                    if arg.label?.text == "observed",
+                       let boolExpr = arg.expression.as(BooleanLiteralExprSyntax.self) {
+                        observed = boolExpr.literal.text == "true"
+                    }
+                }
+            }
 
             // Extract property name and type
             if let binding = varDecl.bindings.first,
                let identifier = binding.pattern.as(IdentifierPatternSyntax.self)?.identifier.text,
                let typeAnnotation = binding.typeAnnotation?.type {
                 let typeName = typeAnnotation.description.trimmingCharacters(in: .whitespacesAndNewlines)
-                properties.append((identifier, typeName))
+                properties.append((identifier, typeName, observed))
+            }
+        }
+
+        return properties
+    }
+
+    /// Find properties marked with @SuperScope (parent Statostore, not yet migrated to Reducer)
+    private static func findSuperScopeProperties(in stateStruct: StructDeclSyntax) -> [(name: String, type: String, observed: Bool)] {
+        var properties: [(String, String, Bool)] = []
+
+        for member in stateStruct.memberBlock.members {
+            guard let varDecl = member.decl.as(VariableDeclSyntax.self) else { continue }
+
+            var superScopeAttribute: AttributeSyntax?
+            for attr in varDecl.attributes {
+                guard case .attribute(let attribute) = attr else { continue }
+                if attribute.attributeName.as(IdentifierTypeSyntax.self)?.name.text == "SuperScope" {
+                    superScopeAttribute = attribute
+                    break
+                }
+            }
+
+            guard let attribute = superScopeAttribute else { continue }
+
+            // Extract observed: Bool argument (defaults to false)
+            var observed = false
+            if let args = attribute.arguments?.as(LabeledExprListSyntax.self) {
+                for arg in args {
+                    if arg.label?.text == "observed",
+                       let boolExpr = arg.expression.as(BooleanLiteralExprSyntax.self) {
+                        observed = boolExpr.literal.text == "true"
+                    }
+                }
+            }
+
+            if let binding = varDecl.bindings.first,
+               let identifier = binding.pattern.as(IdentifierPatternSyntax.self)?.identifier.text,
+               let typeAnnotation = binding.typeAnnotation?.type {
+                let typeName = typeAnnotation.description.trimmingCharacters(in: .whitespacesAndNewlines)
+                properties.append((identifier, typeName, observed))
             }
         }
 
@@ -281,17 +338,28 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
     /// Generate the Store class as a nested member
     private static func generateStoreClass(
         reducerName: String,
-        superStateProperties: [(name: String, type: String)],
+        superStateProperties: [(name: String, type: String, observed: Bool)],
+        parentStoreProperties: [(name: String, type: String, observed: Bool)],
         subStateProperties: [(name: String, type: String)],
         stateIsInjectable: Bool,
         isMiddlewareReducer: Bool
     ) throws -> DeclSyntax {
 
-        // Generate @Superscope properties
-        let superscopeDecls = superStateProperties.map { prop in
+        // Generate @Superscope properties for @SuperState (parent is a Reducer)
+        let superscopeFromStateDecls = superStateProperties.map { prop in
             let reducerType = inferReducerType(from: prop.type)
-            return "@Superscope var _\(prop.name): \(reducerType).Store"
-        }.joined(separator: "\n    ")
+            let observedArg = prop.observed ? "(observed: true)" : ""
+            return "@Superscope\(observedArg) var _\(prop.name): \(reducerType).Store"
+        }
+
+        // Generate @Superscope properties for @SuperScope (parent is a Statostore)
+        let superscopeFromStoreDecls = parentStoreProperties.map { prop in
+            let observedArg = prop.observed ? "(observed: true)" : ""
+            return "@Superscope\(observedArg) var _\(prop.name): \(prop.type)"
+        }
+
+        let superscopeDecls = (superscopeFromStateDecls + superscopeFromStoreDecls)
+            .joined(separator: "\n    ")
 
         // Generate @Subscope properties
         let subscopeDecls = subStateProperties.map { prop in
@@ -299,14 +367,26 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
             return "@Subscope @_spi(Internal) public var _\(prop.name): \(reducerType).Store?"
         }.joined(separator: "\n    ")
 
-        // Generate state getter bindings injection
-        let superBindingsInjection = superStateProperties.map { prop in
+        // Generate state getter bindings injection for @SuperState (parent is a Reducer)
+        let superStateBindingsInjection = superStateProperties.map { prop in
             """
             mutableState._$\(prop.name) = SuperStateBinding { [weak self] in
                         self?._\(prop.name).state ?? \(prop.type).defaultValue
                     }
             """
-        }.joined(separator: "\n                    ")
+        }
+
+        // Generate state getter bindings injection for @SuperScope (parent is a Statostore)
+        let parentStoreBindingsInjection = parentStoreProperties.map { prop in
+            """
+            mutableState._$\(prop.name) = ParentStoreBinding { [weak self] in
+                        self?._\(prop.name) ?? \(prop.type).defaultValue
+                    }
+            """
+        }
+
+        let superBindingsInjection = (superStateBindingsInjection + parentStoreBindingsInjection)
+            .joined(separator: "\n                    ")
 
         let subBindingsInjection = subStateProperties.map { prop in
             """

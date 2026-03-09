@@ -15,6 +15,7 @@ struct StatoscopeMacrosPlugin: CompilerPlugin {
         CaseAssociatedGetMacro.self,
         CopyMacro.self,
         SuperStateMacro.self,
+        SuperScopeMacro.self,
         SubStateMacro.self,
         ReducerMacro.self
     ]
