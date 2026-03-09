@@ -177,8 +177,9 @@ final class MiddlewareReducerTests: XCTestCase {
         parent.send(.createChild)
 
         XCTAssertNotNil(parent.state.child)
-        // Self-interception: updateSubscope is called but cast to ChildReducer.Store fails → no count
-        XCTAssertEqual(parent.state.interceptedEvents, 0, "No self-interception: type cast fails for parent's own events")
+        // Self-interception: updateSubscope IS called for parent's own events, but the type cast
+        // event.child as? ChildReducer.Store fails (child = parent itself), so updateSubstate is not invoked
+        XCTAssertEqual(parent.state.interceptedEvents, 0, "No updateSubstate for parent's own events: type cast fails")
 
         // Get child store
         guard let child = parent._child else {
@@ -190,7 +191,7 @@ final class MiddlewareReducerTests: XCTestCase {
         child.send(.taskCompleted("task1"))
 
         // Parent intercepts child's .taskCompleted → interceptedEvents = 1
-        // parent.send(.childDelegated) is self-interception → cast fails → no extra count
+        // parent.send(.childDelegated): self-interception occurs, but cast to ChildReducer.Store fails → no extra count
         XCTAssertEqual(parent.state.interceptedEvents, 1, "Parent intercepts child's event only")
         XCTAssertEqual(parent.state.delegatedTasks, ["task1"], "Parent should receive delegation")
 
@@ -215,7 +216,8 @@ final class MiddlewareReducerTests: XCTestCase {
         child.send(.simpleAction)
         XCTAssertEqual(parent.state.delegatedTasks, ["task1"], "No new delegation for simpleAction")
 
-        // Parent intercepts: taskCompleted + simpleAction = 2 (self-events don't count: type cast fails)
+        // Parent intercepts: taskCompleted + simpleAction = 2
+        // Self-interception of .childDelegated occurs but cast to ChildReducer.Store fails → no extra count
         XCTAssertEqual(parent.state.interceptedEvents, 2, "Parent intercepts child events only, not its own sends")
 
         // Child should have executed both events
@@ -253,8 +255,7 @@ final class MiddlewareReducerTests: XCTestCase {
         XCTAssertEqual(root.state.rootInterceptions, 2, "Root intercepts parent-level events only")
 
         // Parent intercepts: taskCompleted from child = 1
-        //   createChild self-intercept: cast to ChildReducer.Store fails → no count
-        //   childDelegated self-intercept: same, cast fails → no count
+        //   createChild/childDelegated: self-interception occurs, but cast to ChildReducer.Store fails → no count
         XCTAssertEqual(parent.state.interceptedEvents, 1, "Parent intercepts only child's events")
         XCTAssertEqual(parent.state.delegatedTasks, ["task1"])
 
@@ -288,7 +289,7 @@ final class MiddlewareReducerTests: XCTestCase {
         XCTAssertEqual(root.state.rootInterceptions, 3, "Root intercepts parent-level events only")
 
         // Parent intercepts child events: task1 + simpleAction + task2 = 3
-        //   (self-sent .childDelegated events fail the ChildReducer.Store cast)
+        //   (.childDelegated self-interceptions: cast to ChildReducer.Store fails → no extra count)
         XCTAssertEqual(parent.state.interceptedEvents, 3)
         XCTAssertEqual(parent.state.delegatedTasks, ["task1", "task2"])
 

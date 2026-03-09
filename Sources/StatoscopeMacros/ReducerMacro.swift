@@ -319,10 +319,13 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
     /// Infer reducer type from state type
     /// "ParentState" → "ParentReducer"
     /// "ChildReducer.State" → "ChildReducer"
+    /// "MyModule.ChildReducer.State" → "MyModule.ChildReducer"
     private static func inferReducerType(from stateType: String) -> String {
-        // Handle qualified type: "ChildReducer.State" → "ChildReducer"
-        if stateType.contains(".State") {
-            return stateType.components(separatedBy: ".").first ?? stateType
+        // Handle qualified type: drop trailing ".State" component
+        // "ChildReducer.State" → "ChildReducer"
+        // "MyModule.ChildReducer.State" → "MyModule.ChildReducer"
+        if stateType.hasSuffix(".State") {
+            return String(stateType.dropLast(".State".count))
         }
 
         // Handle naming convention: "ParentState" → "ParentReducer"

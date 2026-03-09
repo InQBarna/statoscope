@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import Statoscope
+@_spi(SCT) import Statoscope
 import XCTest
 
 enum TestPlanErrors: Error {
@@ -159,7 +159,7 @@ internal extension ScopeImplementation {
         // assertNoDeepEffects(file: file, line: line)
         try whens.forEach {
             childScope.effectsState.reset(scope: self)
-            try childScope._unsafeSendImplementation($0)
+            try childScope._throwingSendImplementation($0)
         }
         return self
     }

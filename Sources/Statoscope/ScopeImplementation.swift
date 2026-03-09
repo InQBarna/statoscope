@@ -296,6 +296,22 @@ private extension ScopeImplementation {
     }
 }
 
+extension ScopeImplementation {
+    /// Throwing version of `_sendImplementation`: respects `HierarchialScopeMiddleWare` chain
+    /// and propagates errors from `update()`.
+    ///
+    /// Use this in test infrastructure instead of `_unsafeSendImplementation` so that
+    /// parent middleware (`updateSubscope` / `updateSubstate`) is invoked when the scope
+    /// under test is a child in a middleware hierarchy.
+    public func _throwingSendImplementation(_ when: When) throws {
+        if shouldUseParentEnclosedHierarchialUpdate() {
+            try callParentEnclosedHierarchialUpdate(when)
+        } else {
+            try _unsafeSendImplementation(when)
+        }
+    }
+}
+
 /// Virtual scope that represents a continuation in the parent chain
 /// When update() is called, it executes the next level in the chain
 private final class ChainContinuationScope<W>: ScopeImplementation {

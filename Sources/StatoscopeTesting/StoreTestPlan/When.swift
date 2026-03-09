@@ -88,7 +88,7 @@ extension StoreTestPlan {
     ) -> Self {
         addWhenStep(String(describing: when)) { sut in
             sut.effectsState.clear(clearEffects, scope: sut)
-            XCTAssertThrowsError(try sut._unsafeSendImplementation(when), file: file, line: line)
+            XCTAssertThrowsError(try sut._throwingSendImplementation(when), file: file, line: line)
         }
     }
 
@@ -102,7 +102,7 @@ extension StoreTestPlan {
     ) throws -> Self {
         addWhenStep(String(describing: keyPath) + ": " + String(describing: when)) { sut in
             sut.effectsState.clear(clearEffects, scope: sut)
-            XCTAssertThrowsError(try sut[keyPath: keyPath]._unsafeSendImplementation(when), file: file, line: line)
+            XCTAssertThrowsError(try sut[keyPath: keyPath]._throwingSendImplementation(when), file: file, line: line)
         }
     }
 
@@ -122,7 +122,7 @@ extension StoreTestPlan {
                 return
             }
             childScope.effectsState.clear(clearEffects, scope: sut)
-            XCTAssertThrowsError(try childScope._unsafeSendImplementation(when), file: file, line: line)
+            XCTAssertThrowsError(try childScope._throwingSendImplementation(when), file: file, line: line)
         }
     }
 }
@@ -162,7 +162,7 @@ private extension StoreTestPlan {
     ) throws -> Self {
         addWhenStep(String(describing: when)) { [clearEffectsOnWhen = self.clearEffectsOnWhen] sut in
             sut.effectsState.clear(clearEffectsOnWhen, scope: sut)
-            try sut._unsafeSendImplementation(when)
+            try sut._throwingSendImplementation(when)
         }
     }
 
