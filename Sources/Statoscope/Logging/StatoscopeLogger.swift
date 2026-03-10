@@ -123,7 +123,7 @@ extension ScopeImplementation {
             }
         StatoscopeLogger.LOG(
             .stateDiff,
-            "\(type(of: self)) (\(Unmanaged.passUnretained(self).toOpaque())):\n" +
+            "\(scopeTypeName(for: type(of: self))) (\(Unmanaged.passUnretained(self).toOpaque())):\n" +
             differences.map { difference in
                 switch difference {
                 case .remove(_, let element, _):

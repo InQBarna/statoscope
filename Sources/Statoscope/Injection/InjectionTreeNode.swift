@@ -135,7 +135,7 @@ public extension InjectionTreeNode {
         StatoscopeLogger.LOG(
             .errors,
             "💉 ⁉️ Injection failed at " +
-                "\(type(of: self)) (\(Unmanaged.passUnretained(self).toOpaque())) " +
+                "\(scopeTypeName(for: type(of: self))) (\(Unmanaged.passUnretained(self).toOpaque())) " +
                 appendingLog +
                 ": \(T.self)" +
                 .newLine +
@@ -301,7 +301,7 @@ extension InjectionTreeNode {
     var injectedTree: [String] {
         [
             [
-                "\(type(of: self)) (\(Unmanaged.passUnretained(self).toOpaque()))"
+                "\(scopeTypeName(for: type(of: self))) (\(Unmanaged.passUnretained(self).toOpaque()))"
             ],
             injectionStore.treeDescription.map { "  " + $0 }
         ]

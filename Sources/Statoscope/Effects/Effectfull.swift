@@ -28,6 +28,6 @@ extension Effectfull {
 internal extension Effectfull where Self: AnyObject {
     /// Returns a prefix so this is identified in the logs
     var _logPrefix: String {
-        "\(type(of: self)) (\(Unmanaged.passUnretained(self).toOpaque())):"
+        "\(scopeTypeName(for: type(of: self))) (\(Unmanaged.passUnretained(self).toOpaque())):"
     }
 }

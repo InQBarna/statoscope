@@ -93,7 +93,7 @@ extension ScopeImplementation {
     }
 
     private var logPrefix: String {
-        "\(type(of: self)) (\(Unmanaged.passUnretained(self).toOpaque())):"
+        "\(scopeTypeName(for: type(of: self))) (\(Unmanaged.passUnretained(self).toOpaque())):"
     }
 
     public func _completedEffect(_ uuid: UInt, _ effect: AnyEffect<When>, _ when: When?) {

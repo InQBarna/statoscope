@@ -70,6 +70,23 @@ fileprivate extension ScopeImplementation {
     }
 }
 
+/// Returns a human-readable type name for logging.
+///
+/// For `@Reducer`-generated nested `Store` classes the simple type name is just
+/// `"Store"`, which is ambiguous in logs. When that happens we fall back to the
+/// fully-qualified name (e.g. `"MyReducer.Store"`), stripping the module prefix.
+func scopeTypeName(for type: Any.Type) -> String {
+    let simpleName = String(describing: type)
+    guard simpleName == "Store" else { return simpleName }
+    // Nested Store: strip module prefix from the fully-qualified reflection name.
+    // String(reflecting:) returns "ModuleName.ParentType.Store" → drop "ModuleName."
+    let fullName = String(reflecting: type)
+    if let dotRange = fullName.range(of: ".") {
+        return String(fullName[dotRange.upperBound...])
+    }
+    return fullName
+}
+
 func describeObject(_ object: Any, appending: String = "") -> String {
     var inoutObjects: [AnyObject] = []
     return describeObject(object, objects: &inoutObjects, appending: appending)
@@ -143,7 +160,7 @@ private func printObject(
             }
             return "\(label): \(valueDescription)".indentDumpedObject()
         }
-    return "\(type(of: object))(" +
+    return "\(scopeTypeName(for: type(of: object)))(" +
         .newLine +
     childrenDescribed.joined(separator: .newLine) +
         .newLine +
@@ -169,7 +186,7 @@ private func describeObject(
         return "nil" + appending
     } else if mirrorChildren.count == 0 {
         if object is Scope {
-            return "\(type(of: object))" + appending
+            return "\(scopeTypeName(for: type(of: object)))" + appending
         } else {
             return String(describing: object) + appending
         }
