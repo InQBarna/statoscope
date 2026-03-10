@@ -62,6 +62,45 @@ public macro SuperScope(observed: Bool = false) = #externalMacro(module: "Statos
 @attached(peer, names: arbitrary)
 public macro SubState() = #externalMacro(module: "StatoscopeMacros", type: "SubStateMacro")
 
+/// Macro that declares an Injectable dependency on a Reducer's State struct
+///
+/// Use this inside a `Reducer.State` struct to declare dependencies that will be
+/// resolved from the injection tree when the reducer runs. The `@Reducer` macro
+/// detects these declarations and generates binding injection in the Store's
+/// state getter.
+///
+/// ## Usage:
+/// ```swift
+/// @Reducer
+/// struct MyReducer {
+///     struct State {
+///         var count: Int = 0
+///         @ReducerInjected var logger: Logger     // resolved from injection tree
+///         @ReducerInjected var analytics: Analytics
+///     }
+///
+///     static func update(
+///         _ when: When,
+///         state: inout State,
+///         effectsState: inout EffectsState<When>,
+///         dependencies: ReducerDependencies
+///     ) throws {
+///         state.logger.log("Event: \(when)")
+///         state.count += 1
+///     }
+/// }
+/// ```
+///
+/// The dependency type must conform to `Injectable`. It returns `T.defaultValue`
+/// until the Store is part of an injection tree.
+///
+/// **Note:** The same name as `@Injected` cannot be reused here because `@Injected`
+/// requires an `InjectionTreeNode` class as the enclosing instance, but `State`
+/// is a plain struct.
+@attached(accessor)
+@attached(peer, names: arbitrary)
+public macro ReducerInjected() = #externalMacro(module: "StatoscopeMacros", type: "ReducerInjectedMacro")
+
 /// Macro that generates a Store class for a Reducer
 ///
 /// Usage:

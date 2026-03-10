@@ -105,10 +105,11 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
             return []
         }
 
-        // Analyze State properties for @SuperState, @SuperScope, and @SubState
+        // Analyze State properties for @SuperState, @SuperScope, @SubState, and @ReducerInjected
         let superStateProperties = findSuperStateProperties(in: stateStruct)
         let parentStoreProperties = findSuperScopeProperties(in: stateStruct)
         let subStateProperties = findSubStateProperties(in: stateStruct)
+        let injectedProperties = findReducerInjectedProperties(in: stateStruct)
 
         // Check if State conforms to Injectable
         let stateIsInjectable = stateConformsToInjectable(in: stateStruct)
@@ -122,6 +123,7 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
             superStateProperties: superStateProperties,
             parentStoreProperties: parentStoreProperties,
             subStateProperties: subStateProperties,
+            injectedProperties: injectedProperties,
             stateIsInjectable: stateIsInjectable,
             isMiddlewareReducer: isMiddlewareReducer
         )
@@ -267,6 +269,31 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
         return properties
     }
 
+    /// Find properties marked with @ReducerInjected
+    private static func findReducerInjectedProperties(in stateStruct: StructDeclSyntax) -> [(name: String, type: String)] {
+        var properties: [(String, String)] = []
+
+        for member in stateStruct.memberBlock.members {
+            guard let varDecl = member.decl.as(VariableDeclSyntax.self) else { continue }
+
+            let hasReducerInjected = varDecl.attributes.contains { attr in
+                guard case .attribute(let attribute) = attr else { return false }
+                return attribute.attributeName.as(IdentifierTypeSyntax.self)?.name.text == "ReducerInjected"
+            }
+
+            guard hasReducerInjected else { continue }
+
+            if let binding = varDecl.bindings.first,
+               let identifier = binding.pattern.as(IdentifierPatternSyntax.self)?.identifier.text,
+               let typeAnnotation = binding.typeAnnotation?.type {
+                let typeName = typeAnnotation.description.trimmingCharacters(in: .whitespacesAndNewlines)
+                properties.append((identifier, typeName))
+            }
+        }
+
+        return properties
+    }
+
     /// Find properties marked with @SubState
     private static func findSubStateProperties(in stateStruct: StructDeclSyntax) -> [(name: String, type: String)] {
         var properties: [(String, String)] = []
@@ -344,6 +371,7 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
         superStateProperties: [(name: String, type: String, observed: Bool)],
         parentStoreProperties: [(name: String, type: String, observed: Bool)],
         subStateProperties: [(name: String, type: String)],
+        injectedProperties: [(name: String, type: String)],
         stateIsInjectable: Bool,
         isMiddlewareReducer: Bool
     ) throws -> DeclSyntax {
@@ -400,6 +428,15 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
                             storeSetter: { [\(prop.name)Store] newState in \(prop.name)Store.state = newState },
                             underlyingStore: \(prop.name)Store
                         )
+                    }
+            """
+        }.joined(separator: "\n                    ")
+
+        // Generate state getter bindings injection for @ReducerInjected dependencies
+        let injectedBindingsInjection = injectedProperties.map { prop in
+            """
+            mutableState._$\(prop.name) = InjectedBinding { [weak self] in
+                        self?.resolveForBinding() ?? \(prop.type).defaultValue
                     }
             """
         }.joined(separator: "\n                    ")
@@ -507,16 +544,19 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
             // Raw state storage (bindings not injected)
             @Published private var _rawState: State
 
-            // Smart getter: injects bindings from @Superscope/@Subscope
+            // Smart getter: injects bindings from @Superscope/@Subscope/@ReducerInjected
             public var state: State {
                 get {
-                    \(raw: superBindingsInjection.isEmpty && subBindingsInjection.isEmpty ? "let" : "var") mutableState = _rawState
+                    \(raw: superBindingsInjection.isEmpty && subBindingsInjection.isEmpty && injectedBindingsInjection.isEmpty ? "let" : "var") mutableState = _rawState
 
                     // Inject SuperStateBindings from @Superscope properties
                     \(raw: superBindingsInjection.isEmpty ? "// No super bindings to inject" : superBindingsInjection)
 
                     // Inject SubStateBindings from @Subscope properties
                     \(raw: subBindingsInjection.isEmpty ? "// No sub bindings to inject" : subBindingsInjection)
+
+                    // Inject InjectedBindings for @ReducerInjected dependencies
+                    \(raw: injectedBindingsInjection.isEmpty ? "// No injected dependencies" : injectedBindingsInjection)
 
                     return mutableState
                 }

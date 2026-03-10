@@ -19,7 +19,8 @@ let testMacros: [String: Macro.Type] = [
     "Copy": CopyMacro.self,
     "SuperState": SuperStateMacro.self,
     "SubState": SubStateMacro.self,
-    "Reducer": ReducerMacro.self
+    "Reducer": ReducerMacro.self,
+    "ReducerInjected": ReducerInjectedMacro.self
 ]
 #endif
 

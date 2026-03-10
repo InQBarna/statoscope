@@ -17,6 +17,7 @@ struct StatoscopeMacrosPlugin: CompilerPlugin {
         SuperStateMacro.self,
         SuperScopeMacro.self,
         SubStateMacro.self,
-        ReducerMacro.self
+        ReducerMacro.self,
+        ReducerInjectedMacro.self
     ]
 }
