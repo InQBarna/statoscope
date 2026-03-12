@@ -49,18 +49,6 @@ public macro SuperState(observed: Bool = false) = #externalMacro(module: "Statos
 @attached(peer, names: arbitrary)
 public macro SuperScope(observed: Bool = false) = #externalMacro(module: "StatoscopeMacros", type: "SuperScopeMacro")
 
-/// Macro that expands a property to use SubStateBinding for child state management
-///
-/// Usage:
-/// ```swift
-/// @SubState var child: ChildState?
-/// ```
-///
-/// Generates storage and computed property accessors for child state binding.
-/// Property must be optional.
-@attached(accessor)
-@attached(peer, names: arbitrary)
-public macro SubState() = #externalMacro(module: "StatoscopeMacros", type: "SubStateMacro")
 
 /// Macro that declares an Injectable dependency on a Reducer's State struct
 ///
@@ -119,6 +107,6 @@ public macro ReducerInjected() = #externalMacro(module: "StatoscopeMacros", type
 /// - Smart state getter/setter that injects bindings and wires children
 /// - Bridge to static update() method
 /// - Allows Reducer to be nested in namespaces (e.g., inside enums)
-@attached(member, names: named(Store), named(wireChildren))
+@attached(member, names: named(Store))
 @attached(extension, conformances: Reducer)
 public macro Reducer() = #externalMacro(module: "StatoscopeMacros", type: "ReducerMacro")

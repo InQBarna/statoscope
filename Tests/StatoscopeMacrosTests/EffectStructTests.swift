@@ -18,7 +18,6 @@ let testMacros: [String: Macro.Type] = [
     "CaseAssociatedGet": CaseAssociatedGetMacro.self,
     "Copy": CopyMacro.self,
     "SuperState": SuperStateMacro.self,
-    "SubState": SubStateMacro.self,
     "Reducer": ReducerMacro.self,
     "ReducerInjected": ReducerInjectedMacro.self
 ]

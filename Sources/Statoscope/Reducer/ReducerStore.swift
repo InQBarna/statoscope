@@ -56,16 +56,10 @@ import Combine
 public final class ReducerStore<R: Reducer>: Statostore, ObservableObject {
 
     /// The single published state managed by this store
-    ///
-    /// Note: Setter is internal to allow SubStateBinding to update child state
     @Published public internal(set) var state: R.State
 
     /// Expose When type from reducer
     public typealias When = R.When
-
-    /// Strong references to child Stores created by wireChildren.
-    /// Keyed by @SubState property name (e.g. "child" for `@SubState var child: ChildState?`).
-    private var _childStores: [String: any ObservableObject] = [:]
 
     /// Initialize a reducer store with initial state
     ///
@@ -79,9 +73,6 @@ public final class ReducerStore<R: Reducer>: Statostore, ObservableObject {
 
     /// Update implementation that delegates to the reducer's static method
     ///
-    /// After calling the reducer's `update`, invokes `R.wireChildren` to create child Stores
-    /// for any pending SubStateBinding properties (set via `state.child = ChildState()`).
-    ///
     /// - Parameter when: The event to process
     @_spi(Internal)
     public func update(_ when: When) throws {
@@ -93,7 +84,6 @@ public final class ReducerStore<R: Reducer>: Statostore, ObservableObject {
             effectsState: &effectsState,
             dependencies: dependencies
         )
-        R.wireChildren(state: &mutableState, childStores: &_childStores)
         state = mutableState
     }
 

@@ -330,9 +330,9 @@ final class ReducerTests: XCTestCase {
         // Logger was successfully resolved (no errors thrown)
     }
 
-    // MARK: - Parent-Child with SuperStateBinding/SubStateBinding
+    // MARK: - Parent-Child with SuperState/SubState
 
-    func testSuperAndSubStateBinding() {
+    func testSuperAndSubState() {
         let parent = ParentChild.ParentReducer.Store(initialState: ParentChild.ParentReducer.State())
 
         XCTAssertEqual(parent.state.count, 0)
@@ -367,7 +367,7 @@ final class ReducerTests: XCTestCase {
         XCTAssertEqual(parent.state.child?.value, 42)
     }
 
-    func testSuperStateBindingReadOnly() {
+    func testSuperStateReadOnly() {
         // This test demonstrates that SuperStateBinding only exposes state, not send()
         let parent = ParentChild.ParentReducer.Store(initialState: ParentChild.ParentReducer.State())
 
@@ -388,22 +388,21 @@ final class ReducerTests: XCTestCase {
         XCTAssertEqual(childStore.state.parent.count, 0)
     }
 
-    func testSubStateBindingAccess() {
+    func testSubStateAccess() {
         let parent = ParentChild.ParentReducer.Store(initialState: ParentChild.ParentReducer.State())
 
         parent.send(.createChild)
 
-        // Parent can access child state via SubStateBinding
         XCTAssertNotNil(parent.state.child)
         XCTAssertEqual(parent.state.child?.value, 0)
 
-        // Parent can modify child state via dynamic member lookup
+        // Parent can modify child state via state mutation in update()
         parent.send(.updateChild)
         XCTAssertEqual(parent.state.child?.value, 42)
     }
 
-    func testBindingsReflectCurrentState() {
-        // Demonstrate that SuperStateBinding/SubStateBinding always reflect current state
+    func testChildStateReflectsCurrentState() {
+        // Demonstrate that parent state always reflects live child store state
         let parent = ParentChild.ParentReducer.Store(initialState: ParentChild.ParentReducer.State())
 
         parent.send(.createChild)

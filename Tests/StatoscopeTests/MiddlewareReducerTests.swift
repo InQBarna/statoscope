@@ -121,9 +121,9 @@ struct RootMiddlewareReducer: MiddlewareReducer {
 }
 
 /// Parent with two children. When primaryChild sends taskCompleted, updateSubstate
-/// creates secondaryChild. This exercises wireChildren in updateSubscope:
-/// since secondaryChild's _$secondaryChild is nil in mutableState when the event
-/// arrives, assignment creates a pending SubStateBinding — which must be wired.
+/// creates secondaryChild. This exercises the write-back in updateSubscope:
+/// since _secondaryChild is nil when the event arrives, a new child store must
+/// be created from the assigned state value.
 @Reducer
 struct TwoChildParentReducer: MiddlewareReducer {
     struct State: Injectable {
@@ -320,35 +320,12 @@ final class MiddlewareReducerTests: XCTestCase {
         XCTAssertFalse(child is HierarchialScopeMiddleWare, "Store without MiddlewareReducer should not conform")
     }
 
-    // MARK: - ReducerStore wireChildren Tests
+    // MARK: - Child store write-back in updateSubscope
 
-    func testReducerStoreCreatesChildStoreViaPendingBinding() throws {
-        // Using ReducerStore<R> (not the macro-generated Store) — wireChildren is called after update()
-        let parent = ReducerStore<ParentMiddlewareReducer>(
-            initialState: ParentMiddlewareReducer.State()
-        )
-
-        // Before: no child
-        XCTAssertNil(parent.state.child)
-
-        // state.child = ChildReducer.State() creates a pending SubStateBinding.
-        // wireChildren() detects it and creates the ChildReducer.Store automatically.
-        parent.send(.createChild)
-
-        XCTAssertNotNil(parent.state.child, "Child state should be accessible after createChild")
-
-        // The underlying store should be held strongly in _childStores
-        let childStore = parent.state._$child?._underlyingStore
-        XCTAssertNotNil(childStore, "Child Store must be created by wireChildren, not left as a pending binding")
-    }
-
-    // MARK: - wireChildren in updateSubscope
-
-    func testUpdateSubscopeWiresChildrenCreatedByUpdateSubstate() throws {
+    func testUpdateSubscopeCreatesChildStoreViaUpdateSubstate() throws {
         // TwoChildParentReducer creates secondaryChild inside updateSubstate when
-        // primaryChild sends taskCompleted. secondaryChild._$secondaryChild starts nil,
-        // so the assignment creates a pending SubStateBinding — wireChildren must be
-        // called from updateSubscope to convert it to a real Store.
+        // primaryChild sends taskCompleted. The write-back code in updateSubscope
+        // detects that _secondaryChild is nil and creates a new child Store.
         let parent = TwoChildParentReducer.Store(initialState: TwoChildParentReducer.State())
         parent.send(.setup)
 
@@ -360,12 +337,12 @@ final class MiddlewareReducerTests: XCTestCase {
         XCTAssertNil(parent._secondaryChild, "secondaryChild should not exist yet")
 
         // primaryChild.send(.taskCompleted) → updateSubstate → parentState.secondaryChild = ChildReducer.State()
-        // updateSubscope must call wireChildren to convert the pending binding to a real Store
+        // updateSubscope write-back detects nil _secondaryChild and creates the Store
         primary.send(.taskCompleted("trigger"))
 
         XCTAssertNotNil(
             parent._secondaryChild,
-            "wireChildren must be called from updateSubscope to create the secondaryChild Store"
+            "Write-back must create the secondaryChild Store from assigned state"
         )
         XCTAssertNotNil(
             parent.state.secondaryChild,
@@ -373,24 +350,54 @@ final class MiddlewareReducerTests: XCTestCase {
         )
     }
 
-    func testReducerStoreReplacesChildStoreOnReassignment() throws {
-        let parent = ReducerStore<ParentMiddlewareReducer>(
-            initialState: ParentMiddlewareReducer.State()
-        )
+    func testReassigningChildStateAlwaysCreatesNewStore() throws {
+        // Any dirty assignment to a @SubState property always produces a fresh child store.
+        // The parent cannot mutate a live child store's state directly — encapsulation is preserved.
+        let parent = ParentMiddlewareReducer.Store(initialState: ParentMiddlewareReducer.State())
         parent.send(.createChild)
 
-        let storeAfterCreate = parent.state._$child?._underlyingStore
-        XCTAssertNotNil(storeAfterCreate, "Child store must exist after createChild")
+        guard let storeAfterCreate = parent._child else {
+            XCTFail("Child store must exist after createChild")
+            return
+        }
 
-        // Reassigning via state.child = ChildState() always creates a fresh pending binding,
-        // so wireChildren creates a NEW Store. The old store is replaced.
+        // Second createChild: even though _child already exists, reassignment creates a new store
         parent.send(.createChild)
 
-        let storeAfterSecond = parent.state._$child?._underlyingStore
-        XCTAssertNotNil(storeAfterSecond, "Child store must exist after second createChild")
+        guard let storeAfterSecond = parent._child else {
+            XCTFail("Child store must still exist after second createChild")
+            return
+        }
+
         XCTAssertFalse(
-            storeAfterCreate === (storeAfterSecond as AnyObject),
-            "Reassigning child state replaces the child Store with a fresh one"
+            storeAfterCreate === storeAfterSecond,
+            "Reassigning child state always replaces the Store — parent cannot mutate child state directly"
+        )
+    }
+
+    func testDestroyAndRecreateChildCreatesNewStore() throws {
+        // Explicitly destroying (nil) then reassigning also produces a fresh Store.
+        let parent = AutoInitParentReducer.Store(initialState: AutoInitParentReducer.State())
+        parent.send(.createChild)
+
+        guard let storeAfterCreate = parent._child else {
+            XCTFail("Child store must exist after createChild")
+            return
+        }
+
+        parent.send(.destroyChild)
+        XCTAssertNil(parent._child, "Child store must be nil after destroyChild")
+
+        parent.send(.createChild)
+
+        guard let storeAfterRecreate = parent._child else {
+            XCTFail("Child store must exist after recreate")
+            return
+        }
+
+        XCTAssertFalse(
+            storeAfterCreate === storeAfterRecreate,
+            "Destroy + create produces a fresh Store"
         )
     }
 }

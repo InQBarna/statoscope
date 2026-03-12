@@ -62,7 +62,7 @@ public protocol Reducer {
     ///
     /// State can contain:
     /// - `SuperStateBinding<ParentState>` for parent access (like @Superscope)
-    /// - `SubStateBinding<ChildState>` for child management (like @Subscope)
+    /// - `ChildState?` for child management (use `@SubState` annotation)
     associatedtype State
 
     /// Pure update logic that mutates state based on events
@@ -79,7 +79,7 @@ public protocol Reducer {
     /// - Cancel effects via `effectsState.cancelEffect(_:)`
     /// - Resolve dependencies via `dependencies.resolve()`
     /// - Access parent via `state.parent` (SuperStateBinding)
-    /// - Create children via `state.child = dependencies.createChild(...)`
+    /// - Create children by assigning `state.child = ChildReducer.State()`
     /// - Keep logic pure and deterministic (no side effects except effects enqueueing)
     /// - Being static emphasizes that reducers are stateless, pure functions
     ///
@@ -94,17 +94,6 @@ public protocol Reducer {
         effectsState: inout EffectsState<When>,
         dependencies: ReducerDependencies
     ) throws
-
-    /// Creates child Stores for any pending SubStateBinding properties in state.
-    ///
-    /// Generated automatically by the `@Reducer` macro for reducers with `@SubState`
-    /// properties. Detects "pending" bindings (created by assigning a raw child state)
-    /// and instantiates the corresponding child Store.
-    ///
-    /// - Parameters:
-    ///   - state: Mutable state — pending bindings are replaced with live store-backed bindings
-    ///   - childStores: Keyed by property name; holds strong references to child Stores
-    static func wireChildren(state: inout State, childStores: inout [String: any ObservableObject])
 
     /// Event to dispatch immediately after this reducer's Store is wired as a child scope.
     ///
@@ -133,9 +122,6 @@ public protocol Reducer {
 }
 
 extension Reducer {
-    /// Default no-op for reducers with no `@SubState` children
-    public static func wireChildren(state: inout State, childStores: inout [String: any ObservableObject]) {}
-
     /// Default: no automatic trigger on wiring
     public static var defaultTrigger: When? { nil }
 }
