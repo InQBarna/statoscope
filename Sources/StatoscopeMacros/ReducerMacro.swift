@@ -391,12 +391,10 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
             """
         }.joined(separator: "\n                    ")
 
-        // Generate state getter bindings injection for @ReducerInjected dependencies
+        // Generate state getter injection for @ReducerInjected dependencies — plain value snapshot
         let injectedBindingsInjection = injectedProperties.map { prop in
             """
-            mutableState._$\(prop.name) = InjectedBinding { [weak self] in
-                        self?.resolveForBinding() ?? \(prop.type).defaultValue
-                    }
+            mutableState.$\(prop.name) = ReducerInjected(injectedValue: resolveForBinding())
             """
         }.joined(separator: "\n                    ")
 

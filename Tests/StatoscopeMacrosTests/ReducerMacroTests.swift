@@ -83,32 +83,5 @@ final class ReducerMacroTests: XCTestCase {
         #endif
     }
 
-    // MARK: - @ReducerInjected Tests
-
-    func testReducerInjectedMacroExpansion() throws {
-        #if canImport(StatoscopeMacros)
-        assertMacroExpansion(
-            #"""
-            struct MyState {
-                @ReducerInjected var logger: Logger
-            }
-            """#,
-            expandedSource: #"""
-            struct MyState {
-                var logger: Logger {
-                    get {
-                        _$logger.wrappedValue
-                    }
-                }
-
-                var _$logger: InjectedBinding<Logger> = .defaultValue
-            }
-            """#,
-            macros: testMacros
-        )
-        #else
-        throw XCTSkip("macros are only supported when running tests for the host platform")
-        #endif
-    }
 
 }

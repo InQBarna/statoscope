@@ -17,8 +17,7 @@ let testMacros: [String: Macro.Type] = [
     "EffectStruct": EffectStructMacro.self,
     "CaseAssociatedGet": CaseAssociatedGetMacro.self,
     "Copy": CopyMacro.self,
-    "Reducer": ReducerMacro.self,
-    "ReducerInjected": ReducerInjectedMacro.self
+    "Reducer": ReducerMacro.self
 ]
 #endif
 
