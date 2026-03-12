@@ -29,11 +29,8 @@ import SwiftDiagnostics
 ///     get { _$child?.wrappedValue }
 ///     set {
 ///         if let newValue = newValue {
-///             if _$child == nil {
-///                 _$child = SubStateBinding(wrappedValue: newValue)
-///             } else {
-///                 _$child?.wrappedValue = newValue
-///             }
+///             // Always create a fresh pending binding; wireChildren() creates/replaces the Store
+///             _$child = SubStateBinding(wrappedValue: newValue)
 ///         } else {
 ///             _$child = nil
 ///         }
@@ -83,12 +80,11 @@ public struct SubStateMacro: AccessorMacro, PeerMacro {
         let setter: AccessorDeclSyntax = """
         set {
             if let newValue = newValue {
-                if \(raw: storageName) == nil {
-                    // Create pending binding - Store will be created by parent setter
-                    \(raw: storageName) = SubStateBinding(wrappedValue: newValue)
-                } else {
-                    \(raw: storageName)?.wrappedValue = newValue
-                }
+                // Always create a fresh pending binding.
+                // wireChildren() detects _isPending and creates (or replaces) the child Store.
+                // Any existing Store is discarded; use the child Store's send() to update
+                // child state in-place without replacing the Store.
+                \(raw: storageName) = SubStateBinding(wrappedValue: newValue)
             } else {
                 \(raw: storageName) = nil
             }

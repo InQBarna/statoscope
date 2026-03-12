@@ -469,8 +469,10 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
             """
         }
 
-        // Conditionally include Injectable and HierarchialScopeMiddleWare conformances
-        var conformancesList = ["Statostore", "ObservableObject"]
+        // Conditionally include Injectable, HierarchialScopeMiddleWare, and ReducerDispatchable conformances.
+        // ReducerDispatchable is always added so any Store can be a dispatchable descendant in
+        // a deep middleware hierarchy, enabling grandparent+ updateSubstate calls.
+        var conformancesList = ["Statostore", "ObservableObject", "ReducerDispatchable"]
         if stateIsInjectable {
             conformancesList.append("Injectable")
         }
@@ -488,25 +490,35 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
             }
         """ : ""
 
-        // Generate per-@SubState typed dispatch for MiddlewareReducer.
-        // Each @SubState child gets its own if-let block that casts to the concrete
-        // reducer type, tying childState and childWhen together via Child: Reducer.
-        let substateDispatch = subStateProperties.map { prop in
-            let reducerType = inferReducerType(from: prop.type)
-            return """
-                    if let childStore = event.child as? \(reducerType).Store,
-                       let childWhen = event.when as? \(reducerType).When {
-                        delegateWhen = try \(reducerName).updateSubstate(
-                            \(reducerType).self,
-                            childState: childStore.state,
-                            childWhen: childWhen,
-                            parentState: &mutableState,
-                            dependencies: dependencies
-                        )
-                    }
-            """
-        }.joined(separator: " else ")
+        // ReducerDispatchable: _callUpdateSubstate generated for ALL stores (not just MiddlewareReducer)
+        // so that any store can serve as a dispatchable descendant in a deep hierarchy.
+        // The method casts `when` to this reducer's When type, then calls Parent.updateSubstate
+        // with the exact reducer type known at code-generation time.
+        let callUpdateSubstateMethod = """
 
+            // ReducerDispatchable conformance — enables deep hierarchy updateSubstate propagation
+            public func _callUpdateSubstate<Parent: MiddlewareReducer>(
+                _ parentType: Parent.Type,
+                when: Any,
+                parentState: inout Parent.State,
+                dependencies: ReducerDependencies
+            ) throws -> Parent.When? {
+                guard let typedWhen = when as? \(reducerName).When else { return nil }
+                return try Parent.updateSubstate(
+                    \(reducerName).self,
+                    childState: state,
+                    childWhen: typedWhen,
+                    parentState: &parentState,
+                    dependencies: dependencies
+                )
+            }
+        """
+
+        // MiddlewareReducer updateSubscope uses a single ReducerDispatchable cast instead of
+        // per-@SubState type casts. This works for direct children AND any deeper descendant:
+        // event.child's _callUpdateSubstate captures the exact reducer type at code-gen time,
+        // so grandparent+ updateSubstate is called without artificial forwarding in intermediates.
+        // Self-interception is excluded via ObjectIdentifier comparison.
         let middlewareMethod = isMiddlewareReducer ? """
 
             // HierarchialScopeMiddleWare conformance
@@ -517,7 +529,15 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
                 let dependencies = ReducerDependenciesImpl(node: self, parentStore: self)
                 var delegateWhen: When? = nil
 
-                \(substateDispatch.isEmpty ? "// No @SubState children to dispatch" : substateDispatch)
+                if let dispatchable = event.child as? any ReducerDispatchable,
+                   ObjectIdentifier(dispatchable) != ObjectIdentifier(self) {
+                    delegateWhen = try dispatchable._callUpdateSubstate(
+                        \(reducerName).self,
+                        when: event.when,
+                        parentState: &mutableState,
+                        dependencies: dependencies
+                    )
+                }
 
                 // Wire child stores for any pending SubStateBindings created by updateSubstate
                 \(updateWiringSync.isEmpty ? "// No child wiring needed" : updateWiringSync)
@@ -582,7 +602,7 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
                 // Wire child stores for any pending SubStateBindings and sync @Subscope properties
                 \(raw: updateWiringSync.isEmpty ? "// No child wiring needed" : updateWiringSync)
                 _rawState = mutableState
-            }\(raw: middlewareMethod)
+            }\(raw: callUpdateSubstateMethod)\(raw: middlewareMethod)
         }
         """
         )

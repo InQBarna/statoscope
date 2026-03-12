@@ -98,3 +98,27 @@ public final class ReducerStore<R: Reducer>: Statostore, ObservableObject {
     }
 
 }
+
+// MARK: - ReducerDispatchable conformance
+
+extension ReducerStore: ReducerDispatchable {
+    /// Calls `Parent.updateSubstate` using this store's reducer type (`R`) and current state.
+    ///
+    /// Enables any ancestor `MiddlewareReducer` to observe events from this store regardless
+    /// of how many levels deep it sits in the hierarchy.
+    public func _callUpdateSubstate<Parent: MiddlewareReducer>(
+        _ parentType: Parent.Type,
+        when: Any,
+        parentState: inout Parent.State,
+        dependencies: ReducerDependencies
+    ) throws -> Parent.When? {
+        guard let typedWhen = when as? R.When else { return nil }
+        return try Parent.updateSubstate(
+            R.self,
+            childState: state,
+            childWhen: typedWhen,
+            parentState: &parentState,
+            dependencies: dependencies
+        )
+    }
+}
