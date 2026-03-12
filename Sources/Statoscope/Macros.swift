@@ -18,17 +18,6 @@ public macro CaseAssociatedGet() = #externalMacro(module: "StatoscopeMacros", ty
 @attached(member, names: arbitrary)
 public macro Copy() = #externalMacro(module: "StatoscopeMacros", type: "CopyMacro")
 
-/// Macro that expands a property to use SuperStateBinding for parent state access
-///
-/// Usage:
-/// ```swift
-/// @SuperState var parent: ParentState
-/// ```
-///
-/// Generates storage and computed property accessor for parent state binding.
-@attached(accessor)
-@attached(peer, names: arbitrary)
-public macro SuperState(observed: Bool = false) = #externalMacro(module: "StatoscopeMacros", type: "SuperStateMacro")
 
 /// Macro for incremental migration: references a parent Statostore (not yet migrated to Reducer)
 ///

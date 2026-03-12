@@ -366,12 +366,10 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
             return "@Subscope @_spi(Internal) public var _\(prop.name): \(reducerType).Store?"
         }.joined(separator: "\n    ")
 
-        // Generate state getter bindings injection for @SuperState (parent is a Reducer)
+        // Generate state getter injection for @SuperState (parent is a Reducer) — plain value, no closures
         let superStateBindingsInjection = superStateProperties.map { prop in
             """
-            mutableState._$\(prop.name) = SuperStateBinding { [weak self] in
-                        self?._\(prop.name).state ?? \(prop.type).defaultValue
-                    }
+            mutableState.$\(prop.name) = SuperState(injectedValue: _\(prop.name).state)
             """
         }
 
@@ -389,7 +387,7 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
 
         let subBindingsInjection = subStateProperties.map { prop in
             """
-            mutableState.$\(prop.name) = SubState(injectedValue: _\(prop.name)?.state)
+            mutableState.$\(prop.name) = SubState(injectedValue: _\(prop.name)?._rawState)
             """
         }.joined(separator: "\n                    ")
 
@@ -521,8 +519,9 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
             // @Subscope properties
             \(raw: subscopeDecls.isEmpty ? "// No subscope properties" : subscopeDecls)
 
-            // Raw state storage (bindings not injected)
-            @Published private var _rawState: State
+            // Raw state storage (bindings not injected). Internal so parent stores can
+            // read child._rawState directly — avoiding the parent↔child getter recursion.
+            @Published @_spi(Internal) public var _rawState: State
 
             // Smart getter: injects parent bindings, live child states, and injected dependencies
             public var state: State {

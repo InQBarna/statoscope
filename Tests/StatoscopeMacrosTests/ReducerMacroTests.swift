@@ -11,36 +11,8 @@ import XCTest
 
 final class ReducerMacroTests: XCTestCase {
 
-    // MARK: - @SuperState Tests
-
-    func testSuperStateMacroExpansion() throws {
-        #if canImport(StatoscopeMacros)
-        assertMacroExpansion(
-            #"""
-            struct ChildState {
-                @SuperState var parent: ParentState
-            }
-            """#,
-            expandedSource: #"""
-            struct ChildState {
-                var parent: ParentState {
-                    get {
-                        _$parent.wrappedValue
-                    }
-                }
-
-                var _$parent: SuperStateBinding<ParentState> = .defaultValue
-            }
-            """#,
-            macros: testMacros
-        )
-        #else
-        throw XCTSkip("macros are only supported when running tests for the host platform")
-        #endif
-    }
-
-    // Note: @SubState is now a @propertyWrapper (not a macro), so no macro expansion test needed.
-    // Integration tests in ReducerTests.swift verify the parent-child state management behavior.
+    // Note: @SuperState and @SubState are now @propertyWrappers (not macros), so no macro expansion
+    // tests are needed for them. Integration tests in ReducerTests.swift verify the behavior.
 
     // MARK: - @Reducer Tests
 

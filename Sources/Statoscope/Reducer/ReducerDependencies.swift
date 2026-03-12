@@ -49,25 +49,14 @@ public protocol ReducerDependencies {
     /// - Parameter object: The object to inject
     func inject<T>(_ object: T)
 
-    /// Create a SuperStateBinding to access parent state
-    ///
-    /// Returns a binding that resolves the parent's state from the injection tree.
-    ///
-    /// - Parameter reducerType: The parent reducer type
-    /// - Returns: A SuperStateBinding to the parent's state
-    func superBinding<ParentReducer: Reducer>(
-        of reducerType: ParentReducer.Type
-    ) -> SuperStateBinding<ParentReducer.State> where ParentReducer.State: Injectable
 }
 
 /// Internal implementation of ReducerDependencies that wraps an InjectionTreeNode
 public struct ReducerDependenciesImpl: ReducerDependencies {
     private let node: InjectionTreeNode?
-    private weak var parentStore: (any ObservableObject)?
 
     public init(node: InjectionTreeNode?, parentStore: (any ObservableObject)? = nil) {
         self.node = node
-        self.parentStore = parentStore
     }
 
     public func resolve<T: Injectable>() throws -> T {
@@ -79,12 +68,6 @@ public struct ReducerDependenciesImpl: ReducerDependencies {
 
     public func inject<T>(_ object: T) {
         node?.injectObject(object)
-    }
-
-    public func superBinding<ParentReducer: Reducer>(
-        of reducerType: ParentReducer.Type
-    ) -> SuperStateBinding<ParentReducer.State> where ParentReducer.State: Injectable {
-        SuperStateBinding._fromParentStore(parentStore, reducerType: reducerType)
     }
 
 }
