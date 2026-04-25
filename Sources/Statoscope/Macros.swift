@@ -58,6 +58,6 @@ public macro SuperScope(observed: Bool = false) = #externalMacro(module: "Statos
 /// - Smart state getter/setter that injects bindings and wires children
 /// - Bridge to static update() method
 /// - Allows Reducer to be nested in namespaces (e.g., inside enums)
-@attached(member, names: named(Store))
+@attached(member, names: named(Store), arbitrary)
 @attached(extension, conformances: Reducer)
 public macro Reducer() = #externalMacro(module: "StatoscopeMacros", type: "ReducerMacro")

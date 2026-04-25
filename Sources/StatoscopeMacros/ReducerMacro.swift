@@ -128,7 +128,12 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
             isMiddlewareReducer: isMiddlewareReducer
         )
 
-        return [storeClass]
+        let buildChildViewMethods = generateBuildChildViewMethods(
+            reducerName: reducerName,
+            subStateProperties: subStateProperties
+        )
+
+        return [storeClass] + buildChildViewMethods
     }
 
     // MARK: - Helper Methods
@@ -333,6 +338,72 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
         return stateType + "Reducer"
     }
 
+    /// Generate static view-builder methods on the Reducer — one pair per `@SubState`.
+    ///
+    /// Two methods are generated per child:
+    ///
+    /// 1. `build<Name>View(content:)` — for inline conditional rendering.
+    ///    Returns `_ReducerChildViewConnector` which resolves the parent store via
+    ///    `@EnvironmentObject`. Safe when the view is rendered in normal (non-lazy) body context
+    ///    and the parent store is in the environment chain above the NavigationView.
+    ///
+    /// 2. `build<Name>PresentedView(isPresented:content:)` — navigation-safe replacement for
+    ///    `navigation(keyPath, dismissWhen:) { ... }` calls.
+    ///    Returns `_ReducerChildNavigationConnector` which IS the NavigationLink.
+    ///    It resolves `@EnvironmentObject` in its own sibling body (non-lazy), captures the
+    ///    store reference, and passes it directly to the destination — no `@EnvironmentObject`
+    ///    lookup in the lazy destination context. Safe regardless of NavigationView depth.
+    ///
+    /// Generated example for `@SubState var detail: DetailReducer.State?`:
+    /// ```swift
+    /// // Inline use
+    /// public static func buildDetailView<V: _StatoscopeView>(
+    ///     content: @escaping (DetailReducer.State, @escaping (DetailReducer.When) -> Void) -> V
+    /// ) -> some _StatoscopeView { ... }
+    ///
+    /// // Navigation use (replaces navigation(...) helper)
+    /// public static func buildDetailPresentedView<V: _StatoscopeView>(
+    ///     dismissWhen: When,
+    ///     content: @escaping (DetailReducer.State, @escaping (DetailReducer.When) -> Void) -> V
+    /// ) -> some _StatoscopeView { ... }
+    /// ```
+    /// The `isPresented` binding is derived from the keypath automatically — no manual
+    /// `Binding<Bool>` needed at call sites.
+    private static func generateBuildChildViewMethods(
+        reducerName: String,
+        subStateProperties: [(name: String, type: String)]
+    ) -> [DeclSyntax] {
+        guard !subStateProperties.isEmpty else { return [] }
+        return subStateProperties.flatMap { prop -> [DeclSyntax] in
+            let reducerType = inferReducerType(from: prop.type)
+            let inlineMethod = "build\(prop.name.capitalized)View"
+            let navMethod = "build\(prop.name.capitalized)PresentedView"
+            let inlineDecl = DeclSyntax("""
+            public static func \(raw: inlineMethod)<V: _StatoscopeView>(
+                content: @escaping (\(raw: prop.type), @escaping (\(raw: reducerType).When) -> Void) -> V
+            ) -> some _StatoscopeView {
+                _ReducerChildViewConnector<Store, \(raw: reducerType).Store, V>(
+                    storeKeyPath: \\.\(raw: prop.name),
+                    content: content
+                )
+            }
+            """)
+            let navDecl = DeclSyntax("""
+            public static func \(raw: navMethod)<V: _StatoscopeView>(
+                dismissWhen: When,
+                content: @escaping (\(raw: prop.type), @escaping (\(raw: reducerType).When) -> Void) -> V
+            ) -> some _StatoscopeView {
+                _ReducerChildNavigationConnector<Store, \(raw: reducerType).Store, V>(
+                    storeKeyPath: \\.\(raw: prop.name),
+                    dismissWhen: dismissWhen,
+                    content: content
+                )
+            }
+            """)
+            return [inlineDecl, navDecl]
+        }
+    }
+
     /// Generate the Store class as a nested member
     private static func generateStoreClass(
         reducerName: String,
@@ -360,10 +431,17 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
         let superscopeDecls = (superscopeFromStateDecls + superscopeFromStoreDecls)
             .joined(separator: "\n    ")
 
-        // Generate @Subscope properties
+        // Generate @Subscope properties (public, no SPI — views need direct access for AutoConnectedView)
         let subscopeDecls = subStateProperties.map { prop in
             let reducerType = inferReducerType(from: prop.type)
-            return "@Subscope @_spi(Internal) public var _\(prop.name): \(reducerType).Store?"
+            return "@Subscope public var _\(prop.name): \(reducerType).Store?"
+        }.joined(separator: "\n    ")
+
+        // Generate public computed accessors for @SubState — enables KeyPath<Store, ChildStore?>
+        // so AutoConnectedView can be called as: AutoConnectedView<ParentStore, ChildStore, V>(\.detail)
+        let subscopeAccessorDecls = subStateProperties.map { prop in
+            let reducerType = inferReducerType(from: prop.type)
+            return "public var \(prop.name): \(reducerType).Store? { _\(prop.name) }"
         }.joined(separator: "\n    ")
 
         // Generate state getter injection for @SuperState (parent is a Reducer) — plain value, no closures
@@ -428,7 +506,8 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
         // Conditionally include Injectable, HierarchialScopeMiddleWare, and ReducerDispatchable conformances.
         // ReducerDispatchable is always added so any Store can be a dispatchable descendant in
         // a deep middleware hierarchy, enabling grandparent+ updateSubstate calls.
-        var conformancesList = ["Statostore", "ObservableObject", "ReducerDispatchable"]
+        // ReducerStoreProtocol enables AutoConnectedView / ReducerStoreView.
+        var conformancesList = ["Statostore", "ObservableObject", "ReducerDispatchable", "ReducerStoreProtocol"]
         if stateIsInjectable {
             conformancesList.append("Injectable")
         }
@@ -460,6 +539,7 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
                 dependencies: ReducerDependencies
             ) throws -> Parent.When? {
                 guard let typedWhen = when as? \(reducerName).When else { return nil }
+                // Wrap in outer optional to signal "event type matched, state may have changed"
                 return try Parent.updateSubstate(
                     \(reducerName).self,
                     childState: state,
@@ -484,20 +564,31 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
                 var mutableState = state
                 let dependencies = ReducerDependenciesImpl(node: self, parentStore: self)
                 var delegateWhen: When? = nil
+                // Only assign _rawState when state was actually modified.
+                // _callUpdateSubstate returns nil (outer) when the child's When type didn't match,
+                // meaning updateSubstate was never called and mutableState is unchanged.
+                var stateWasModified = false
 
                 if let dispatchable = event.child as? any ReducerDispatchable,
                    ObjectIdentifier(dispatchable) != ObjectIdentifier(self) {
-                    delegateWhen = try dispatchable._callUpdateSubstate(
+                    if let result = try dispatchable._callUpdateSubstate(
                         \(reducerName).self,
                         when: event.when,
                         parentState: &mutableState,
                         dependencies: dependencies
-                    )
+                    ) {
+                        // Outer non-nil: event type matched, state may have changed
+                        stateWasModified = true
+                        delegateWhen = result
+                    }
+                    // Outer nil: event type didn't match — mutableState is unchanged
                 }
 
                 // Write back child states to child stores and handle create/destroy
                 \(updateWiringSync.isEmpty ? "// No child state write-back needed" : updateWiringSync)
-                _rawState = mutableState
+                if stateWasModified {
+                    _rawState = mutableState
+                }
 
                 if let delegateWhen = delegateWhen {
                     send(delegateWhen)
@@ -506,6 +597,16 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
                 try event.forward()
             }
         """ : ""
+
+        // ReducerStoreProtocol conformance: _dispatch wraps StoreProtocol.send (which returns Self)
+        // as a Void method so AutoConnectedView / ReducerStoreView can use it as (When) -> Void.
+        let dispatchMethod = """
+
+            // ReducerStoreProtocol._dispatch — Void send for AutoConnectedView compatibility
+            public func _dispatch(_ when: When) {
+                send(when)
+            }
+        """
 
         return DeclSyntax("""
         public final class Store: \(raw: conformances) {
@@ -516,6 +617,9 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
 
             // @Subscope properties
             \(raw: subscopeDecls.isEmpty ? "// No subscope properties" : subscopeDecls)
+
+            // Public KeyPath accessors for AutoConnectedView
+            \(raw: subscopeAccessorDecls.isEmpty ? "// No child store accessors" : subscopeAccessorDecls)
 
             // Raw state storage (bindings not injected). Internal so parent stores can
             // read child._rawState directly — avoiding the parent↔child getter recursion.
@@ -556,10 +660,10 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
                     effectsState: &effectsState,
                     dependencies: dependencies
                 )
+                _rawState = mutableState
                 // Write back child states to child stores and handle create/destroy
                 \(raw: updateWiringSync.isEmpty ? "// No child state write-back needed" : updateWiringSync)
-                _rawState = mutableState
-            }\(raw: callUpdateSubstateMethod)\(raw: middlewareMethod)
+            }\(raw: callUpdateSubstateMethod)\(raw: middlewareMethod)\(raw: dispatchMethod)
         }
         """
         )
