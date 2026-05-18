@@ -24,3 +24,21 @@ extension ScopeImplementation {
         StoreTestPlan(file: file, line: line, given: builder)
     }
 }
+
+extension Store {
+    public static func GIVEN(
+        file: StaticString = #file,
+        line: UInt = #line,
+        state: R.State,
+        _ injection: @escaping (Store<R>) throws -> Store<R> = { $0 }
+    ) rethrows -> StoreTestPlan<Store<R>> {
+        StoreTestPlan(
+            file: file,
+            line: line,
+            given: {
+                try injection(
+                    try Store(initialState: state)
+                )
+            })
+    }
+}

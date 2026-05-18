@@ -202,6 +202,88 @@ enum ParentChild {
     }
 }
 
+// MARK: - Three-level hierarchy (Pattern 3 + 4 tests)
+
+enum DeepHierarchy {
+
+    @Reducer
+    struct GrandchildReducer {
+        struct State {
+            var label: String = ""
+        }
+        enum When {
+            case setLabel(String)
+        }
+        static func update(
+            _ when: When,
+            state: inout State,
+            effectsState: inout EffectsState<When>,
+            dependencies: ReducerDependencies
+        ) throws {
+            switch when {
+            case .setLabel(let label): state.label = label
+            }
+        }
+    }
+
+    @Reducer
+    struct ChildReducer {
+        struct State {
+            var value: Int = 0
+            @SubState var grandchild: GrandchildReducer.State?
+        }
+        enum When {
+            case openGrandchild
+            case setValue(Int)
+        }
+        static func update(
+            _ when: When,
+            state: inout State,
+            effectsState: inout EffectsState<When>,
+            dependencies: ReducerDependencies
+        ) throws {
+            switch when {
+            case .openGrandchild:
+                state.grandchild = GrandchildReducer.State()
+            case .setValue(let v):
+                state.value = v
+            }
+        }
+    }
+
+    @Reducer
+    struct ParentReducer {
+        struct State {
+            var name: String = ""
+            @SubState var child: ChildReducer.State?
+        }
+        enum When {
+            case createChild
+            case replaceChild(newValue: Int)
+            case createChildWithGrandchild
+        }
+        static func update(
+            _ when: When,
+            state: inout State,
+            effectsState: inout EffectsState<When>,
+            dependencies: ReducerDependencies
+        ) throws {
+            switch when {
+            case .createChild:
+                state.child = ChildReducer.State()
+            case .replaceChild(let newValue):
+                var childState = ChildReducer.State()
+                childState.value = newValue
+                state.child = childState
+            case .createChildWithGrandchild:
+                var childState = ChildReducer.State()
+                childState.grandchild = GrandchildReducer.State()
+                state.child = childState
+            }
+        }
+    }
+}
+
 // MARK: - Test Cases
 
 /// Tests for Reducer pattern with @Reducer macro
@@ -345,7 +427,7 @@ final class ReducerTests: XCTestCase {
         XCTAssertEqual(parent.state.child?.value, 0)
 
         // Get child store from @Subscope property
-        guard let childStore = parent._child else {
+        guard let childStore = parent.children.child else {
             XCTFail("Child store not found")
             return
         }
@@ -373,7 +455,7 @@ final class ReducerTests: XCTestCase {
 
         parent.send(.createChild)
 
-        guard let childStore = parent._child else {
+        guard let childStore = parent.children.child else {
             XCTFail("Child store not found")
             return
         }
@@ -407,7 +489,7 @@ final class ReducerTests: XCTestCase {
 
         parent.send(.createChild)
 
-        guard let childStore = parent._child else {
+        guard let childStore = parent.children.child else {
             XCTFail("Child store not found")
             return
         }
@@ -450,5 +532,57 @@ final class ReducerTests: XCTestCase {
         XCTAssertGreaterThan(publishCount, 0)
 
         _ = cancellable
+    }
+
+    // MARK: - Pattern 3: reassign child state (non-nil → different non-nil)
+
+    // When a parent reassigns a @SubState slot that already has a live child store,
+    // the old store is replaced with a fresh one carrying the new state, and any
+    // grandchild stores that existed in the old child are migrated to the new child.
+    func testReassignChildStateMigratesGrandchildren() {
+        let parent = DeepHierarchy.ParentReducer.Store(initialState: DeepHierarchy.ParentReducer.State())
+
+        // Create child, then open a grandchild inside it.
+        parent.send(.createChild)
+        guard let child1 = parent.children.child else {
+            XCTFail("child store missing after createChild")
+            return
+        }
+        child1.send(.openGrandchild)
+        XCTAssertNotNil(child1.children.grandchild, "grandchild store should exist after openGrandchild")
+        let grandchildStore = child1.children.grandchild
+        grandchildStore?.send(.setLabel("original"))
+        XCTAssertEqual(grandchildStore?.state.label, "original")
+
+        // Reassign the child slot (Pattern 3): parent creates a fresh child state.
+        parent.send(.replaceChild(newValue: 99))
+
+        guard let child2 = parent.children.child else {
+            XCTFail("child store missing after replaceChild")
+            return
+        }
+        XCTAssertFalse(child1 === child2, "child store should be a new instance")
+        XCTAssertEqual(child2.state.value, 99, "new child state carries the replacement value")
+        // Grandchild store is migrated from the old child to the new child.
+        XCTAssertNotNil(child2.children.grandchild, "grandchild store should survive child replacement via migration")
+        XCTAssertEqual(child2.children.grandchild?.state.label, "original", "migrated grandchild retains its state")
+    }
+
+    // MARK: - Pattern 4: new child state with pre-populated @SubState descendants
+
+    // When a parent update creates a child state that already has a grandchild state
+    // assigned (via the property setter, which sets isDirty = true), both the child and
+    // grandchild stores must be created immediately — before triggerDefault fires on the
+    // child — because the state getter resets dirty flags via injectIntoParent.
+    func testNewChildWithPrePopulatedGrandchildCreatesFullHierarchy() {
+        let parent = DeepHierarchy.ParentReducer.Store(initialState: DeepHierarchy.ParentReducer.State())
+
+        // .createChildWithGrandchild sets state.child = childState where childState.grandchild
+        // is already non-nil (assigned via setter → isDirty = true on grandchild slot).
+        parent.send(.createChildWithGrandchild)
+
+        XCTAssertNotNil(parent.children.child, "child store should be created")
+        XCTAssertNotNil(parent.children.child?.children.grandchild,
+                        "grandchild store should be created recursively from the pre-populated initial state")
     }
 }

@@ -124,13 +124,13 @@ public extension InjectionTreeNode {
     func _resolveUnsafe<T>(appendingLog: String = "") throws -> T {
         var node: InjectionTreeNode? = self
         while let iterator = node {
-            node = iterator.weakParent?.anyLink
             if let foundInStore: T = iterator.injectionStore.optResolve() {
                 return foundInStore
             }
             if let foundInAncestor = iterator as? T {
                 return foundInAncestor
             }
+            node = iterator.weakParent?.anyLink
         }
         StatoscopeLogger.LOG(
             .errors,
@@ -361,6 +361,23 @@ extension InjectionTreeNodeProtocol {
                        " this is an internal helper for optional-nonoptional property wrapping")
         }
     }
+}
+
+/// Walks the `_parentNode` chain from `node` and returns the first ancestor
+/// that is an instance of `T`.
+///
+/// Used by `@Reducer`-generated `AnySuperSlot` closures to resolve a parent
+/// `Store<R>` from a child store without requiring `@_spi(SCT)` in user code.
+///
+/// - Parameters:
+///   - type: The `AnyObject`-constrained type to search for.
+///   - node: The starting node (typically the child store passed as `AnyObject`).
+/// - Returns: The first ancestor of type `T`, or `nil` if not found.
+public func resolveAncestor<T: Injectable>(_ type: T.Type, from node: AnyObject) -> T? {
+    guard let treeNode = node as? (any InjectionTreeNode) else {
+        return nil
+    }
+    return treeNode._resolve()
 }
 
 extension Optional: InjectionTreeNodeProtocol where Wrapped: InjectionTreeNode {

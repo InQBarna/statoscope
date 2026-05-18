@@ -180,7 +180,7 @@ final class MiddlewareReducerTests: XCTestCase {
         XCTAssertEqual(parent.state.interceptedEvents, 0, "No updateSubstate for parent's own events: parent is root, updateSubscope never called")
 
         // Get child store
-        guard let child = parent._child else {
+        guard let child = parent.children.child else {
             XCTFail("Child store not found")
             return
         }
@@ -201,7 +201,7 @@ final class MiddlewareReducerTests: XCTestCase {
         let parent = ParentMiddlewareReducer.Store(initialState: ParentMiddlewareReducer.State())
         parent.send(.createChild)
 
-        guard let child = parent._child else {
+        guard let child = parent.children.child else {
             XCTFail("Child store not found")
             return
         }
@@ -230,7 +230,7 @@ final class MiddlewareReducerTests: XCTestCase {
         // Create parent
         root.send(.createParent)
 
-        guard let parent = root._parent else {
+        guard let parent = root.children.parent else {
             XCTFail("Parent store not found")
             return
         }
@@ -238,7 +238,7 @@ final class MiddlewareReducerTests: XCTestCase {
         // Create child
         parent.send(.createChild)
 
-        guard let child = parent._child else {
+        guard let child = parent.children.child else {
             XCTFail("Child store not found")
             return
         }
@@ -268,14 +268,14 @@ final class MiddlewareReducerTests: XCTestCase {
         let root = RootMiddlewareReducer.Store(initialState: RootMiddlewareReducer.State())
         root.send(.createParent)
 
-        guard let parent = root._parent else {
+        guard let parent = root.children.parent else {
             XCTFail("Parent store not found")
             return
         }
 
         parent.send(.createChild)
 
-        guard let child = parent._child else {
+        guard let child = parent.children.child else {
             XCTFail("Child store not found")
             return
         }
@@ -329,19 +329,19 @@ final class MiddlewareReducerTests: XCTestCase {
         let parent = TwoChildParentReducer.Store(initialState: TwoChildParentReducer.State())
         parent.send(.setup)
 
-        guard let primary = parent._primaryChild else {
+        guard let primary = parent.children.primaryChild else {
             XCTFail("primaryChild store not created")
             return
         }
 
-        XCTAssertNil(parent._secondaryChild, "secondaryChild should not exist yet")
+        XCTAssertNil(parent.children.secondaryChild, "secondaryChild should not exist yet")
 
         // primaryChild.send(.taskCompleted) → updateSubstate → parentState.secondaryChild = ChildReducer.State()
         // updateSubscope write-back detects nil _secondaryChild and creates the Store
         primary.send(.taskCompleted("trigger"))
 
         XCTAssertNotNil(
-            parent._secondaryChild,
+            parent.children.secondaryChild,
             "Write-back must create the secondaryChild Store from assigned state"
         )
         XCTAssertNotNil(
@@ -356,7 +356,7 @@ final class MiddlewareReducerTests: XCTestCase {
         let parent = ParentMiddlewareReducer.Store(initialState: ParentMiddlewareReducer.State())
         parent.send(.createChild)
 
-        guard let storeAfterCreate = parent._child else {
+        guard let storeAfterCreate = parent.children.child else {
             XCTFail("Child store must exist after createChild")
             return
         }
@@ -364,7 +364,7 @@ final class MiddlewareReducerTests: XCTestCase {
         // Second createChild: even though _child already exists, reassignment creates a new store
         parent.send(.createChild)
 
-        guard let storeAfterSecond = parent._child else {
+        guard let storeAfterSecond = parent.children.child else {
             XCTFail("Child store must still exist after second createChild")
             return
         }
@@ -380,17 +380,17 @@ final class MiddlewareReducerTests: XCTestCase {
         let parent = AutoInitParentReducer.Store(initialState: AutoInitParentReducer.State())
         parent.send(.createChild)
 
-        guard let storeAfterCreate = parent._child else {
+        guard let storeAfterCreate = parent.children.child else {
             XCTFail("Child store must exist after createChild")
             return
         }
 
         parent.send(.destroyChild)
-        XCTAssertNil(parent._child, "Child store must be nil after destroyChild")
+        XCTAssertNil(parent.children.child, "Child store must be nil after destroyChild")
 
         parent.send(.createChild)
 
-        guard let storeAfterRecreate = parent._child else {
+        guard let storeAfterRecreate = parent.children.child else {
             XCTFail("Child store must exist after recreate")
             return
         }
@@ -403,6 +403,8 @@ final class MiddlewareReducerTests: XCTestCase {
 }
 
 // MARK: - Deep Hierarchy Test Reducers (Root → Child → Grandchild)
+
+
 
 /// Leaf reducer — no children, just increments a counter
 @Reducer
@@ -527,14 +529,14 @@ final class DeepHierarchyReducerTests: XCTestCase {
         let root = RootDeepReducer.Store(initialState: RootDeepReducer.State())
         root.send(.createChild)
 
-        guard let child = root._child else {
+        guard let child = root.children.child else {
             XCTFail("child store not created")
             return
         }
 
         child.send(.createGrandchild)
 
-        guard let grandchild = child._grandchild else {
+        guard let grandchild = child.children.grandchild else {
             XCTFail("grandchild store not created")
             return
         }
@@ -555,9 +557,9 @@ final class DeepHierarchyReducerTests: XCTestCase {
     func testParentStillInterceptsGrandchildEvents() throws {
         let root = RootDeepReducer.Store(initialState: RootDeepReducer.State())
         root.send(.createChild)
-        guard let child = root._child else { XCTFail("child not created"); return }
+        guard let child = root.children.child else { XCTFail("child not created"); return }
         child.send(.createGrandchild)
-        guard let grandchild = child._grandchild else { XCTFail("grandchild not created"); return }
+        guard let grandchild = child.children.grandchild else { XCTFail("grandchild not created"); return }
 
         grandchild.send(.setValue(10))
         grandchild.send(.reset)
@@ -573,13 +575,13 @@ final class DeepHierarchyReducerTests: XCTestCase {
         root.send(.createChild)
         XCTAssertEqual(root.state.rootInterceptions, 0)
 
-        guard let child = root._child else { XCTFail("child not created"); return }
+        guard let child = root.children.child else { XCTFail("child not created"); return }
 
         // child.send(.createGrandchild): root intercepts child's event → rootInterceptions = 1
         child.send(.createGrandchild)
         XCTAssertEqual(root.state.rootInterceptions, 1, "Root intercepts child's createGrandchild event")
 
-        guard let grandchild = child._grandchild else { XCTFail("grandchild not created"); return }
+        guard let grandchild = child.children.grandchild else { XCTFail("grandchild not created"); return }
 
         // grandchild.send(.setValue): root intercepts grandchild's event directly → rootInterceptions = 2
         // root.send(.grandchildUpdated): root is ROOT → no updateSubscope → rootInterceptions stays 2
@@ -667,11 +669,11 @@ final class DefaultTriggerReducerTests: XCTestCase {
     func testDefaultTriggerIsSentWhenChildIsWired() throws {
         let parent = AutoInitParentReducer.Store(initialState: AutoInitParentReducer.State())
 
-        XCTAssertNil(parent._child, "No child before createChild")
+        XCTAssertNil(parent.children.child, "No child before createChild")
 
         parent.send(.createChild)
 
-        guard let child = parent._child else {
+        guard let child = parent.children.child else {
             XCTFail("Child store not created")
             return
         }
@@ -685,7 +687,7 @@ final class DefaultTriggerReducerTests: XCTestCase {
         let parent = AutoInitParentReducer.Store(initialState: AutoInitParentReducer.State())
         parent.send(.createChild)
 
-        guard let child = parent._child else {
+        guard let child = parent.children.child else {
             XCTFail("Child store not created")
             return
         }
@@ -701,7 +703,7 @@ final class DefaultTriggerReducerTests: XCTestCase {
         parent.send(.destroyChild)
         parent.send(.createChild)
 
-        guard let child = parent._child else {
+        guard let child = parent.children.child else {
             XCTFail("Child store not recreated")
             return
         }
@@ -715,7 +717,7 @@ final class DefaultTriggerReducerTests: XCTestCase {
         let parent = ParentMiddlewareReducer.Store(initialState: ParentMiddlewareReducer.State())
         parent.send(.createChild)
 
-        guard let child = parent._child else {
+        guard let child = parent.children.child else {
             XCTFail("Child store not created")
             return
         }

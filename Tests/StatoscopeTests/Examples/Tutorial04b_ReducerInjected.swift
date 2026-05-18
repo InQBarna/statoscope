@@ -1,4 +1,3 @@
-//
 //  Tutorial04b_ReducerInjected.swift
 //  Statoscope
 //
@@ -210,7 +209,7 @@ enum Tutorial04bReducerInjected {
             parentStore.send(.openChild)
 
             // Retrieve child store through the injection tree
-            guard let childStore = parentStore._child else {
+            guard let childStore = parentStore.children.child else {
                 XCTFail("Child store was not created")
                 return
             }

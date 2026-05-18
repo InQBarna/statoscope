@@ -11,7 +11,7 @@ import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
 import SwiftDiagnostics
 
-/// Macro that generates a nested Store class for a Reducer
+/// Macro that generates a Store typealias + ChildStores struct for a Reducer.
 ///
 /// Transforms:
 /// ```swift
@@ -27,34 +27,25 @@ import SwiftDiagnostics
 /// }
 /// ```
 ///
-/// Into:
+/// Into (members, inside the struct):
 /// ```swift
-/// extension ParentReducer {
-///     public final class Store: Statostore, ObservableObject {
-///         public typealias When = ParentReducer.When
+/// public typealias Store = Statoscope.Store<ParentReducer>
 ///
-///         @Superscope var _grandparent: GrandparentReducer.Store?
-///         @Subscope var _child: ChildReducer.Store?
+/// public struct ChildStores: ChildStoresProtocol { ... }
 ///
-///         @Published private var _rawState: State
+/// public static var _childSlots: [AnyChildSlot<State>] { ... }
+/// public static var _superSlots: [AnySuperSlot<State>] { ... }
+/// ```
 ///
-///         public var state: State {
-///             get { /* inject bindings */ }
-///             set { /* wire children */ }
-///         }
-///
-///         public init(initialState: State) { ... }
-///         public func update(_ when: When) throws { ... }
-///     }
-/// }
-///
-/// extension ParentReducer.State: Injectable {
-///     public static var defaultValue: State { State() }
-/// }
+/// Plus (extension, at module scope):
+/// ```swift
+/// extension ParentReducer: Reducer {}
 /// ```
 public struct ReducerMacro: MemberMacro, ExtensionMacro {
 
-    // ExtensionMacro: adds `Reducer` conformance to the outer struct automatically
+    // MARK: - ExtensionMacro
+    // Only emits the Reducer conformance. All type-aware code goes in MemberMacro
+    // so that sibling types in enclosing enums/structs remain in scope.
     public static func expansion(
         of node: AttributeSyntax,
         attachedTo declaration: some DeclGroupSyntax,
@@ -62,11 +53,15 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
         conformingTo protocols: [TypeSyntax],
         in context: some MacroExpansionContext
     ) throws -> [ExtensionDeclSyntax] {
-        guard !protocols.isEmpty else { return [] }
+
+        guard declaration.is(StructDeclSyntax.self) else { return [] }
         return [try ExtensionDeclSyntax("extension \(type): Reducer {}")]
     }
 
-    // MemberMacro: generates the nested Store class
+    // MARK: - MemberMacro
+    // Generates typealias Store, ChildStores struct, _childSlots, _superSlots,
+    // and build<Name>View helpers — all inside the struct body so sibling types
+    // in enclosing namespaces are accessible.
     public static func expansion<
         Context: MacroExpansionContext,
         Declaration: DeclGroupSyntax
@@ -76,7 +71,6 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
         in context: Context
     ) throws -> [DeclSyntax] {
 
-        // Validate this is a struct
         guard let structDecl = declaration.as(StructDeclSyntax.self) else {
             let diagnostic = Diagnostic(node: Syntax(declaration), message: StatoscopeMacroDiagnostic.notAStruct)
             context.diagnose(diagnostic)
@@ -85,7 +79,6 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
 
         let reducerName = structDecl.name.text
 
-        // Find nested State struct
         guard let stateStruct = findStateStruct(in: structDecl) else {
             let diagnostic = Diagnostic(
                 node: Syntax(structDecl),
@@ -95,7 +88,6 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
             return []
         }
 
-        // Find nested When enum
         guard findWhenEnum(in: structDecl) != nil else {
             let diagnostic = Diagnostic(
                 node: Syntax(structDecl),
@@ -105,40 +97,52 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
             return []
         }
 
-        // Analyze State properties for @SuperState, @SuperScope, @SubState, and @ReducerInjected
+        let subStateProperties = findSubStateProperties(in: stateStruct)
         let superStateProperties = findSuperStateProperties(in: stateStruct)
         let parentStoreProperties = findSuperScopeProperties(in: stateStruct)
-        let subStateProperties = findSubStateProperties(in: stateStruct)
         let injectedProperties = findReducerInjectedProperties(in: stateStruct)
 
-        // Check if State conforms to Injectable
-        let stateIsInjectable = stateConformsToInjectable(in: stateStruct)
+        // 1. typealias Store = Statoscope.Store<ReducerName>  (always)
+        let typeAlias: DeclSyntax = DeclSyntax("""
+        public typealias Store = Statoscope.Store<\(raw: reducerName)>
+        """)
 
-        // Check if Reducer conforms to MiddlewareReducer
-        let isMiddlewareReducer = reducerConformsToMiddleware(in: structDecl)
+        var members: [DeclSyntax] = [typeAlias]
 
-        // Generate Store class as nested member
-        let storeClass = try generateStoreClass(
-            reducerName: reducerName,
-            superStateProperties: superStateProperties,
-            parentStoreProperties: parentStoreProperties,
-            subStateProperties: subStateProperties,
-            injectedProperties: injectedProperties,
-            stateIsInjectable: stateIsInjectable,
-            isMiddlewareReducer: isMiddlewareReducer
-        )
+        // 2. ChildStores struct (only when @SubState props exist)
+        if !subStateProperties.isEmpty {
+            let childStoresMember = try generateChildStoresMember(
+                reducerName: reducerName,
+                subStateProperties: subStateProperties
+            )
+            members.append(childStoresMember)
+        }
 
+        // 3. _childSlots / _superSlots (whenever there is anything to wire)
+        let hasSlots = !subStateProperties.isEmpty || !superStateProperties.isEmpty
+            || !parentStoreProperties.isEmpty || !injectedProperties.isEmpty
+        if hasSlots {
+            let slotMembers = try generateSlotMembers(
+                subStateProperties: subStateProperties,
+                superStateProperties: superStateProperties,
+                parentStoreProperties: parentStoreProperties,
+                injectedProperties: injectedProperties
+            )
+            members += slotMembers
+        }
+
+        // 4. build<Name>View helpers (when @SubState exists)
         let buildChildViewMethods = generateBuildChildViewMethods(
             reducerName: reducerName,
             subStateProperties: subStateProperties
         )
+        members += buildChildViewMethods
 
-        return [storeClass] + buildChildViewMethods
+        return members
     }
 
-    // MARK: - Helper Methods
+    // MARK: - Helpers: finders
 
-    /// Find the nested State struct in the Reducer
     private static func findStateStruct(in structDecl: StructDeclSyntax) -> StructDeclSyntax? {
         for member in structDecl.memberBlock.members {
             if let nestedStruct = member.decl.as(StructDeclSyntax.self),
@@ -149,7 +153,6 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
         return nil
     }
 
-    /// Find the nested When enum in the Reducer
     private static func findWhenEnum(in structDecl: StructDeclSyntax) -> EnumDeclSyntax? {
         for member in structDecl.memberBlock.members {
             if let nestedEnum = member.decl.as(EnumDeclSyntax.self),
@@ -160,14 +163,10 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
         return nil
     }
 
-    /// Find properties marked with @SuperState
     private static func findSuperStateProperties(in stateStruct: StructDeclSyntax) -> [(name: String, type: String, observed: Bool)] {
         var properties: [(String, String, Bool)] = []
-
         for member in stateStruct.memberBlock.members {
             guard let varDecl = member.decl.as(VariableDeclSyntax.self) else { continue }
-
-            // Check if it has @SuperState attribute
             var superStateAttribute: AttributeSyntax?
             for attr in varDecl.attributes {
                 guard case .attribute(let attribute) = attr else { continue }
@@ -176,10 +175,7 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
                     break
                 }
             }
-
             guard let attribute = superStateAttribute else { continue }
-
-            // Extract observed: Bool argument (defaults to false)
             var observed = false
             if let args = attribute.arguments?.as(LabeledExprListSyntax.self) {
                 for arg in args {
@@ -189,8 +185,6 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
                     }
                 }
             }
-
-            // Extract property name and type
             if let binding = varDecl.bindings.first,
                let identifier = binding.pattern.as(IdentifierPatternSyntax.self)?.identifier.text,
                let typeAnnotation = binding.typeAnnotation?.type {
@@ -198,17 +192,13 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
                 properties.append((identifier, typeName, observed))
             }
         }
-
         return properties
     }
 
-    /// Find properties marked with @SuperScope (parent Statostore, not yet migrated to Reducer)
     private static func findSuperScopeProperties(in stateStruct: StructDeclSyntax) -> [(name: String, type: String, observed: Bool)] {
         var properties: [(String, String, Bool)] = []
-
         for member in stateStruct.memberBlock.members {
             guard let varDecl = member.decl.as(VariableDeclSyntax.self) else { continue }
-
             var superScopeAttribute: AttributeSyntax?
             for attr in varDecl.attributes {
                 guard case .attribute(let attribute) = attr else { continue }
@@ -217,10 +207,7 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
                     break
                 }
             }
-
             guard let attribute = superScopeAttribute else { continue }
-
-            // Extract observed: Bool argument (defaults to false)
             var observed = false
             if let args = attribute.arguments?.as(LabeledExprListSyntax.self) {
                 for arg in args {
@@ -230,7 +217,6 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
                     }
                 }
             }
-
             if let binding = varDecl.bindings.first,
                let identifier = binding.pattern.as(IdentifierPatternSyntax.self)?.identifier.text,
                let typeAnnotation = binding.typeAnnotation?.type {
@@ -238,24 +224,18 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
                 properties.append((identifier, typeName, observed))
             }
         }
-
         return properties
     }
 
-    /// Find properties marked with @ReducerInjected
     private static func findReducerInjectedProperties(in stateStruct: StructDeclSyntax) -> [(name: String, type: String)] {
         var properties: [(String, String)] = []
-
         for member in stateStruct.memberBlock.members {
             guard let varDecl = member.decl.as(VariableDeclSyntax.self) else { continue }
-
             let hasReducerInjected = varDecl.attributes.contains { attr in
                 guard case .attribute(let attribute) = attr else { return false }
                 return attribute.attributeName.as(IdentifierTypeSyntax.self)?.name.text == "ReducerInjected"
             }
-
             guard hasReducerInjected else { continue }
-
             if let binding = varDecl.bindings.first,
                let identifier = binding.pattern.as(IdentifierPatternSyntax.self)?.identifier.text,
                let typeAnnotation = binding.typeAnnotation?.type {
@@ -263,26 +243,18 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
                 properties.append((identifier, typeName))
             }
         }
-
         return properties
     }
 
-    /// Find properties marked with @SubState
     private static func findSubStateProperties(in stateStruct: StructDeclSyntax) -> [(name: String, type: String)] {
         var properties: [(String, String)] = []
-
         for member in stateStruct.memberBlock.members {
             guard let varDecl = member.decl.as(VariableDeclSyntax.self) else { continue }
-
-            // Check if it has @SubState attribute
             let hasSubState = varDecl.attributes.contains { attr in
                 guard case .attribute(let attribute) = attr else { return false }
                 return attribute.attributeName.as(IdentifierTypeSyntax.self)?.name.text == "SubState"
             }
-
             guard hasSubState else { continue }
-
-            // Extract property name and type (should be optional)
             if let binding = varDecl.bindings.first,
                let identifier = binding.pattern.as(IdentifierPatternSyntax.self)?.identifier.text,
                let typeAnnotation = binding.typeAnnotation?.type.as(OptionalTypeSyntax.self) {
@@ -290,85 +262,139 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
                 properties.append((identifier, childType))
             }
         }
-
         return properties
     }
 
-    /// Check if State struct conforms to Injectable protocol
-    private static func stateConformsToInjectable(in stateStruct: StructDeclSyntax) -> Bool {
-        guard let inheritanceClause = stateStruct.inheritanceClause else {
-            return false
-        }
+    // MARK: - Helpers: inference
 
-        return inheritanceClause.inheritedTypes.contains { inheritedType in
-            inheritedType.type.as(IdentifierTypeSyntax.self)?.name.text == "Injectable"
-        }
-    }
-
-    /// Check if Reducer struct conforms to MiddlewareReducer protocol
-    private static func reducerConformsToMiddleware(in structDecl: StructDeclSyntax) -> Bool {
-        guard let inheritanceClause = structDecl.inheritanceClause else {
-            return false
-        }
-
-        return inheritanceClause.inheritedTypes.contains { inheritedType in
-            inheritedType.type.as(IdentifierTypeSyntax.self)?.name.text == "MiddlewareReducer"
-        }
-    }
-
-    /// Infer reducer type from state type
-    /// "ParentState" → "ParentReducer"
-    /// "ChildReducer.State" → "ChildReducer"
-    /// "MyModule.ChildReducer.State" → "MyModule.ChildReducer"
+    /// "ParentState" → "ParentReducer", "ChildReducer.State" → "ChildReducer"
     private static func inferReducerType(from stateType: String) -> String {
-        // Handle qualified type: drop trailing ".State" component
-        // "ChildReducer.State" → "ChildReducer"
-        // "MyModule.ChildReducer.State" → "MyModule.ChildReducer"
         if stateType.hasSuffix(".State") {
             return String(stateType.dropLast(".State".count))
         }
-
-        // Handle naming convention: "ParentState" → "ParentReducer"
         if stateType.hasSuffix("State") {
             let baseName = String(stateType.dropLast("State".count))
             return baseName + "Reducer"
         }
-
-        // Fallback
         return stateType + "Reducer"
     }
 
-    /// Generate static view-builder methods on the Reducer — one pair per `@SubState`.
+    // MARK: - Generators
+
+    private static func generateChildStoresMember(
+        reducerName: String,
+        subStateProperties: [(name: String, type: String)]
+    ) throws -> DeclSyntax {
+        let propDecls = subStateProperties.map { prop -> String in
+            let reducerType = inferReducerType(from: prop.type)
+            return """
+            public var \(prop.name): Statoscope.Store<\(reducerType)>? {
+                    _cache[_CK.\(prop.name)] as? Statoscope.Store<\(reducerType)>
+                }
+            """
+        }.joined(separator: "\n    ")
+
+        let ckCases = subStateProperties.map { "case \($0.name)" }.joined(separator: "\n        ")
+
+        return DeclSyntax("""
+        public struct ChildStores: ChildStoresProtocol {
+            let _cache: [AnyHashable: AnyObject]
+            public init(cache: [AnyHashable: AnyObject]) { self._cache = cache }
+            \(raw: propDecls)
+            enum _CK: Hashable { \(raw: ckCases) }
+        }
+        """)
+    }
+
+    /// Generates `_childSlots` and `_superSlots` as static members of the Reducer struct.
     ///
-    /// Two methods are generated per child:
-    ///
-    /// 1. `build<Name>View(content:)` — for inline conditional rendering.
-    ///    Returns `_ReducerChildViewConnector` which resolves the parent store via
-    ///    `@EnvironmentObject`. Safe when the view is rendered in normal (non-lazy) body context
-    ///    and the parent store is in the environment chain above the NavigationView.
-    ///
-    /// 2. `build<Name>PresentedView(isPresented:content:)` — navigation-safe replacement for
-    ///    `navigation(keyPath, dismissWhen:) { ... }` calls.
-    ///    Returns `_ReducerChildNavigationConnector` which IS the NavigationLink.
-    ///    It resolves `@EnvironmentObject` in its own sibling body (non-lazy), captures the
-    ///    store reference, and passes it directly to the destination — no `@EnvironmentObject`
-    ///    lookup in the lazy destination context. Safe regardless of NavigationView depth.
-    ///
-    /// Generated example for `@SubState var detail: DetailReducer.State?`:
-    /// ```swift
-    /// // Inline use
-    /// public static func buildDetailView<V: _StatoscopeView>(
-    ///     content: @escaping (DetailReducer.State, @escaping (DetailReducer.When) -> Void) -> V
-    /// ) -> some _StatoscopeView { ... }
-    ///
-    /// // Navigation use (replaces navigation(...) helper)
-    /// public static func buildDetailPresentedView<V: _StatoscopeView>(
-    ///     dismissWhen: When,
-    ///     content: @escaping (DetailReducer.State, @escaping (DetailReducer.When) -> Void) -> V
-    /// ) -> some _StatoscopeView { ... }
-    /// ```
-    /// The `isPresented` binding is derived from the keypath automatically — no manual
-    /// `Binding<Bool>` needed at call sites.
+    /// Because these are MemberMacro-generated (inside the struct body), sibling types
+    /// in the same enclosing namespace are accessible without qualification.
+    private static func generateSlotMembers(
+        subStateProperties: [(name: String, type: String)],
+        superStateProperties: [(name: String, type: String, observed: Bool)],
+        parentStoreProperties: [(name: String, type: String, observed: Bool)],
+        injectedProperties: [(name: String, type: String)]
+    ) throws -> [DeclSyntax] {
+
+        // _childSlots
+        let childSlotEntries = subStateProperties.map { prop -> String in
+            let reducerType = inferReducerType(from: prop.type)
+            return """
+            AnyChildSlot(
+                    key: ChildStores._CK.\(prop.name),
+                    isDirty: { $0.$\(prop.name).isDirty },
+                    isPresent: { $0.\(prop.name) != nil },
+                    create: { parentState in Statoscope.Store<\(reducerType)>(initialState: parentState.\(prop.name)!) },
+                    triggerDefault: { store in
+                        guard let s = store as? Statoscope.Store<\(reducerType)>,
+                              let t = \(reducerType).defaultTrigger else { return }
+                        s.send(t)
+                    },
+                    resetDirty: { $0.$\(prop.name) = SubState() },
+                    injectIntoParent: { store, state in
+                        state.$\(prop.name) = SubState(injectedValue: (store as? Statoscope.Store<\(reducerType)>)?._rawState)
+                    },
+                    extractChildState: { parentState in parentState.\(prop.name)! }
+                )
+            """
+        }
+
+        let childSlotsBody = childSlotEntries.isEmpty
+            ? "[]"
+            : "[\n        " + childSlotEntries.joined(separator: ",\n        ") + "\n    ]"
+
+        // _superSlots
+        var superSlotEntries: [String] = []
+
+        for prop in superStateProperties {
+            let reducerType = inferReducerType(from: prop.type)
+            superSlotEntries.append("""
+            AnySuperSlot(inject: { store, state in
+                    if let parentStore = resolveAncestor(Statoscope.Store<\(reducerType)>.self, from: store) {
+                        state.$\(prop.name) = SuperState(injectedValue: parentStore._rawState)
+                    }
+                })
+            """)
+        }
+
+        for prop in parentStoreProperties {
+            let parentType = prop.type
+            superSlotEntries.append("""
+            AnySuperSlot(inject: { store, state in
+                    if let parentStore = resolveAncestor(\(parentType).self, from: store) {
+                        state._$\(prop.name) = ParentStoreBinding { [weak parentStore] in
+                            parentStore ?? \(parentType).defaultValue
+                        }
+                    }
+                })
+            """)
+        }
+
+        for prop in injectedProperties {
+            superSlotEntries.append("""
+            AnySuperSlot(inject: { store, state in
+                    if let node = store as? any InjectionTreeNode {
+                        state.$\(prop.name) = ReducerInjected(injectedValue: node.resolveForBinding())
+                    }
+                })
+            """)
+        }
+
+        let superSlotsBody = superSlotEntries.isEmpty
+            ? "[]"
+            : "[\n        " + superSlotEntries.joined(separator: ",\n        ") + "\n    ]"
+
+        let childSlotsDecl: DeclSyntax = DeclSyntax("""
+        public static var _childSlots: [AnyChildSlot<State>] { \(raw: childSlotsBody) }
+        """)
+        let superSlotsDecl: DeclSyntax = DeclSyntax("""
+        public static var _superSlots: [AnySuperSlot<State>] { \(raw: superSlotsBody) }
+        """)
+
+        return [childSlotsDecl, superSlotsDecl]
+    }
+
     private static func generateBuildChildViewMethods(
         reducerName: String,
         subStateProperties: [(name: String, type: String)]
@@ -382,8 +408,8 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
             public static func \(raw: inlineMethod)<V: _StatoscopeView>(
                 content: @escaping (\(raw: prop.type), @escaping (\(raw: reducerType).When) -> Void) -> V
             ) -> some _StatoscopeView {
-                _ReducerChildViewConnector<Store, \(raw: reducerType).Store, V>(
-                    storeKeyPath: \\.\(raw: prop.name),
+                _ReducerChildViewConnector<Store, Statoscope.Store<\(raw: reducerType)>, V>(
+                    storeKeyPath: \\.children.\(raw: prop.name),
                     content: content
                 )
             }
@@ -393,8 +419,8 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
                 dismissWhen: When,
                 content: @escaping (\(raw: prop.type), @escaping (\(raw: reducerType).When) -> Void) -> V
             ) -> some _StatoscopeView {
-                _ReducerChildNavigationConnector<Store, \(raw: reducerType).Store, V>(
-                    storeKeyPath: \\.\(raw: prop.name),
+                _ReducerChildNavigationConnector<Store, Statoscope.Store<\(raw: reducerType)>, V>(
+                    storeKeyPath: \\.children.\(raw: prop.name),
                     dismissWhen: dismissWhen,
                     content: content
                 )
@@ -402,271 +428,6 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
             """)
             return [inlineDecl, navDecl]
         }
-    }
-
-    /// Generate the Store class as a nested member
-    private static func generateStoreClass(
-        reducerName: String,
-        superStateProperties: [(name: String, type: String, observed: Bool)],
-        parentStoreProperties: [(name: String, type: String, observed: Bool)],
-        subStateProperties: [(name: String, type: String)],
-        injectedProperties: [(name: String, type: String)],
-        stateIsInjectable: Bool,
-        isMiddlewareReducer: Bool
-    ) throws -> DeclSyntax {
-
-        // Generate @Superscope properties for @SuperState (parent is a Reducer)
-        let superscopeFromStateDecls = superStateProperties.map { prop in
-            let reducerType = inferReducerType(from: prop.type)
-            let observedArg = prop.observed ? "(observed: true)" : ""
-            return "@Superscope\(observedArg) var _\(prop.name): \(reducerType).Store"
-        }
-
-        // Generate @Superscope properties for @SuperScope (parent is a Statostore)
-        let superscopeFromStoreDecls = parentStoreProperties.map { prop in
-            let observedArg = prop.observed ? "(observed: true)" : ""
-            return "@Superscope\(observedArg) var _\(prop.name): \(prop.type)"
-        }
-
-        let superscopeDecls = (superscopeFromStateDecls + superscopeFromStoreDecls)
-            .joined(separator: "\n    ")
-
-        // Generate @Subscope properties (public, no SPI — views need direct access for AutoConnectedView)
-        let subscopeDecls = subStateProperties.map { prop in
-            let reducerType = inferReducerType(from: prop.type)
-            return "@Subscope public var _\(prop.name): \(reducerType).Store?"
-        }.joined(separator: "\n    ")
-
-        // Generate public computed accessors for @SubState — enables KeyPath<Store, ChildStore?>
-        // so AutoConnectedView can be called as: AutoConnectedView<ParentStore, ChildStore, V>(\.detail)
-        let subscopeAccessorDecls = subStateProperties.map { prop in
-            let reducerType = inferReducerType(from: prop.type)
-            return "public var \(prop.name): \(reducerType).Store? { _\(prop.name) }"
-        }.joined(separator: "\n    ")
-
-        // Generate state getter injection for @SuperState (parent is a Reducer) — plain value, no closures
-        let superStateBindingsInjection = superStateProperties.map { prop in
-            """
-            mutableState.$\(prop.name) = SuperState(injectedValue: _\(prop.name).state)
-            """
-        }
-
-        // Generate state getter bindings injection for @SuperScope (parent is a Statostore)
-        let parentStoreBindingsInjection = parentStoreProperties.map { prop in
-            """
-            mutableState._$\(prop.name) = ParentStoreBinding { [weak self] in
-                        self?._\(prop.name) ?? \(prop.type).defaultValue
-                    }
-            """
-        }
-
-        let superBindingsInjection = (superStateBindingsInjection + parentStoreBindingsInjection)
-            .joined(separator: "\n                    ")
-
-        let subBindingsInjection = subStateProperties.map { prop in
-            """
-            mutableState.$\(prop.name) = SubState(injectedValue: _\(prop.name)?._rawState)
-            """
-        }.joined(separator: "\n                    ")
-
-        // Generate state getter injection for @ReducerInjected dependencies — plain value snapshot
-        let injectedBindingsInjection = injectedProperties.map { prop in
-            """
-            mutableState.$\(prop.name) = ReducerInjected(injectedValue: resolveForBinding())
-            """
-        }.joined(separator: "\n                    ")
-
-        // Generate per-property write-back in update() and updateSubscope()
-        // For each @SubState property: update existing child store state or create/destroy store.
-        let updateWiringSync: String
-        if subStateProperties.isEmpty {
-            updateWiringSync = ""
-        } else {
-            let syncPerProp = subStateProperties.map { prop in
-                let reducerType = inferReducerType(from: prop.type)
-                return """
-                if mutableState.$\(prop.name).isDirty {
-                            if let newChildState = mutableState.\(prop.name) {
-                                let newStore = \(reducerType).Store(initialState: newChildState)
-                                _\(prop.name) = newStore
-                                let _defaultTrigger_\(prop.name): \(reducerType).When? = \(reducerType).defaultTrigger
-                                if let trigger = _defaultTrigger_\(prop.name) {
-                                    newStore.send(trigger)
-                                }
-                            } else {
-                                _\(prop.name) = nil
-                            }
-                        }
-                        mutableState.$\(prop.name) = SubState()
-                """
-            }.joined(separator: "\n                ")
-            updateWiringSync = syncPerProp
-        }
-
-        // Conditionally include Injectable, HierarchialScopeMiddleWare, and ReducerDispatchable conformances.
-        // ReducerDispatchable is always added so any Store can be a dispatchable descendant in
-        // a deep middleware hierarchy, enabling grandparent+ updateSubstate calls.
-        // ReducerStoreProtocol enables AutoConnectedView / ReducerStoreView.
-        var conformancesList = ["Statostore", "ObservableObject", "ReducerDispatchable", "ReducerStoreProtocol"]
-        if stateIsInjectable {
-            conformancesList.append("Injectable")
-        }
-        if isMiddlewareReducer {
-            conformancesList.append("HierarchialScopeMiddleWare")
-        }
-        let conformances = conformancesList.joined(separator: ", ")
-
-        // Conditionally generate Injectable defaultValue
-        let injectableConformance = stateIsInjectable ? """
-
-            // Injectable conformance
-            public static var defaultValue: Store {
-                Store(initialState: State.defaultValue)
-            }
-        """ : ""
-
-        // ReducerDispatchable: _callUpdateSubstate generated for ALL stores (not just MiddlewareReducer)
-        // so that any store can serve as a dispatchable descendant in a deep hierarchy.
-        // The method casts `when` to this reducer's When type, then calls Parent.updateSubstate
-        // with the exact reducer type known at code-generation time.
-        let callUpdateSubstateMethod = """
-
-            // ReducerDispatchable conformance — enables deep hierarchy updateSubstate propagation
-            public func _callUpdateSubstate<Parent: MiddlewareReducer>(
-                _ parentType: Parent.Type,
-                when: Any,
-                parentState: inout Parent.State,
-                dependencies: ReducerDependencies
-            ) throws -> Parent.When? {
-                guard let typedWhen = when as? \(reducerName).When else { return nil }
-                // Wrap in outer optional to signal "event type matched, state may have changed"
-                return try Parent.updateSubstate(
-                    \(reducerName).self,
-                    childState: state,
-                    childWhen: typedWhen,
-                    parentState: &parentState,
-                    dependencies: dependencies
-                )
-            }
-        """
-
-        // MiddlewareReducer updateSubscope uses a single ReducerDispatchable cast instead of
-        // per-@SubState type casts. This works for direct children AND any deeper descendant:
-        // event.child's _callUpdateSubstate captures the exact reducer type at code-gen time,
-        // so grandparent+ updateSubstate is called without artificial forwarding in intermediates.
-        // Self-interception is excluded via ObjectIdentifier comparison.
-        let middlewareMethod = isMiddlewareReducer ? """
-
-            // HierarchialScopeMiddleWare conformance
-            public func updateSubscope<Child: ScopeImplementation>(
-                _ event: SubscopeEvent<Child>
-            ) throws {
-                var mutableState = state
-                let dependencies = ReducerDependenciesImpl(node: self, parentStore: self)
-                var delegateWhen: When? = nil
-                // Only assign _rawState when state was actually modified.
-                // _callUpdateSubstate returns nil (outer) when the child's When type didn't match,
-                // meaning updateSubstate was never called and mutableState is unchanged.
-                var stateWasModified = false
-
-                if let dispatchable = event.child as? any ReducerDispatchable,
-                   ObjectIdentifier(dispatchable) != ObjectIdentifier(self) {
-                    if let result = try dispatchable._callUpdateSubstate(
-                        \(reducerName).self,
-                        when: event.when,
-                        parentState: &mutableState,
-                        dependencies: dependencies
-                    ) {
-                        // Outer non-nil: event type matched, state may have changed
-                        stateWasModified = true
-                        delegateWhen = result
-                    }
-                    // Outer nil: event type didn't match — mutableState is unchanged
-                }
-
-                // Write back child states to child stores and handle create/destroy
-                \(updateWiringSync.isEmpty ? "// No child state write-back needed" : updateWiringSync)
-                if stateWasModified {
-                    _rawState = mutableState
-                }
-
-                if let delegateWhen = delegateWhen {
-                    send(delegateWhen)
-                }
-
-                try event.forward()
-            }
-        """ : ""
-
-        // ReducerStoreProtocol conformance: _dispatch wraps StoreProtocol.send (which returns Self)
-        // as a Void method so AutoConnectedView / ReducerStoreView can use it as (When) -> Void.
-        let dispatchMethod = """
-
-            // ReducerStoreProtocol._dispatch — Void send for AutoConnectedView compatibility
-            public func _dispatch(_ when: When) {
-                send(when)
-            }
-        """
-
-        return DeclSyntax("""
-        public final class Store: \(raw: conformances) {
-            public typealias When = \(raw: reducerName).When\(raw: injectableConformance)
-
-            // @Superscope properties
-            \(raw: superscopeDecls.isEmpty ? "// No superscope properties" : superscopeDecls)
-
-            // @Subscope properties
-            \(raw: subscopeDecls.isEmpty ? "// No subscope properties" : subscopeDecls)
-
-            // Public KeyPath accessors for AutoConnectedView
-            \(raw: subscopeAccessorDecls.isEmpty ? "// No child store accessors" : subscopeAccessorDecls)
-
-            // Raw state storage (bindings not injected). Internal so parent stores can
-            // read child._rawState directly — avoiding the parent↔child getter recursion.
-            @Published @_spi(Internal) public var _rawState: State
-
-            // Smart getter: injects parent bindings, live child states, and injected dependencies
-            public var state: State {
-                get {
-                    var mutableState = _rawState
-
-                    // Inject SuperStateBindings from @Superscope properties
-                    \(raw: superBindingsInjection.isEmpty ? "// No super bindings to inject" : superBindingsInjection)
-
-                    // Inject current child states from @Subscope stores
-                    \(raw: subBindingsInjection.isEmpty ? "// No child states to inject" : subBindingsInjection)
-
-                    // Inject InjectedBindings for @ReducerInjected dependencies
-                    \(raw: injectedBindingsInjection.isEmpty ? "// No injected dependencies" : injectedBindingsInjection)
-
-                    return mutableState
-                }
-                set {
-                    _rawState = newValue
-                }
-            }
-
-            public init(initialState: State) {
-                self._rawState = initialState
-            }
-
-            @_spi(Internal)
-            public func update(_ when: When) throws {
-                var mutableState = state  // Uses getter: injects child states and super bindings
-                let dependencies = ReducerDependenciesImpl(node: self, parentStore: self)
-                try \(raw: reducerName).update(
-                    when,
-                    state: &mutableState,
-                    effectsState: &effectsState,
-                    dependencies: dependencies
-                )
-                _rawState = mutableState
-                // Write back child states to child stores and handle create/destroy
-                \(raw: updateWiringSync.isEmpty ? "// No child state write-back needed" : updateWiringSync)
-            }\(raw: callUpdateSubstateMethod)\(raw: middlewareMethod)\(raw: dispatchMethod)
-        }
-        """
-        )
     }
 }
 

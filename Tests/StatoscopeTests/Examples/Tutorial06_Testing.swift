@@ -36,12 +36,48 @@ enum Tutorial06 {
         let title: String
     }
 
-    // MARK: - Scope
+    // MARK: - Child Scope
+
+    final class NewsFeedArticle: Statostore, ObservableObject {
+        let id: String
+
+        @Published var loading: Bool = false
+        @Published var loadedTitle: String?
+        @Published var isFavorite: Bool = false
+
+        enum When {
+            case systemLoadedScope
+            case articleLoaded(title: String)
+            case favorite
+        }
+
+        init(id: String) {
+            self.id = id
+        }
+
+        func update(_ when: When) throws {
+            switch when {
+            case .systemLoadedScope:
+                loading = true
+                effectsState.enqueue(
+                    AnyEffect { "Article \(self.id)" }
+                        .map(When.articleLoaded)
+                )
+            case .articleLoaded(let title):
+                loading = false
+                loadedTitle = title
+            case .favorite:
+                isFavorite.toggle()
+            }
+        }
+    }
+
+    // MARK: - Parent Scope
 
     final class NewsFeed: Statostore, ObservableObject {
         @Published var loading: Bool = false
         @Published var loadedArticles: [ArticleDTO]?
-        @Published var readingArticle: String?
+        @Subscope var readingArticle: NewsFeedArticle?
         @Published var favorites: [Favorite] = []
 
         enum When {
@@ -74,7 +110,7 @@ enum Tutorial06 {
                 loadedArticles = articles
 
             case .navigateToChild(let id):
-                readingArticle = id
+                readingArticle = NewsFeedArticle(id: id)
 
             case .favorite(let id):
                 if let favIndex = favorites.firstIndex(where: { $0.id == id }) {
@@ -128,20 +164,65 @@ enum Tutorial06 {
             .runTest()
         }
 
-        /// Test demonstrates KeyPath assertions
-        func testKeyPathAssertions() throws {
-            let fixedDate = Date(timeIntervalSince1970: 1000)
-
+        /// Test demonstrates navigation creates a child scope
+        func testNavigationCreatesChildScope() throws {
             try NewsFeed.GIVEN {
                 NewsFeed()
-                    .injectObject(DateProvider { fixedDate })
-                    .injectObject(PersistenceProvider(get: { [] }, set: { _ in }))
+            }
+            .THEN { scope in
+                XCTAssertNil(scope.readingArticle)
             }
             .WHEN(.navigateToChild(id: "1"))
-            .THEN(\.readingArticle, equals: "1")
+            .THEN { scope in
+                XCTAssertNotNil(scope.readingArticle)
+                XCTAssertEqual(scope.readingArticle?.id, "1")
+            }
             .WHEN(.navigateToChild(id: "2"))
-            .THEN(\.readingArticle, equals: "2")
+            .THEN { scope in
+                XCTAssertEqual(scope.readingArticle?.id, "2")
+            }
             .runTest()
+        }
+
+        /// Test demonstrates WITH for sending events to and asserting on a child scope
+        func testChildScopeInteractionsWithWITH() throws {
+            try NewsFeed.GIVEN {
+                NewsFeed()
+            }
+            .WHEN(.navigateToChild(id: "42"))
+            // Drop into the child scope — all subsequent steps operate on NewsFeedArticle
+            .WITH(\.readingArticle)
+            .THEN { article in
+                XCTAssertEqual(article.id, "42")
+                XCTAssertFalse(article.isFavorite)
+            }
+            .WHEN(.systemLoadedScope)
+            .THEN(\.loading, equals: true)
+            .WHEN_OlderEffectCompletes(with: .articleLoaded(title: "Article 42"))
+            .THEN(\.loading, equals: false)
+            .THEN(\.loadedTitle, equals: "Article 42")
+            .WHEN(.favorite)
+            .THEN(\.isFavorite, equals: true)
+            .WHEN(.favorite)
+            .THEN(\.isFavorite, equals: false)  // Toggles back
+            // POP back to the parent to continue asserting on NewsFeed
+            .POP()
+            .runTest()
+        }
+        
+        /// Test demonstrates WHEN for sending events to and asserting on a child scope
+        func testChildScopeInteractionsWithSubscopesKeypaths() throws {
+            try NewsFeed.GIVEN {
+                NewsFeed()
+            }
+            .WHEN(.navigateToChild(id: "42"))
+            // Drop into the child scope — all subsequent steps operate on NewsFeedArticle
+            .THEN(\.readingArticle?.id, equals: "42")
+            .THEN(\.readingArticle?.isFavorite, equals: false)
+            .WHEN(\.readingArticle, .systemLoadedScope)
+            .THEN(\.readingArticle?.loading, equals: true)
+            // .WHEN_OlderEffectCompletes(with: .articleLoaded(title: "Article 42"))
+            .runTest(assertNoPendingEffects: false)
         }
 
         /// Test demonstrates custom closure assertions
@@ -229,7 +310,9 @@ enum Tutorial06 {
             ]))
             .THEN(\.loading, equals: false)
             .WHEN(.navigateToChild(id: "1"))
-            .THEN(\.readingArticle, equals: "1")
+            .THEN { scope in
+                XCTAssertEqual(scope.readingArticle?.id, "1")
+            }
             .WHEN(.favorite(id: "1"))
             .THEN(\.favorites, equals: [Favorite(id: "1", dateAdded: fixedDate)])
             .runTest()

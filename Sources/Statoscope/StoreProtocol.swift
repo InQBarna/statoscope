@@ -53,6 +53,3 @@ extension StoreProtocol {
     }
 }
 
-struct Store<ScopeImpl: Scope> {
-    let scopeImpl: ScopeImpl
-}
