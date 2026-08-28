@@ -29,11 +29,10 @@ extension ScopeImplementation {
 
     public func _sendImplementation(_ when: When) {
         do {
-            if shouldUseParentEnclosedHierarchialUpdate() {
-                try callParentEnclosedHierarchialUpdate(when)
-            } else {
-                try _unsafeSendImplementation(when)
-            }
+            // callParentEnclosedHierarchialUpdate walks the ancestor chain once and falls
+            // back to _unsafeSendImplementation itself when there's no middleware ancestor —
+            // no separate "should we" pre-check/walk needed.
+            try callParentEnclosedHierarchialUpdate(when)
         } catch {
             LOG(.errors, "‼️ Exception on send method: \(error)")
         }
@@ -253,11 +252,6 @@ private extension ScopeImplementation {
     }
 
     @inline(__always)
-    func shouldUseParentEnclosedHierarchialUpdate() -> Bool {
-        return !allHierarchialScopeMiddlewareParents().isEmpty
-    }
-
-    @inline(__always)
     func callParentEnclosedHierarchialUpdate(_ when: When) throws {
         let parents = allHierarchialScopeMiddlewareParents()
         guard !parents.isEmpty else {
@@ -304,11 +298,7 @@ extension ScopeImplementation {
     /// parent middleware (`updateSubscope` / `updateSubstate`) is invoked when the scope
     /// under test is a child in a middleware hierarchy.
     public func _throwingSendImplementation(_ when: When) throws {
-        if shouldUseParentEnclosedHierarchialUpdate() {
-            try callParentEnclosedHierarchialUpdate(when)
-        } else {
-            try _unsafeSendImplementation(when)
-        }
+        try callParentEnclosedHierarchialUpdate(when)
     }
 }
 
