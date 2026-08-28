@@ -1,5 +1,5 @@
 import Statoscope
 
-func setupVerboseLevel() {
+private func setupVerboseLevel() {
     StatoscopeLogger.logLevel = LogLevel.all
 }

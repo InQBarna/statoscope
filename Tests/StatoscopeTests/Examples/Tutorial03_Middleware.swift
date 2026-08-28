@@ -141,7 +141,7 @@ extension Tutorial03 {
                     print("WHEN: \(when)")
                     try forward(when)
                 } catch {
-                    Tutorial03.sendCrashReport(error: error) 
+                    sendCrashReport(error: error) 
                 }
             }
         // @extract:begin 01-03-01-codeview-0002

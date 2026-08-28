@@ -31,16 +31,16 @@ struct ParentMiddlewareReducer: MiddlewareReducer {
         childWhen: Child.When,
         parentState: inout State,
         dependencies: ReducerDependencies
-    ) throws -> When? {
+    ) throws -> SubstateOutcome<When> {
         parentState.interceptedEvents += 1
 
-        guard let when = childWhen as? ChildReducer.When else { return nil }
+        guard let when = childWhen as? ChildReducer.When else { return .pass }
 
         switch when {
         case .taskCompleted(let task):
-            return .childDelegated(task)
+            return .react(.childDelegated(task))
         case .simpleAction:
-            return nil
+            return .pass
         }
     }
 
@@ -102,9 +102,9 @@ struct RootMiddlewareReducer: MiddlewareReducer {
         childWhen: Child.When,
         parentState: inout State,
         dependencies: ReducerDependencies
-    ) throws -> When? {
+    ) throws -> SubstateOutcome<When> {
         parentState.rootInterceptions += 1
-        return nil
+        return .pass
     }
 
     static func update(
@@ -142,13 +142,13 @@ struct TwoChildParentReducer: MiddlewareReducer {
         childWhen: Child.When,
         parentState: inout State,
         dependencies: ReducerDependencies
-    ) throws -> When? {
+    ) throws -> SubstateOutcome<When> {
         guard let when = childWhen as? ChildReducer.When,
-              case .taskCompleted = when else { return nil }
+              case .taskCompleted = when else { return .pass }
         // Create secondaryChild when primaryChild sends taskCompleted
         // At this point _$secondaryChild is nil, so this creates a pending binding
         parentState.secondaryChild = ChildReducer.State()
-        return nil
+        return .pass
     }
 
     static func update(
@@ -452,10 +452,10 @@ struct ChildContainerReducer: MiddlewareReducer {
         childWhen: Child.When,
         parentState: inout State,
         dependencies: ReducerDependencies
-    ) throws -> When? {
+    ) throws -> SubstateOutcome<When> {
         parentState.childInterceptions += 1
-        // Deliberately returns nil — root will handle grandchild events directly
-        return nil
+        // Deliberately passes through — root will handle grandchild events directly
+        return .pass
     }
 
     static func update(
@@ -492,18 +492,18 @@ struct RootDeepReducer: MiddlewareReducer {
         childWhen: Child.When,
         parentState: inout State,
         dependencies: ReducerDependencies
-    ) throws -> When? {
+    ) throws -> SubstateOutcome<When> {
         parentState.rootInterceptions += 1
         // React directly to GrandchildCounterReducer events — no forwarding needed in ChildContainerReducer
         if let when = childWhen as? GrandchildCounterReducer.When {
             switch when {
             case .setValue(let v):
-                return .grandchildUpdated(v)
+                return .react(.grandchildUpdated(v))
             case .reset:
-                return .grandchildUpdated(0)
+                return .react(.grandchildUpdated(0))
             }
         }
-        return nil
+        return .pass
     }
 
     static func update(

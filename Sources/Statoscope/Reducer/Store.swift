@@ -190,8 +190,8 @@ extension Store: ReducerDispatchable {
         when: Any,
         parentState: inout Parent.State,
         dependencies: ReducerDependencies
-    ) throws -> Parent.When? {
-        guard let typedWhen = when as? R.When else { return nil }
+    ) throws -> SubstateOutcome<Parent.When> {
+        guard let typedWhen = when as? R.When else { return .pass }
         return try Parent.updateSubstate(
             R.self,
             childState: state,
@@ -216,29 +216,36 @@ extension Store: HierarchialScopeMiddleWare where R: MiddlewareReducer {
     public func updateSubscope<Child: ScopeImplementation>(
         _ event: SubscopeEvent<Child>
     ) throws {
-        var mutableState = state
-        let dependencies = ReducerDependenciesImpl(node: self, parentStore: self)
-        var delegateWhen: R.When?
-        var stateWasModified = false
+        var outcome: SubstateOutcome<R.When> = .pass
 
         if let dispatchable = event.child as? any ReducerDispatchable,
            ObjectIdentifier(dispatchable as AnyObject) != ObjectIdentifier(self) {
-            // Always write back: updateSubstate may mutate parentState even when returning nil.
-            delegateWhen = try dispatchable._callUpdateSubstate(
+            var mutableState = state
+            let dependencies = ReducerDependenciesImpl(node: self, parentStore: self)
+            // Always write back: updateSubstate may mutate parentState even for `.pass`.
+            outcome = try dispatchable._callUpdateSubstate(
                 R.self,
                 when: event.when,
                 parentState: &mutableState,
                 dependencies: dependencies
             )
-            stateWasModified = true
-        }
-
-        if stateWasModified {
             applyChildSlots(&mutableState, triggerDefaults: true)
         }
-        if let delegateWhen {
+
+        switch outcome {
+        case .pass:
+            try event.forward()
+        case .react(let delegateWhen):
+            // Reaction doesn't invalidate the child — send it, then still forward.
             send(delegateWhen)
+            try event.forward()
+        case .intercept(let delegateWhen):
+            // Reaction may have invalidated the child's subtree — consume the event,
+            // do NOT forward it. Forwarding here would deliver `event.when` into state
+            // that updateSubstate itself may have just torn down or replaced.
+            if let delegateWhen {
+                send(delegateWhen)
+            }
         }
-        try event.forward()
     }
 }

@@ -3,7 +3,7 @@ import SwiftUI
 
 extension Tutorial03 {
 
-    func sendCrashReport(error: any Error) { /* ... */ }
+    static func sendCrashReport(error: any Error) { /* ... */ }
 
     private struct CounterView: View {
 
@@ -13,7 +13,7 @@ extension Tutorial03 {
                     print("WHEN: \(when)")
                     try forward(when)
                 } catch {
-                    sendCrashReport(error)
+                    sendCrashReport(error: error) 
                 }
             }
 

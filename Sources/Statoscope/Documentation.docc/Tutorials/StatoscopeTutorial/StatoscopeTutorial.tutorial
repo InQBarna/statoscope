@@ -1,4 +1,4 @@
-@Tutorials(name: "Statoscope Architecture") {
+'d@Tutorials(name: "Statoscope Architecture") {
   @Intro(title: "Statoscope basics") {
       Statoscope is a small library to build apps with state management,
       testing, effects management and dependency injection.

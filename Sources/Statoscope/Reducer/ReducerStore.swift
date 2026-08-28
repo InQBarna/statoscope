@@ -101,9 +101,8 @@ extension ReducerStore: ReducerDispatchable {
         when: Any,
         parentState: inout Parent.State,
         dependencies: ReducerDependencies
-    ) throws -> Parent.When? {
-        guard let typedWhen = when as? R.When else { return nil }
-        // Wrap in outer optional to signal "event type matched, state may have changed"
+    ) throws -> SubstateOutcome<Parent.When> {
+        guard let typedWhen = when as? R.When else { return .pass }
         return try Parent.updateSubstate(
             R.self,
             childState: state,

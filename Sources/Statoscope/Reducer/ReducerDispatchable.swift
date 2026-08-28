@@ -25,11 +25,12 @@ public protocol ReducerDispatchable: AnyObject {
     ///   - when: The event (cast to this store's `When` type internally).
     ///   - parentState: The parent's mutable state.
     ///   - dependencies: Reducer dependencies for injection.
-    /// - Returns: Optional parent `When` to send, or `nil` if the event type doesn't match.
+    /// - Returns: The `SubstateOutcome` from the parent's `updateSubstate`, or `.pass` if the
+    ///   event type doesn't match this store's `When` type.
     func _callUpdateSubstate<Parent: MiddlewareReducer>(
         _ parentType: Parent.Type,
         when: Any,
         parentState: inout Parent.State,
         dependencies: ReducerDependencies
-    ) throws -> Parent.When?
+    ) throws -> SubstateOutcome<Parent.When>
 }
