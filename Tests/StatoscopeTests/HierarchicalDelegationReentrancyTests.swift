@@ -99,7 +99,7 @@ private struct RTGrandParentReducer: MiddlewareReducer {
         _ childType: Child.Type,
         childState: Child.State,
         childWhen: Child.When,
-        parentState: inout State,
+        parentState: State,
         dependencies: ReducerDependencies
     ) throws -> SubstateOutcome<When> {
         guard let when = childWhen as? RTChildReducer.When else { return .pass }

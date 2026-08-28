@@ -21,26 +21,26 @@ struct ParentMiddlewareReducer: MiddlewareReducer {
 
     enum When {
         case createChild
-        case childDelegated(String)
+        case childIntercepted(delegatedTask: String?)
     }
 
-    // MiddlewareReducer implementation
+    // MiddlewareReducer implementation. parentState is read-only — the only way to react
+    // is to delegate a When to update(), so both the counter and the delegated task travel
+    // through the same case.
     static func updateSubstate<Child: Reducer>(
         _ childType: Child.Type,
         childState: Child.State,
         childWhen: Child.When,
-        parentState: inout State,
+        parentState: State,
         dependencies: ReducerDependencies
     ) throws -> SubstateOutcome<When> {
-        parentState.interceptedEvents += 1
-
         guard let when = childWhen as? ChildReducer.When else { return .pass }
 
         switch when {
         case .taskCompleted(let task):
-            return .react(.childDelegated(task))
+            return .react(.childIntercepted(delegatedTask: task))
         case .simpleAction:
-            return .pass
+            return .react(.childIntercepted(delegatedTask: nil))
         }
     }
 
@@ -55,8 +55,11 @@ struct ParentMiddlewareReducer: MiddlewareReducer {
         case .createChild:
             state.child = ChildReducer.State()
 
-        case .childDelegated(let task):
-            state.delegatedTasks.append(task)
+        case .childIntercepted(let task):
+            state.interceptedEvents += 1
+            if let task {
+                state.delegatedTasks.append(task)
+            }
         }
     }
 }
@@ -94,17 +97,17 @@ struct RootMiddlewareReducer: MiddlewareReducer {
 
     enum When {
         case createParent
+        case rootIntercepted
     }
 
     static func updateSubstate<Child: Reducer>(
         _ childType: Child.Type,
         childState: Child.State,
         childWhen: Child.When,
-        parentState: inout State,
+        parentState: State,
         dependencies: ReducerDependencies
     ) throws -> SubstateOutcome<When> {
-        parentState.rootInterceptions += 1
-        return .pass
+        .react(.rootIntercepted)
     }
 
     static func update(
@@ -116,14 +119,16 @@ struct RootMiddlewareReducer: MiddlewareReducer {
         switch when {
         case .createParent:
             state.parent = ParentMiddlewareReducer.State()
+        case .rootIntercepted:
+            state.rootInterceptions += 1
         }
     }
 }
 
-/// Parent with two children. When primaryChild sends taskCompleted, updateSubstate
-/// creates secondaryChild. This exercises the write-back in updateSubscope:
-/// since _secondaryChild is nil when the event arrives, a new child store must
-/// be created from the assigned state value.
+/// Parent with two children. When primaryChild sends taskCompleted, updateSubstate delegates
+/// a `.primaryChildCompletedTask` When; update() creates secondaryChild in response. Since
+/// updateSubstate can't mutate parentState directly, child-store creation always goes through
+/// a named When and update() — the only place a @SubState may be assigned.
 @Reducer
 struct TwoChildParentReducer: MiddlewareReducer {
     struct State: Injectable {
@@ -134,21 +139,19 @@ struct TwoChildParentReducer: MiddlewareReducer {
 
     enum When {
         case setup
+        case primaryChildCompletedTask
     }
 
     static func updateSubstate<Child: Reducer>(
         _ childType: Child.Type,
         childState: Child.State,
         childWhen: Child.When,
-        parentState: inout State,
+        parentState: State,
         dependencies: ReducerDependencies
     ) throws -> SubstateOutcome<When> {
         guard let when = childWhen as? ChildReducer.When,
               case .taskCompleted = when else { return .pass }
-        // Create secondaryChild when primaryChild sends taskCompleted
-        // At this point _$secondaryChild is nil, so this creates a pending binding
-        parentState.secondaryChild = ChildReducer.State()
-        return .pass
+        return .react(.primaryChildCompletedTask)
     }
 
     static func update(
@@ -160,6 +163,9 @@ struct TwoChildParentReducer: MiddlewareReducer {
         switch when {
         case .setup:
             state.primaryChild = ChildReducer.State()
+        case .primaryChildCompletedTask:
+            // Create secondaryChild when primaryChild sends taskCompleted
+            state.secondaryChild = ChildReducer.State()
         }
     }
 }
@@ -246,17 +252,17 @@ final class MiddlewareReducerTests: XCTestCase {
         // Child sends event
         child.send(.taskCompleted("task1"))
 
-        // Root intercepts ALL descendant events: parent.createChild + child.taskCompleted + parent.childDelegated = 3
+        // Root intercepts ALL descendant events: parent.createChild + child.taskCompleted + parent.childIntercepted = 3
         //   createParent: root has no ancestors (it IS the root) → no updateSubscope
         //   createChild: root sees parent's event → rootInterceptions = 1
         //   taskCompleted: root sees child's event directly (ReducerDispatchable) → rootInterceptions = 2
-        //   childDelegated: root sees parent's event (delegated by parent) → rootInterceptions = 3
+        //   childIntercepted: root sees parent's own delegated reaction to taskCompleted → rootInterceptions = 3
         //   self-interception (delegateWhen chain): excluded via ObjectIdentifier check
         XCTAssertEqual(root.state.rootInterceptions, 3, "Root intercepts events from all descendants")
 
         // Parent intercepts: taskCompleted from child = 1
         //   createChild: parent is child's ancestor but NOT a MiddlewareReducer itself in this context
-        //   childDelegated self-interception: excluded via ObjectIdentifier(self) != ObjectIdentifier(parent) check
+        //   childIntercepted self-interception: excluded via ObjectIdentifier(self) != ObjectIdentifier(parent) check
         XCTAssertEqual(parent.state.interceptedEvents, 1, "Parent intercepts only child's events")
         XCTAssertEqual(parent.state.delegatedTasks, ["task1"])
 
@@ -285,18 +291,21 @@ final class MiddlewareReducerTests: XCTestCase {
         child.send(.simpleAction)
         child.send(.taskCompleted("task2"))
 
-        // Root intercepts ALL descendant events:
+        // Root intercepts ALL descendant events. Because updateSubstate can't mutate parentState
+        // directly, EVERY reaction — including Parent's own bookkeeping — must delegate through
+        // a When and update(), which makes it a first-class event Root also sees:
         //   parent.createChild (1)
-        //   child.taskCompleted1 (2)  — new: ReducerDispatchable propagates grandchild events
-        //   parent.childDelegated1 (3)
-        //   child.simpleAction (4)    — new: ReducerDispatchable propagates grandchild events
-        //   child.taskCompleted2 (5)  — new: ReducerDispatchable propagates grandchild events
-        //   parent.childDelegated2 (6)
+        //   child.taskCompleted1 (2)             — direct: ReducerDispatchable propagates grandchild events
+        //   parent.childIntercepted(task1) (3)   — Parent's own reaction to taskCompleted1, visible to Root
+        //   child.simpleAction (4)               — direct
+        //   parent.childIntercepted(nil) (5)     — Parent's own reaction to simpleAction, visible to Root
+        //   child.taskCompleted2 (6)             — direct
+        //   parent.childIntercepted(task2) (7)   — Parent's own reaction to taskCompleted2, visible to Root
         //   self-interceptions excluded via ObjectIdentifier check
-        XCTAssertEqual(root.state.rootInterceptions, 6, "Root intercepts events from all descendants")
+        XCTAssertEqual(root.state.rootInterceptions, 7, "Root intercepts events from all descendants")
 
         // Parent intercepts child events: task1 + simpleAction + task2 = 3
-        //   self-interceptions (.childDelegated): excluded via ObjectIdentifier check → no extra count
+        //   self-interceptions (.childIntercepted): excluded via ObjectIdentifier check → no extra count
         XCTAssertEqual(parent.state.interceptedEvents, 3)
         XCTAssertEqual(parent.state.delegatedTasks, ["task1", "task2"])
 
@@ -320,12 +329,13 @@ final class MiddlewareReducerTests: XCTestCase {
         XCTAssertFalse(child is HierarchialScopeMiddleWare, "Store without MiddlewareReducer should not conform")
     }
 
-    // MARK: - Child store write-back in updateSubscope
+    // MARK: - Child store creation delegated from updateSubstate
 
-    func testUpdateSubscopeCreatesChildStoreViaUpdateSubstate() throws {
-        // TwoChildParentReducer creates secondaryChild inside updateSubstate when
-        // primaryChild sends taskCompleted. The write-back code in updateSubscope
-        // detects that _secondaryChild is nil and creates a new child Store.
+    func testUpdateSubstateDelegationCreatesChildStore() throws {
+        // updateSubstate can't mutate parentState directly (it's read-only), so
+        // TwoChildParentReducer delegates a `.primaryChildCompletedTask` When when
+        // primaryChild sends taskCompleted; update() is what actually assigns
+        // secondaryChild and triggers Store creation for the new @SubState.
         let parent = TwoChildParentReducer.Store(initialState: TwoChildParentReducer.State())
         parent.send(.setup)
 
@@ -336,17 +346,17 @@ final class MiddlewareReducerTests: XCTestCase {
 
         XCTAssertNil(parent.children.secondaryChild, "secondaryChild should not exist yet")
 
-        // primaryChild.send(.taskCompleted) → updateSubstate → parentState.secondaryChild = ChildReducer.State()
-        // updateSubscope write-back detects nil _secondaryChild and creates the Store
+        // primaryChild.send(.taskCompleted) → updateSubstate returns .react(.primaryChildCompletedTask)
+        // → update() assigns state.secondaryChild → Store creates the child.
         primary.send(.taskCompleted("trigger"))
 
         XCTAssertNotNil(
             parent.children.secondaryChild,
-            "Write-back must create the secondaryChild Store from assigned state"
+            "The delegated When must create the secondaryChild Store via update()"
         )
         XCTAssertNotNil(
             parent.state.secondaryChild,
-            "state.secondaryChild must be accessible after creation via updateSubstate"
+            "state.secondaryChild must be accessible after creation via the delegated When"
         )
     }
 
@@ -444,18 +454,18 @@ struct ChildContainerReducer: MiddlewareReducer {
 
     enum When {
         case createGrandchild
+        case grandchildEventIntercepted
     }
 
     static func updateSubstate<Child: Reducer>(
         _ childType: Child.Type,
         childState: Child.State,
         childWhen: Child.When,
-        parentState: inout State,
+        parentState: State,
         dependencies: ReducerDependencies
     ) throws -> SubstateOutcome<When> {
-        parentState.childInterceptions += 1
-        // Deliberately passes through — root will handle grandchild events directly
-        return .pass
+        // Still forwards — root handles grandchild events directly; this just counts.
+        .react(.grandchildEventIntercepted)
     }
 
     static func update(
@@ -467,6 +477,8 @@ struct ChildContainerReducer: MiddlewareReducer {
         switch when {
         case .createGrandchild:
             state.grandchild = GrandchildCounterReducer.State()
+        case .grandchildEventIntercepted:
+            state.childInterceptions += 1
         }
     }
 }
@@ -484,16 +496,16 @@ struct RootDeepReducer: MiddlewareReducer {
     enum When {
         case createChild
         case grandchildUpdated(Int)
+        case rootIntercepted
     }
 
     static func updateSubstate<Child: Reducer>(
         _ childType: Child.Type,
         childState: Child.State,
         childWhen: Child.When,
-        parentState: inout State,
+        parentState: State,
         dependencies: ReducerDependencies
     ) throws -> SubstateOutcome<When> {
-        parentState.rootInterceptions += 1
         // React directly to GrandchildCounterReducer events — no forwarding needed in ChildContainerReducer
         if let when = childWhen as? GrandchildCounterReducer.When {
             switch when {
@@ -503,7 +515,7 @@ struct RootDeepReducer: MiddlewareReducer {
                 return .react(.grandchildUpdated(0))
             }
         }
-        return .pass
+        return .react(.rootIntercepted)
     }
 
     static func update(
@@ -516,7 +528,10 @@ struct RootDeepReducer: MiddlewareReducer {
         case .createChild:
             state.child = ChildContainerReducer.State()
         case .grandchildUpdated(let v):
+            state.rootInterceptions += 1
             state.grandchildValue = v
+        case .rootIntercepted:
+            state.rootInterceptions += 1
         }
     }
 }
@@ -583,15 +598,18 @@ final class DeepHierarchyReducerTests: XCTestCase {
 
         guard let grandchild = child.children.grandchild else { XCTFail("grandchild not created"); return }
 
-        // grandchild.send(.setValue): root intercepts grandchild's event directly → rootInterceptions = 2
-        // root.send(.grandchildUpdated): root is ROOT → no updateSubscope → rootInterceptions stays 2
+        // grandchild.send(.setValue): two Root-visible events per grandchild send, because
+        // updateSubstate can't mutate state directly — Child's own bookkeeping reaction must
+        // also delegate through a When, making it a real event that bubbles back up to Root:
+        //   root intercepts grandchild's event directly → rootInterceptions = 2
+        //   Child's own delegated reaction (.grandchildEventIntercepted) bubbles to Root → rootInterceptions = 3
         grandchild.send(.setValue(5))
-        XCTAssertEqual(root.state.rootInterceptions, 2, "Root intercepts grandchild event directly")
+        XCTAssertEqual(root.state.rootInterceptions, 3, "Root intercepts grandchild event directly, plus Child's own delegated reaction")
         XCTAssertEqual(root.state.grandchildValue, 5)
 
-        // grandchild.send(.reset): root intercepts → rootInterceptions = 3, grandchildValue = 0
+        // grandchild.send(.reset): same two-event cascade → rootInterceptions = 5, grandchildValue = 0
         grandchild.send(.reset)
-        XCTAssertEqual(root.state.rootInterceptions, 3)
+        XCTAssertEqual(root.state.rootInterceptions, 5)
         XCTAssertEqual(root.state.grandchildValue, 0)
     }
 

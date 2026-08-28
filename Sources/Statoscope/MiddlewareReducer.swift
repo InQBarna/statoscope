@@ -8,10 +8,11 @@
 /// The result of a `MiddlewareReducer.updateSubstate` call — makes explicit whether the
 /// intercepted child event still gets delivered to the child.
 ///
-/// `updateSubstate` runs BEFORE the child's own `update()`. Its reaction (any parent-state
-/// mutation via the `inout parentState` parameter, plus an optional delegated `When`) always
-/// happens first. Returning `.pass` or `.react` still forwards the event to the child afterward;
-/// returning `.intercept` consumes it — the child's `update()` never runs for this event.
+/// `updateSubstate` runs BEFORE the child's own `update()` and cannot mutate parent state
+/// directly — `parentState` is read-only. To react, return a delegated `When`; it is sent to
+/// the parent's own `update()`, the only place `State` is ever mutated. Returning `.pass` or
+/// `.react` still forwards the event to the child afterward; returning `.intercept` consumes
+/// it — the child's `update()` never runs for this event.
 ///
 /// Reach for `.intercept` whenever the reaction makes forwarding unsafe or meaningless — most
 /// commonly when it removes or replaces the very child subtree the event originated from.
@@ -57,7 +58,7 @@ public enum SubstateOutcome<When> {
 ///         _ childType: Child.Type,
 ///         childState: Child.State,
 ///         childWhen: Child.When,
-///         parentState: inout State,
+///         parentState: State,
 ///         dependencies: ReducerDependencies
 ///     ) throws -> SubstateOutcome<When> {
 ///         // Child.State and Child.When are tied — both belong to the same Reducer
@@ -97,7 +98,10 @@ public protocol MiddlewareReducer {
     /// - Parameters:
     ///   - childState: The child scope's state (type-erased, cast to specific type if needed)
     ///   - childWhen: The child's event (type-erased, cast to specific type if needed)
-    ///   - parentState: Parent's mutable state for modifications
+    ///   - parentState: Parent's current state, read-only — `updateSubstate` decides, it never
+    ///     mutates. Any reaction must go through a delegated `When` (see `SubstateOutcome`),
+    ///     so it lands in `update()`, the single place `State` changes and the only place a
+    ///     reaction can also enqueue effects.
     ///   - dependencies: Access to injected dependencies (same as in update())
     ///
     /// - Returns: A `SubstateOutcome` describing the delegated reaction (if any) and whether
@@ -106,7 +110,7 @@ public protocol MiddlewareReducer {
         _ childType: Child.Type,
         childState: Child.State,
         childWhen: Child.When,
-        parentState: inout State,
+        parentState: State,
         dependencies: ReducerDependencies
     ) throws -> SubstateOutcome<When>
 }

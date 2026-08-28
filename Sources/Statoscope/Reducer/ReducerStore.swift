@@ -99,7 +99,7 @@ extension ReducerStore: ReducerDispatchable {
     public func _callUpdateSubstate<Parent: MiddlewareReducer>(
         _ parentType: Parent.Type,
         when: Any,
-        parentState: inout Parent.State,
+        parentState: Parent.State,
         dependencies: ReducerDependencies
     ) throws -> SubstateOutcome<Parent.When> {
         guard let typedWhen = when as? R.When else { return .pass }
@@ -107,7 +107,7 @@ extension ReducerStore: ReducerDispatchable {
             R.self,
             childState: state,
             childWhen: typedWhen,
-            parentState: &parentState,
+            parentState: parentState,
             dependencies: dependencies
         )
     }

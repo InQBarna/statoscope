@@ -188,7 +188,7 @@ extension Store: ReducerDispatchable {
     public func _callUpdateSubstate<Parent: MiddlewareReducer>(
         _ parentType: Parent.Type,
         when: Any,
-        parentState: inout Parent.State,
+        parentState: Parent.State,
         dependencies: ReducerDependencies
     ) throws -> SubstateOutcome<Parent.When> {
         guard let typedWhen = when as? R.When else { return .pass }
@@ -196,7 +196,7 @@ extension Store: ReducerDispatchable {
             R.self,
             childState: state,
             childWhen: typedWhen,
-            parentState: &parentState,
+            parentState: parentState,
             dependencies: dependencies
         )
     }
@@ -220,16 +220,15 @@ extension Store: HierarchialScopeMiddleWare where R: MiddlewareReducer {
 
         if let dispatchable = event.child as? any ReducerDispatchable,
            ObjectIdentifier(dispatchable as AnyObject) != ObjectIdentifier(self) {
-            var mutableState = state
-            let dependencies = ReducerDependenciesImpl(node: self, parentStore: self)
-            // Always write back: updateSubstate may mutate parentState even for `.pass`.
+            // updateSubstate is read-only over parentState: it only decides, it never mutates.
+            // Any reaction comes back through the returned SubstateOutcome and is applied by
+            // `send(delegateWhen)` below, which routes through update() like any other event.
             outcome = try dispatchable._callUpdateSubstate(
                 R.self,
                 when: event.when,
-                parentState: &mutableState,
-                dependencies: dependencies
+                parentState: state,
+                dependencies: ReducerDependenciesImpl(node: self, parentStore: self)
             )
-            applyChildSlots(&mutableState, triggerDefaults: true)
         }
 
         switch outcome {
