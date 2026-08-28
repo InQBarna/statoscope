@@ -289,7 +289,13 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
             let reducerType = inferReducerType(from: prop.type)
             return """
             public var \(prop.name): Statoscope.Store<\(reducerType)>? {
-                    _cache[_CK.\(prop.name)] as? Statoscope.Store<\(reducerType)>
+                    guard let _raw = _cache[_CK.\(prop.name)] else { return nil }
+                    guard let _typed = _raw as? Statoscope.Store<\(reducerType)> else {
+                        fatalError("Statoscope internal error: child slot '\(prop.name)' cached an " +
+                                   "unexpected type \\(Swift.type(of: _raw)); expected Statoscope.Store<\(reducerType)>. " +
+                                   "This indicates a bug in the @Reducer macro, not user code.")
+                    }
+                    return _typed
                 }
             """
         }.joined(separator: "\n    ")
@@ -327,13 +333,28 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
                     isPresent: { $0.\(prop.name) != nil },
                     create: { parentState in Statoscope.Store<\(reducerType)>(initialState: parentState.\(prop.name)!) },
                     triggerDefault: { store in
-                        guard let s = store as? Statoscope.Store<\(reducerType)>,
-                              let t = \(reducerType).defaultTrigger else { return }
+                        guard let s = store as? Statoscope.Store<\(reducerType)> else {
+                            fatalError("Statoscope internal error: child slot '\(prop.name)' triggerDefault " +
+                                       "received an unexpected store type \\(Swift.type(of: store)); " +
+                                       "expected Statoscope.Store<\(reducerType)>. " +
+                                       "This indicates a bug in the @Reducer macro, not user code.")
+                        }
+                        guard let t = \(reducerType).defaultTrigger else { return }
                         s.send(t)
                     },
                     resetDirty: { $0.$\(prop.name) = SubState() },
                     injectIntoParent: { store, state in
-                        state.$\(prop.name) = SubState(injectedValue: (store as? Statoscope.Store<\(reducerType)>)?._rawState)
+                        guard let store else {
+                            state.$\(prop.name) = SubState(injectedValue: nil)
+                            return
+                        }
+                        guard let s = store as? Statoscope.Store<\(reducerType)> else {
+                            fatalError("Statoscope internal error: child slot '\(prop.name)' injectIntoParent " +
+                                       "received an unexpected store type \\(Swift.type(of: store)); " +
+                                       "expected Statoscope.Store<\(reducerType)>. " +
+                                       "This indicates a bug in the @Reducer macro, not user code.")
+                        }
+                        state.$\(prop.name) = SubState(injectedValue: s._rawState)
                     },
                     extractChildState: { parentState in parentState.\(prop.name)! }
                 )
