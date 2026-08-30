@@ -118,7 +118,15 @@ final class ReducerMacroTests: XCTestCase {
                         self._cache = cache
                     }
                     public var child: Statoscope.Store<Child>? {
-                        _cache[_CK.child] as? Statoscope.Store<Child>
+                        guard let _raw = _cache[_CK.child] else {
+                            return nil
+                        }
+                        guard let _typed = _raw as? Statoscope.Store<Child> else {
+                            fatalError("Statoscope internal error: child slot 'child' cached an " +
+                                       "unexpected type \(Swift.type(of: _raw)); expected Statoscope.Store<Child>. " +
+                                       "This indicates a bug in the @Reducer macro, not user code.")
+                        }
+                        return _typed
                     }
                     enum _CK: Hashable {
                         case child
@@ -139,8 +147,13 @@ final class ReducerMacroTests: XCTestCase {
                                 Statoscope.Store<Child>(initialState: parentState.child!)
                             },
                             triggerDefault: { store in
-                                guard let s = store as? Statoscope.Store<Child>,
-                                      let t = Child.defaultTrigger else {
+                                guard let s = store as? Statoscope.Store<Child> else {
+                                    fatalError("Statoscope internal error: child slot 'child' triggerDefault " +
+                                               "received an unexpected store type \(Swift.type(of: store)); " +
+                                               "expected Statoscope.Store<Child>. " +
+                                               "This indicates a bug in the @Reducer macro, not user code.")
+                                }
+                                guard let t = Child.defaultTrigger else {
                                     return
                                 }
                                 s.send(t)
@@ -149,7 +162,17 @@ final class ReducerMacroTests: XCTestCase {
                                 $0.$child = SubState()
                             },
                             injectIntoParent: { store, state in
-                                state.$child = SubState(injectedValue: (store as? Statoscope.Store<Child>)?._rawState)
+                                guard let store else {
+                                    state.$child = SubState(injectedValue: nil)
+                                    return
+                                }
+                                guard let s = store as? Statoscope.Store<Child> else {
+                                    fatalError("Statoscope internal error: child slot 'child' injectIntoParent " +
+                                               "received an unexpected store type \(Swift.type(of: store)); " +
+                                               "expected Statoscope.Store<Child>. " +
+                                               "This indicates a bug in the @Reducer macro, not user code.")
+                                }
+                                state.$child = SubState(injectedValue: s._rawState)
                             },
                             extractChildState: { parentState in
                                 parentState.child!
