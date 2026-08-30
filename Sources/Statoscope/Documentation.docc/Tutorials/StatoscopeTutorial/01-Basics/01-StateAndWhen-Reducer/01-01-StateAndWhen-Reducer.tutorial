@@ -1,0 +1,80 @@
+@Tutorial(time: 15) {
+    @Intro(title: "Create a simple Reducer") {
+        Define a `@Reducer` with a single `State` struct and a static `update` function, then build a SwiftUI view and tests on top of it. This is the Reducer-pattern counterpart to the classic State-and-When tutorial, and the recommended way to start a new Statoscope feature.
+    }
+
+    @Section(title: "Create a Reducer") {
+        @ContentAndMedia {
+            A Reducer is a plain struct annotated with `@Reducer`. It has no properties and no `self` — it defines a nested `State` struct, a `When` enum, and a `static func update(...)` that turns one into the other. The `@Reducer` macro generates a `Store` class around it that actually holds the state and talks to SwiftUI.
+
+            We'll build the same counter as the classic tutorial, so the two are easy to compare side by side.
+        }
+        @Steps {
+            @Step {
+                Create a file `CounterReducer.swift` and import Statoscope.
+
+                @Code(name: "CounterReducer.swift", file: StateAndWhen-Reducer-Counter-01.swift)
+            }
+
+            @Step {
+                Annotate a struct with `@Reducer` and give it a nested `State` struct. Unlike classic Statostore, all of a Reducer's state lives in this one struct — there's nothing scattered across separate `@Published` properties.
+
+                @Code(name: "CounterReducer.swift", file: StateAndWhen-Reducer-Counter-02.swift)
+            }
+
+            @Step {
+                Add the `When` events, exactly as in the classic pattern — sentence-like naming still pays off in tests.
+
+                @Code(name: "CounterReducer.swift", file: StateAndWhen-Reducer-Counter-03.swift)
+            }
+
+            @Step {
+                Declare `update` as a **static** function. It takes the event, the state (`inout`), an `effectsState` for enqueueing side effects, and `dependencies` for dependency injection — no `self`, because there isn't one. We'll leave the body empty for now.
+
+                @Code(name: "CounterReducer.swift", file: StateAndWhen-Reducer-Counter-04.swift)
+            }
+
+            @Step {
+                Now implement the logic. Because `update` is static and pure, this reads like a plain function from `(When, State)` to a new `State` — there's no instance state to accidentally read or leak.
+
+                @Code(name: "CounterReducer.swift", file: StateAndWhen-Reducer-Counter-05.swift)
+            }
+        }
+    }
+
+    @Section(title: "Create your view") {
+        @ContentAndMedia {
+            The macro-generated `Store` class conforms to `ObservableObject`, so SwiftUI observes it exactly like any other observable model — the only difference from the classic pattern is that state reads go through a single `.state` property instead of separate `@Published` properties.
+        }
+        @Steps {
+            @Step {
+                Build the view against `CounterReducer.Store`. Read state via `store.state.viewDisplaysTotalCount`, and send events with `store.send(...)`, just like the classic pattern's `model.send(...)`.
+
+                @Code(name: "CounterView.swift", file: StateAndWhen-Reducer-CounterView-01.swift)
+            }
+        }
+    }
+
+    @Section(title: "Write tests and acceptance criteria") {
+        @ContentAndMedia {
+            The same `GIVEN`/`WHEN`/`THEN` fluent testing API works unchanged for Reducers — construct the `Store` in `GIVEN`, and assert on state with `.THEN(\.state.property, equals:)`. The only syntactic difference from classic tests is that extra `.state.` in every keypath.
+        }
+        @Steps {
+            @Step {
+                Import `StatoscopeTesting` and construct the store with `GIVEN`. Because a Reducer's state is a single struct, `GIVEN` just needs an initial `State()` value — there's no scope-wide setup to worry about.
+
+                @Code(name: "CounterReducerTests.swift", file: StateAndWhen-Reducer-CounterTests-02.swift)
+            }
+
+            @Step {
+                A second test, and the call to `runTest()` that actually executes the flow. Sending the same event repeatedly is a good way to prove your acceptance criteria hold over more than one step, not just the first.
+
+                @Code(name: "CounterReducerTests.swift", file: StateAndWhen-Reducer-CounterTests-04.swift)
+            }
+
+            We've built the same counter feature as the classic tutorial — same state, same events, same acceptance tests — but the update logic is a pure static function operating on one state struct, with no scattered `@Published` properties and no `self` to reenter.
+
+            Move on to the next chapters to see how Effects, Middleware, dependency injection, and scope composition work in the Reducer pattern.
+        }
+    }
+}

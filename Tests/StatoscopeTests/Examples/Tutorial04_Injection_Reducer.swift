@@ -15,11 +15,14 @@ enum Tutorial04Reducer {
 
     // MARK: - Dependencies
 
+    // @extract:begin Injection-Reducer-DateProvider-01
     struct DateProvider: Injectable {
         var currentDate: () -> Date
         static var defaultValue = DateProvider(currentDate: Date.init)
     }
+    // @extract:end Injection-Reducer-DateProvider-01
 
+    // @extract:begin Injection-Reducer-PersistenceProvider-01
     struct Favorite: Codable, Equatable {
         let id: String
         let dateAdded: Date
@@ -42,7 +45,9 @@ enum Tutorial04Reducer {
             }
         )
     }
+    // @extract:end Injection-Reducer-PersistenceProvider-01
 
+    // @extract:begin Injection-Reducer-NetworkProvider-01
     struct NetworkProvider: Injectable {
         let fetchArticles: () async throws -> [ArticleDTO]
 
@@ -60,9 +65,11 @@ enum Tutorial04Reducer {
         let title: String
         let content: String
     }
+    // @extract:end Injection-Reducer-NetworkProvider-01
 
     // MARK: - Reducer
 
+    // @extract:begin Injection-Reducer-Reducer-01
     @Reducer
     struct NewsFeedListReducer {
         struct State {
@@ -117,11 +124,13 @@ enum Tutorial04Reducer {
             }
         }
     }
+    // @extract:end Injection-Reducer-Reducer-01
 
     // MARK: - Tests
 
     final class InjectionTests: XCTestCase {
 
+        // @extract:begin Injection-Reducer-Test-01
         func testDependencyInjection() throws {
             let fixedDate = Date(timeIntervalSince1970: 1000)
             var savedFavorites: [Favorite] = []
@@ -164,6 +173,7 @@ enum Tutorial04Reducer {
             }
             .runTest()
         }
+        // @extract:end Injection-Reducer-Test-01
 
         func testToggleFavorite() throws {
             let fixedDate = Date(timeIntervalSince1970: 1000)

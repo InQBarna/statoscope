@@ -15,6 +15,7 @@ enum Tutorial06Reducer {
 
     // MARK: - Dependencies
 
+    // @extract:begin Testing-Reducer-Dependencies-01
     struct DateProvider: Injectable {
         var currentDate: () -> Date
         static var defaultValue = DateProvider(currentDate: Date.init)
@@ -35,9 +36,11 @@ enum Tutorial06Reducer {
         let id: String
         let title: String
     }
+    // @extract:end Testing-Reducer-Dependencies-01
 
     // MARK: - Child Reducer
 
+    // @extract:begin Testing-Reducer-ChildReducer-01
     @Reducer
     struct NewsFeedArticleReducer {
         struct State {
@@ -75,9 +78,11 @@ enum Tutorial06Reducer {
             }
         }
     }
+    // @extract:end Testing-Reducer-ChildReducer-01
 
     // MARK: - Parent Reducer
 
+    // @extract:begin Testing-Reducer-ParentReducer-01
     @Reducer
     struct NewsFeedReducer {
         struct State {
@@ -136,15 +141,17 @@ enum Tutorial06Reducer {
             }
         }
     }
+    // @extract:end Testing-Reducer-ParentReducer-01
 
     // MARK: - Tests
 
     final class TestingPatternsTests: XCTestCase {
 
         /// Test demonstrates GIVEN/WHEN/THEN pattern with mocked dependencies
+        // @extract:begin Testing-Reducer-BasicFlow-01
         func testBasicGivenWhenThenPattern() throws {
             let fixedDate = Date(timeIntervalSince1970: 1000)
-            
+
             try NewsFeedReducer.Store.GIVEN(
                 state: NewsFeedReducer.State()
             ) { $0
@@ -157,8 +164,10 @@ enum Tutorial06Reducer {
             .THEN(\.state.loading, equals: true)
             .runTest(assertNoPendingEffects: false)  // Effect enqueued but not completed
         }
+        // @extract:end Testing-Reducer-BasicFlow-01
 
         /// Test demonstrates effect completion verification
+        // @extract:begin Testing-Reducer-EffectCompletion-01
         func testEffectCompletion() throws {
             let fixedDate = Date(timeIntervalSince1970: 1000)
             let expectedArticles = [
@@ -179,8 +188,10 @@ enum Tutorial06Reducer {
             .THEN(\.state.loadedArticles, equals: expectedArticles)
             .runTest()
         }
+        // @extract:end Testing-Reducer-EffectCompletion-01
 
         /// Test demonstrates navigation creates a child store
+        // @extract:begin Testing-Reducer-Navigation-01
         func testNavigationCreatesChildStore() throws {
             try NewsFeedReducer.Store.GIVEN(
                 state: NewsFeedReducer.State()
@@ -199,8 +210,10 @@ enum Tutorial06Reducer {
             }
             .runTest()
         }
+        // @extract:end Testing-Reducer-Navigation-01
 
         /// Test demonstrates WITH for sending events to and asserting on a child store
+        // @extract:begin Testing-Reducer-WITH-01
         func testChildStoreInteractionsWithWITH() throws {
             try NewsFeedReducer.Store.GIVEN(
                 state: NewsFeedReducer.State()
@@ -225,6 +238,7 @@ enum Tutorial06Reducer {
             .POP()
             .runTest()
         }
+        // @extract:end Testing-Reducer-WITH-01
 
         /// Test demonstrates keypath-based event sending and state assertion on a child store
         ///
@@ -234,6 +248,7 @@ enum Tutorial06Reducer {
         ///
         ///   Non-Reducer: .WHEN(\.readingArticle, .systemLoadedScope)
         ///   Reducer:     .WHEN(\.children.readingArticle, .systemLoadedScope)
+        // @extract:begin Testing-Reducer-Keypaths-01
         func testChildStoreInteractionsWithSubscopeKeypaths() throws {
             try NewsFeedReducer.Store.GIVEN(
                 state: NewsFeedReducer.State()
@@ -253,8 +268,10 @@ enum Tutorial06Reducer {
             //   .POP()
             .runTest(assertNoPendingEffects: false)
         }
+        // @extract:end Testing-Reducer-Keypaths-01
 
         /// Test demonstrates custom closure assertions
+        // @extract:begin Testing-Reducer-CustomAssertions-01
         func testCustomAssertions() throws {
             let fixedDate = Date(timeIntervalSince1970: 1000)
 
@@ -272,8 +289,10 @@ enum Tutorial06Reducer {
             }
             .runTest()
         }
+        // @extract:end Testing-Reducer-CustomAssertions-01
 
         /// Test demonstrates dependency injection verification
+        // @extract:begin Testing-Reducer-DependencyInjection-01
         func testDependencyInjection() throws {
             let fixedDate = Date(timeIntervalSince1970: 1000)
             var persistedFavorites: [Favorite] = []
@@ -297,8 +316,10 @@ enum Tutorial06Reducer {
             }
             .runTest()
         }
+        // @extract:end Testing-Reducer-DependencyInjection-01
 
         /// Test demonstrates testing state transitions
+        // @extract:begin Testing-Reducer-StateTransitions-01
         func testStateTransitions() throws {
             let fixedDate = Date(timeIntervalSince1970: 1000)
 
@@ -323,8 +344,10 @@ enum Tutorial06Reducer {
             .THEN(\.state.favorites, equals: [Favorite(id: "2", dateAdded: fixedDate)])
             .runTest()
         }
+        // @extract:end Testing-Reducer-StateTransitions-01
 
         /// Test demonstrates acceptance criteria as code
+        // @extract:begin Testing-Reducer-Capstone-01
         func testFeatureUserCanSaveArticleAsFavorite() throws {
             let fixedDate = Date(timeIntervalSince1970: 1000)
 
@@ -349,5 +372,6 @@ enum Tutorial06Reducer {
             .THEN(\.state.favorites, equals: [Favorite(id: "1", dateAdded: fixedDate)])
             .runTest()
         }
+        // @extract:end Testing-Reducer-Capstone-01
     }
 }

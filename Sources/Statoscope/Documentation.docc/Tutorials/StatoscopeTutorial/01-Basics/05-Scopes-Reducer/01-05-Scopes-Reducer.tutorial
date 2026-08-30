@@ -1,0 +1,124 @@
+@Tutorial(time: 30) {
+    @Intro(title: "Scopes (Reducer)") {
+        Reducer counterpart of the classic Scopes tutorial. Splitting one growing `State`
+        struct into a tree of `@Reducer` scopes, connected with `@SubState`/`@SuperState`,
+        keeps each scope's `State` and `When` focused on one concern instead of one struct
+        absorbing everything the screen needs to do.
+    }
+
+    @Section(title: "Designing Scopes") {
+        @ContentAndMedia {
+            We'll read a feature already split into three `@Reducer` scopes — NewsFeed
+            (feature toggles), NewsFeedList (article list + favorites), and NewsFeedArticle
+            (article detail) — and see how `@SubState` wires them together.
+        }
+        @Steps {
+            @Step {
+                Shared dependencies and DTOs, injected into whichever scope needs them via
+                `ReducerDependencies` — the same `Injectable` types used by the classic pattern.
+
+                @Code(name: "Dependencies.swift", file: Scopes-Reducer-Dependencies-01.swift)
+            }
+            @Step {
+                The root scope, `NewsFeedReducer`. `@SubState var atList: NewsFeedListReducer.State?`
+                is the entire declaration of "this scope owns a NewsFeedList child" — no separate
+                wiring step, no property wrapper on a class.
+
+                @Code(name: "NewsFeedReducer.swift", file: Scopes-Reducer-NewsFeed-01.swift)
+            }
+            @Step {
+                `update()` creates the child by assigning its `State`. `favoritesEnabled` flows
+                down as a plain constructor parameter — no injection needed for data this local
+                to one parent/child relationship.
+
+                @Code(name: "NewsFeedReducer.swift", file: Scopes-Reducer-NewsFeed-02.swift)
+            }
+            @Step {
+                `NewsFeedListReducer` owns the article list — and, via its own `@SubState var
+                readingArticle`, a grandchild of the root scope.
+
+                @Code(name: "NewsFeedListReducer.swift", file: Scopes-Reducer-NewsFeedList-01.swift)
+            }
+            @Step {
+                `.navigateFromListToChild` creates `readingArticle` the same way the root created
+                `atList` — copying `favoritesEnabled` down again. `.favorite` resolves two injected
+                dependencies (`DateProvider`, `PersistenceProvider`) to persist the change.
+
+                @Code(name: "NewsFeedListReducer.swift", file: Scopes-Reducer-NewsFeedList-02.swift)
+            }
+            @Step {
+                `NewsFeedArticleReducer` — the leaf of the tree. It has no children of its own,
+                so no `@SubState` here.
+
+                @Code(name: "NewsFeedArticleReducer.swift", file: Scopes-Reducer-NewsFeedArticle-01.swift)
+            }
+            @Step {
+                Its `.favorite` handling is a near-duplicate of the list's — the same tradeoff the
+                classic tutorial calls out: splitting scopes trades a "god object" for some
+                duplicated logic across siblings. Extracting a shared helper function is the usual
+                fix; Statoscope doesn't need anything more elaborate than that.
+
+                @Code(name: "NewsFeedArticleReducer.swift", file: Scopes-Reducer-NewsFeedArticle-02.swift)
+            }
+            @Step {
+                Sending an event to the root creates the child scope synchronously — the child
+                `Store` exists the moment `update()` returns, no separate wait step.
+
+                @Code(name: "ScopesTests.swift", file: Scopes-Reducer-Tests-01.swift)
+            }
+            @Step {
+                The same holds two levels down: sending to the list scope creates the grandchild,
+                and its state is reachable immediately at `scope.state.readingArticle`.
+
+                @Code(name: "ScopesTests.swift", file: Scopes-Reducer-Tests-02.swift)
+            }
+
+            One thing worth naming explicitly: nothing here *requires* three scopes. A single
+            `NewsFeedReducer` with a bigger `State` struct would work too. Split when a piece of
+            state and its `When` cases genuinely belong to a narrower concern than the whole
+            screen — not by default.
+        }
+    }
+
+    @Section(title: "Views and Scopes") {
+        @ContentAndMedia {
+            Each scope in the tree gets its own `StoreViewProtocol` view. Statoscope resolves
+            the parent `Store` from the SwiftUI environment and connects each child automatically.
+        }
+        @Steps {
+            @Step {
+                The root view switches on `loadingFeatureToggles`, then hands off to
+                `AutoConnectedView` once the `atList` child exists — it reads the child `Store`
+                from the environment `NewsFeedReducer.Store` injected, and renders nothing until
+                the child is actually there.
+
+                @Code(name: "NewsFeedRootView.swift", file: NewsFeedRootView-01.swift)
+            }
+            @Step {
+                For the list-to-detail push, a hand-built `Binding` derived from
+                `readingArticle != nil` works for the read side — but clearing it back to `nil`
+                needs a dismiss `When` case wired up by hand.
+
+                @Code(name: "NewsFeedListView.swift", file: NewsFeedListView-01.swift)
+            }
+            @Step {
+                The macro-generated `buildReadingArticlePresentedView(dismissWhen:content:)` —
+                generated from the `@SubState var readingArticle` declared a few steps ago —
+                replaces all of that: the `Binding`, the `NavigationLink`, and the environment
+                lookup.
+
+                @Code(name: "NewsFeedListView.swift", file: NewsFeedListView-02.swift)
+            }
+            @Step {
+                The leaf view: no children, no navigation, just `model`/`send` like any other
+                `StoreViewProtocol`.
+
+                @Code(name: "NewsFeedArticleView.swift", file: NewsFeedArticleView-01.swift)
+            }
+
+            Every scope in the tree — root, list, article — is independently testable via
+            `GIVEN`/`WHEN`/`THEN` and independently viewable, because each one only ever knows
+            its own `State` and `When`.
+        }
+    }
+}

@@ -21,10 +21,12 @@ enum Tutorial04bReducerInjected {
     /// A simple audit logger dependency used across the tests.
     /// `defaultValue` is silent so reducers work without any injection in unit tests
     /// that don't care about logging.
+    // @extract:begin Injection-Reducer-AuditLogger-01
     struct AuditLogger: Injectable {
         var log: (String) -> Void
         static var defaultValue = AuditLogger(log: { _ in })
     }
+    // @extract:end Injection-Reducer-AuditLogger-01
 
     // MARK: - Single-scope example
 
@@ -32,6 +34,7 @@ enum Tutorial04bReducerInjected {
     ///
     /// Compare with Tutorial04_Injection_Reducer, where each handler calls
     /// `try dependencies.resolve()` imperatively.
+    // @extract:begin Injection-Reducer-AuditedCounter-01
     @Reducer
     struct AuditedCounter {
         struct State {
@@ -76,9 +79,11 @@ enum Tutorial04bReducerInjected {
             }
         }
     }
+    // @extract:end Injection-Reducer-AuditedCounter-01
 
     // MARK: - Parent-child injection inheritance example
 
+    // @extract:begin Injection-Reducer-ChildParent-01
     @Reducer
     struct ChildCounter {
         struct State {
@@ -135,6 +140,7 @@ enum Tutorial04bReducerInjected {
             }
         }
     }
+    // @extract:end Injection-Reducer-ChildParent-01
 
     // MARK: - Tests
 
@@ -142,6 +148,7 @@ enum Tutorial04bReducerInjected {
 
         // MARK: Default value — no injection required
 
+        // @extract:begin Injection-Reducer-DefaultTest-01
         func testDefaultValueUsedWhenNoInjection() throws {
             // The defaultValue logger is silent; no crash, no side effect
             try AuditedCounter.Store.GIVEN {
@@ -157,9 +164,11 @@ enum Tutorial04bReducerInjected {
             .THEN(\.state.count, equals: 0)
             .runTest()
         }
+        // @extract:end Injection-Reducer-DefaultTest-01
 
         // MARK: Injected value is used during update
 
+        // @extract:begin Injection-Reducer-InjectedTest-01
         func testInjectedLoggerIsCalledOnIncrement() throws {
             var capturedMessages: [String] = []
 
@@ -174,6 +183,7 @@ enum Tutorial04bReducerInjected {
 
             XCTAssertEqual(capturedMessages, ["increment: 0 → 1"])
         }
+        // @extract:end Injection-Reducer-InjectedTest-01
 
         func testInjectedLoggerCapturesAllEvents() throws {
             var capturedMessages: [String] = []
@@ -199,6 +209,7 @@ enum Tutorial04bReducerInjected {
 
         // MARK: Injection tree — child inherits dependency from parent
 
+        // @extract:begin Injection-Reducer-ChildInheritTest-01
         func testChildInheritsInjectedLoggerFromParent() throws {
             var capturedMessages: [String] = []
 
@@ -228,6 +239,7 @@ enum Tutorial04bReducerInjected {
                 "child add 3"
             ])
         }
+        // @extract:end Injection-Reducer-ChildInheritTest-01
 
         // MARK: Injection replacement for tests
 

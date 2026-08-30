@@ -90,3 +90,29 @@ extension Tutorial01Reducer {
 }
 // @extract:end StateAndWhen-Reducer-CounterTests-02
 // @extract:end StateAndWhen-Reducer-CounterTests-04
+
+// @extract:begin StateAndWhen-Reducer-CounterView-01
+import SwiftUI
+
+extension Tutorial01Reducer {
+
+    struct CounterView: View {
+
+        @StateObject var store = CounterReducer.Store(initialState: CounterReducer.State())
+
+        var body: some View {
+            VStack {
+                Text("\(store.state.viewDisplaysTotalCount)")
+                HStack {
+                    Button("+") {
+                        store.send(.userTappedIncrementButton)
+                    }
+                    Button("-") {
+                        store.send(.userTappedDecrementButton)
+                    }
+                }
+            }
+        }
+    }
+}
+// @extract:end StateAndWhen-Reducer-CounterView-01

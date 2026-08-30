@@ -1,0 +1,78 @@
+@Tutorial(time: 20) {
+  @Intro(title: "State, When and Effects (Reducer)") {
+    The Reducer counterpart of <doc:01-02-StateWhenAndEffects>: trigger effects that report
+    back to your reducer as a new `When` event, with the same synchronous update contract,
+    now expressed as a pure static function.
+  }
+
+  @Section(title: "What is a side effect?") {
+    @ContentAndMedia {
+      A side effect is any executed code whose result arrives later, or unclearly. As
+      developers we want as few of these as possible, except for one fully expected group:
+      asynchronous tasks. We'll work through the most common one, a network request, and
+      show how it fits the Reducer's synchronous `update` contract.
+    }
+    @Steps {
+      @Step {
+        Let's start from the acceptance criteria, same as always. We'll build a counter
+        that's stored remotely via a network API, and the test below is the ACCEPTANCE AS
+        CODE describing exactly how it behaves.
+
+        Notice the network call is still split into two `When` cases: the trigger
+        (`userTappedIncrementButton`) and the result (`networkPostCompleted(DTO)`). Effects
+        never bypass the update contract — an effect can only ever report back as another
+        `When`.
+
+        @Code(name: "CloudCounterTests.swift", file: StateWhenAndEffects-Reducer-CloudCounterTests-02.swift)
+      }
+
+      @Step {
+        Define the `State` struct. Same two properties as the classic version —
+        `viewDisplaysTotalCount` and the loading flag — just gathered into a single struct
+        instead of scattered `@Published` properties.
+
+        @Code(name: "CloudCounterReducer.swift", file: StateWhenAndEffects-Reducer-CloudCounter-02.swift)
+      }
+
+      @Step {
+        Add the `When` cases. `networkPostCompleted(DTO)` is the completion event our
+        effect will eventually send back.
+
+        @Code(name: "CloudCounterReducer.swift", file: StateWhenAndEffects-Reducer-CloudCounter-03.swift)
+      }
+
+      @Step {
+        Now the full implementation. `update` takes an extra `effectsState: inout
+        EffectsState<When>` parameter — that's where effects get enqueued instead of a
+        bare `enqueue(...)` self-call, since a static function has no `self`. Otherwise the
+        shape is identical: mutate state synchronously, enqueue the async work, and let its
+        completion arrive as another `When`.
+
+        @Code(name: "CloudCounterReducer.swift", file: StateWhenAndEffects-Reducer-CloudCounter-04.swift)
+      }
+
+      Nice — a Reducer with effects, same acceptance criteria as the classic version, same
+      behavior, no `self` anywhere.
+    }
+  }
+
+  @Section(title: "Typed effects") {
+    @ContentAndMedia {
+      The classic tutorial's typed-effects section — a dedicated `Effect` type for
+      testability, cancellability, and observability — applies to the Reducer pattern
+      unchanged: `effectsState.enqueue(...)` accepts any `Effect`, typed or anonymous, the
+      same way `enqueue(...)` does on a classic `Statostore`.
+    }
+    @Steps {
+      @Step {
+        There's no dedicated Reducer example for typed effects yet — for now, see
+        <doc:01-02-StateWhenAndEffects>'s "Typed effects" section for the full walkthrough
+        (`NetworkEffect`, cancellation, and testing enqueued effects). Everything there
+        transfers directly: swap `enqueue(...)` for `effectsState.enqueue(...)` and
+        `\.viewDisplaysTotalCount` for `\.state.viewDisplaysTotalCount` in tests.
+
+        @Code(name: "CloudCounterReducer.swift", file: StateWhenAndEffects-Reducer-CloudCounter-04.swift)
+      }
+    }
+  }
+}

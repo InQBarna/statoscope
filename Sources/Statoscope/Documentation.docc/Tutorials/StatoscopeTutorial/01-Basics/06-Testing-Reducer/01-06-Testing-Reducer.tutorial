@@ -1,0 +1,135 @@
+@Tutorial(time: 25) {
+    @Intro(title: "Testing Reducers") {
+        This is the Reducer-pattern counterpart to the classic Testing tutorial. We'll build a small
+        news feed feature — a parent `NewsFeedReducer` with a child `NewsFeedArticleReducer` — and write
+        the full range of acceptance tests against it: basic flow, effects, child-store navigation, and
+        dependency injection. Every state assertion in this tutorial reads through `.state.`, since a
+        Reducer's data always lives one level down from the `Store` itself.
+    }
+
+    @Section(title: "Basic flow testing") {
+        @ContentAndMedia {
+            Before writing tests, we need something to test. We'll define two reducers — a child that
+            loads and favorites a single article, and a parent that lists articles and navigates to one
+            of them — then write the first acceptance tests against the parent.
+        }
+        @Steps {
+            @Step {
+                Start with the supporting types: a `DateProvider` and a `PersistenceProvider` as
+                injectable dependencies, plus the plain data types the feature works with.
+
+                @Code(name: "Tutorial06_Testing_Reducer.swift", file: Testing-Reducer-Dependencies-01.swift)
+            }
+
+            @Step {
+                Define the child reducer. `NewsFeedArticleReducer` loads its own title via an effect and
+                lets the user toggle it as a favorite. Nothing here differs from a top-level reducer —
+                a child is just a `Reducer` that happens to be wired under a parent's `@SubState`.
+
+                @Code(name: "Tutorial06_Testing_Reducer.swift", file: Testing-Reducer-ChildReducer-01.swift)
+            }
+
+            @Step {
+                Define the parent reducer. `readingArticle` is declared `@SubState`, so assigning it
+                creates the child `Store` automatically. `favorite(id:)` resolves both dependencies
+                through `ReducerDependencies` — no `@Injected` property wrapper needed on the reducer
+                itself, since reducers are stateless structs.
+
+                @Code(name: "Tutorial06_Testing_Reducer.swift", file: Testing-Reducer-ParentReducer-01.swift)
+            }
+
+            @Step {
+                Write the first test: GIVEN an initial state (with mocked dependencies injected),
+                THEN assert the starting values, WHEN an event is sent, THEN assert the result.
+                `runTest(assertNoPendingEffects: false)` is needed here because `.systemLoadedScope`
+                enqueues an effect this test never completes.
+
+                @Code(name: "TestingPatternsTests.swift", file: Testing-Reducer-BasicFlow-01.swift)
+            }
+
+            @Step {
+                Complete the loop by resolving that effect. `WHEN_OlderEffectCompletes` simulates the
+                effect finishing with a given result, exactly as it would after a real network call.
+
+                @Code(name: "TestingPatternsTests.swift", file: Testing-Reducer-EffectCompletion-01.swift)
+            }
+
+            @Step {
+                A longer test can walk through several state transitions in sequence, asserting after
+                each one — useful for features (like favoriting) where the interesting behavior is in
+                how repeated events compose, not any single one.
+
+                @Code(name: "TestingPatternsTests.swift", file: Testing-Reducer-StateTransitions-01.swift)
+            }
+        }
+    }
+
+    @Section(title: "Testing scope composition") {
+        @ContentAndMedia {
+            `readingArticle` is a child `Store`, not just a value — so beyond asserting on it, we can
+            navigate into it and run the same GIVEN/WHEN/THEN vocabulary against the child directly.
+        }
+        @Steps {
+            @Step {
+                Sending `.navigateToChild` assigns `state.readingArticle`, which wires a new
+                `Store<NewsFeedArticleReducer>`. `store.children.readingArticle` exposes the live child.
+
+                @Code(name: "TestingPatternsTests.swift", file: Testing-Reducer-Navigation-01.swift)
+            }
+
+            @Step {
+                `.WITH(\.children.readingArticle)` descends into the child store — every step after it
+                runs against `Store<NewsFeedArticleReducer>` instead of the parent, including its own
+                effect completions. `.POP()` returns to the parent to keep asserting there.
+
+                @Code(name: "TestingPatternsTests.swift", file: Testing-Reducer-WITH-01.swift)
+            }
+
+            @Step {
+                For quick one-off assertions or sends, a keypath through `.children.<name>?.state.*`
+                reaches into the child without a full `WITH`/`POP` pair. The keypath shape is the one
+                real difference from the classic pattern — Reducer inserts `.children.` and `.state.`
+                where Statostore just chains straight through the `@Subscope` property.
+
+                @Code(name: "TestingPatternsTests.swift", file: Testing-Reducer-Keypaths-01.swift)
+            }
+        }
+    }
+
+    @Section(title: "Dependencies and custom assertions") {
+        @ContentAndMedia {
+            Not every assertion fits `.THEN(keyPath:, equals:)`. Closures let you assert on multiple
+            properties at once, verify side effects on injected fakes, or express the acceptance
+            criteria for a whole user-facing feature as a single readable test.
+        }
+        @Steps {
+            @Step {
+                `.THEN { store in ... }` hands you the live store for custom `XCTAssert` calls —
+                useful when a single assertion needs to look at more than one property at a time.
+
+                @Code(name: "TestingPatternsTests.swift", file: Testing-Reducer-CustomAssertions-01.swift)
+            }
+
+            @Step {
+                Injected dependencies are ordinary fakes: closures that capture local state. Asserting
+                that `persistedFavorites` was actually written to verifies the reducer called through to
+                its injected `PersistenceProvider`, not just that its own state changed.
+
+                @Code(name: "TestingPatternsTests.swift", file: Testing-Reducer-DependencyInjection-01.swift)
+            }
+
+            @Step {
+                Put it together: a single test can read as the acceptance criteria for "user can save an
+                article as a favorite" — load the feed, navigate to an article, favorite it, done. This
+                is the payoff of naming `State` and `When` like sentences from the first tutorial onward.
+
+                @Code(name: "TestingPatternsTests.swift", file: Testing-Reducer-Capstone-01.swift)
+            }
+
+            That's the full testing vocabulary for the Reducer pattern: `GIVEN`/`WHEN`/`THEN` for flow,
+            `WHEN_OlderEffectCompletes` for effects, `WITH`/`POP` or `.children.`-keypaths for child
+            stores, and closures or injected fakes for anything more specific. All of it runs against
+            production reducer code — there's nothing test-only about the reducers themselves.
+        }
+    }
+}

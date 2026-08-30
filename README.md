@@ -16,7 +16,7 @@ Statoscope enables the app developer to focus on the overall design of the app's
 
 * **Scopes**
 
-    The Statoscope is the minimum implementation for a piece of state, handles State, mutation and Effects. Scopes can be linked together as a dependency tree using the provided Superscope and Subscope property wrappers
+    The Statoscope is the minimum implementation for a piece of state, handles State, mutation and Effects. Scopes can be linked together as a dependency tree — via `@SubState`/`@SuperState` for the `@Reducer` pattern below, or the Superscope/Subscope property wrappers for the classic pattern
 
 * **Testing**
 
@@ -25,6 +25,8 @@ Statoscope enables the app developer to focus on the overall design of the app's
 * **Dependency injection**
 
     Injectable protocol and Injected property wrappers, in conjunction with the Scope linkages allow a multi-level dependency injection such as the one accomplished by SwiftUI.
+
+Statoscope ships two patterns for a scope's state: **`@Reducer`** (below) is recommended for new features. **Statostore** — a class with `@Published` properties — is the easy migration path for bringing an existing ViewModel-shaped screen into Statoscope; see [README-Statostore.md](README-Statostore.md).
 
 ## Installation
 
@@ -38,64 +40,7 @@ The library is bundled as a Swift Package manager
 
 ### Basic (State + When + Test)
 
-Design a feature by declaring the State and When. Then Declare the acceptance criteria in your tests, see the example below:
-
-```swift
-final class Counter: Scope, ObservableObject {
-
-    @Published var viewDisplaysTotalCount: Int = 0
-
-    enum When {
-        case userTappedIncrementButton
-        case userTappedDecrementButton
-    }
-
-    func update(_ when: When) throws {
-        switch when {
-        case .userTappedIncrementButton:
-            viewDisplaysTotalCount += 1
-        case .userTappedDecrementButton:
-            viewDisplaysTotalCount = max(0, viewDisplaysTotalCount - 1)
-        }
-    }
-}
-```
-
-```swift
-final class CounterTest: XCTestCase {
-    func testUserFlow() throws {
-        try Counter.GIVEN {
-            Counter()
-        }
-        .THEN(\.viewDisplaysTotalCount, equals: 0)
-        .WHEN(.userTappedIncrementButton)
-        .THEN(\.viewDisplaysTotalCount, equals: 1)
-        .WHEN(.userTappedDecrementButton)
-        .THEN(\.viewDisplaysTotalCount, equals: 0)
-        .WHEN(.userTappedDecrementButton)
-        .THEN(\.viewDisplaysTotalCount, equals: 0)
-        .runTest()
-    }
-}
-```
-
-Let's go through the pieces of the feature source code:
-
-* **Scope**: A class object that stores and manages a part of the application state. 
-* **State**: Public ember vars in the scope object define a part of the state of the app
-* **When**: The list of all possible events that may occur during the app/scope lifetime.
-* **update**: The implementation of the feature, should modify the state based on the received event and the current state.
-
-However... we want the update method to be the last piece of the software to be build. In order to focus on the ACCEPTANCE CRITERIA first. Let's go through the pieces of the feature test:
-
-* **FLOW TESTING**: testUserFlow is an integration test that defines and declares the feature accomplished by this scope. It will run the received When events on the scope and assert the declared conditions.
-* **ACCEPTANCE AS CODE**: When *State* and *When* types are named as sentences, the test declaration become and acceptance criteria declaration. Defining cleanly how the app/scope behaves.
-  * **GIVEN**, **WHEN**, **THEN**: Used to create the scope, send events and check the state after the event
-  * **runTest()**: executes the test steps of the ACCEPTANCE AS CODE declaration
-
-### Basic with @Reducer macro
-
-The `@Reducer` macro eliminates boilerplate by generating the store class for you. Just annotate a plain struct with `@Reducer` and define a nested `State`, `When`, and a static `update` function:
+Design a feature by declaring the State and When. Then Declare the acceptance criteria in your tests, see the example below. The `@Reducer` macro eliminates boilerplate by generating the store class for you — just annotate a plain struct with `@Reducer` and define a nested `State`, `When`, and a static `update` function:
 
 ```swift
 @Reducer
@@ -144,45 +89,52 @@ Key differences from the traditional pattern:
 
 ### Basic with effects
 
-(Side) **Effect**s are triggered tasks that may finish affecting your app state. That's why effects are expressed in the Statoscope library with 2 an ending *When* case. In the following example the Counter feature is synchronized with a service by using a network api call: an *Effect*. There are many user experiences to achieve this feature, hopefully the Test (Acceptance as code) in the following snippets cleanly state
+(Side) **Effect**s are triggered tasks that may finish affecting your app state. That's why effects are expressed in the Statoscope library with an ending *When* case. In the following example the Counter feature is synchronized with a service by using a network api call: an *Effect*. There are many user experiences to achieve this feature, hopefully the Test (Acceptance as code) in the following snippets cleanly state
 
 ```swift
-final class Counter: Scope, ObservableObject {
-        
-        @Published var viewDisplaysTotalCount: Int = 0
-        @Published var viewDisplaysError: String?
-        @Published var viewShowsLoadingAndDisablesButtons: Bool = false
-        
-        enum When {
-            case userTappedIncrementButton
-            case userTappedDecrementButton
-            case networkPostCompleted(Result<DTO, Error>)
-        }
-        
-        func update(_ when: When) throws { /* ... */ }
+@Reducer
+struct Counter {
+    struct State {
+        var viewDisplaysTotalCount: Int = 0
+        var viewDisplaysError: String?
+        var viewShowsLoadingAndDisablesButtons: Bool = false
     }
+
+    enum When {
+        case userTappedIncrementButton
+        case userTappedDecrementButton
+        case networkPostCompleted(Result<DTO, Error>)
+    }
+
+    static func update(
+        _ when: When,
+        state: inout State,
+        effectsState: inout EffectsState<When>,
+        dependencies: ReducerDependencies
+    ) throws { /* ... */ }
+}
 ```
 
 ```swift
-final class StatoscopeExample2: XCTestCase {
+final class ReducerExample2: XCTestCase {
     func testCounterExample3UserFlow() throws {
-        try Counter.GIVEN {
-            Counter()
+        try Counter.Store.GIVEN {
+            Counter.Store(initialState: Counter.State())
         }
-        .THEN(\.viewDisplaysTotalCount, equals: 0)
-        .THEN(\.viewShowsLoadingAndDisablesButtons, equals: false)
+        .THEN(\.state.viewDisplaysTotalCount, equals: 0)
+        .THEN(\.state.viewShowsLoadingAndDisablesButtons, equals: false)
         .WHEN(.userTappedIncrementButton)
-        .THEN(\.viewDisplaysTotalCount, equals: 1)
-        .THEN(\.viewShowsLoadingAndDisablesButtons, equals: true)
+        .THEN(\.state.viewDisplaysTotalCount, equals: 1)
+        .THEN(\.state.viewShowsLoadingAndDisablesButtons, equals: true)
         .FORK(.networkPostCompleted(.failure(CancellationError()))) { sut in
             try sut
-                .THEN(\.viewDisplaysTotalCount, equals: 1)
-                .THEN(\.viewDisplaysError, equals: "The operation couldn’t be completed. (Swift.CancellationError error 1.)")
-                .THEN(\.viewShowsLoadingAndDisablesButtons, equals: false)
+                .THEN(\.state.viewDisplaysTotalCount, equals: 1)
+                .THEN(\.state.viewDisplaysError, equals: "The operation couldn’t be completed. (Swift.CancellationError error 1.)")
+                .THEN(\.state.viewShowsLoadingAndDisablesButtons, equals: false)
         }
         .WHEN(.networkPostCompleted(.success(DTO(count: 1))))
-        .THEN(\.viewDisplaysTotalCount, equals: 1)
-        .THEN(\.viewShowsLoadingAndDisablesButtons, equals: false)
+        .THEN(\.state.viewDisplaysTotalCount, equals: 1)
+        .THEN(\.state.viewShowsLoadingAndDisablesButtons, equals: false)
         .runTest()
     }
 }
@@ -203,41 +155,46 @@ struct NetworkEffect<Response: Decodable>: Effect {
     }
 }
 
-final class Counter: Scope, ObservableObject {
-        
+@Reducer
+struct Counter {
     /* ... */
-    
-    func update(_ when: When) throws {
+
+    static func update(
+        _ when: When,
+        state: inout State,
+        effectsState: inout EffectsState<When>,
+        dependencies: ReducerDependencies
+    ) throws {
         switch when {
         case .userTappedIncrementButton:
-            viewDisplaysTotalCount = viewDisplaysTotalCount + 1
-            try triggerNetworkUpdate()
+            state.viewDisplaysTotalCount += 1
+            try triggerNetworkUpdate(state: &state, effectsState: &effectsState)
         case .userTappedDecrementButton:
-            guard viewDisplaysTotalCount > 0 else {
+            guard state.viewDisplaysTotalCount > 0 else {
                 return
             }
-            viewDisplaysTotalCount = viewDisplaysTotalCount - 1
-            try triggerNetworkUpdate()
+            state.viewDisplaysTotalCount -= 1
+            try triggerNetworkUpdate(state: &state, effectsState: &effectsState)
         case .networkPostCompleted(let remoteCounter):
-            viewShowsLoadingAndDisablesButtons = false
+            state.viewShowsLoadingAndDisablesButtons = false
             switch remoteCounter {
             case .success(let remoteCounterSuccess):
-                viewDisplaysTotalCount = remoteCounterSuccess.count
+                state.viewDisplaysTotalCount = remoteCounterSuccess.count
             case .failure(let error):
-                viewDisplaysError = error.localizedDescription
+                state.viewDisplaysError = error.localizedDescription
             }
         }
     }
 
-    private func triggerNetworkUpdate() throws {
-        viewShowsLoadingAndDisablesButtons = true
+    private static func triggerNetworkUpdate(state: inout State, effectsState: inout EffectsState<When>) throws {
+        state.viewShowsLoadingAndDisablesButtons = true
         guard let url = URL(string: "http://statoscope.com") else {
             fatalError()
         }
         var request = URLRequest(url: url)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpMethod = "POST"
-        request.httpBody = try JSONEncoder().encode(DTO(count: viewDisplaysTotalCount))
+        request.httpBody = try JSONEncoder().encode(DTO(count: state.viewDisplaysTotalCount))
         effectsState.enqueue(
             NetworkEffect<DTO>(request: request)
                 .mapToResult()
@@ -247,13 +204,16 @@ final class Counter: Scope, ObservableObject {
 }
 ```
 
+> Migrating an existing ViewModel-shaped screen instead of building something new? See [README-Statostore.md](README-Statostore.md) for the classic, class-based pattern — its `@Published`-properties-plus-methods shape maps closely onto what a ViewModel already looks like.
+
 ### Beyond basics
 
 There are much more interesting topics covered by the Statoscope library.
-* Dependecy injection
-* Scope composition
+* Dependency injection (`ReducerDependencies` / `@ReducerInjected`)
+* Scope composition (`@SubState` / `@SuperState`)
+* Intercepting child-scope events (`MiddlewareReducer` / `SubstateOutcome`)
 * Effects testing
-* SwifUI views coupling to stores
+* SwiftUI views coupling to stores
 Follow the links to the tutorials or documentation below for more info.
 
 ## Documentation And Tutorials

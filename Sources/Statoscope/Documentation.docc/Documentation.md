@@ -26,9 +26,14 @@ Statoscope helps developers focus on the overall design of application state, of
 
     The `Injectable` protocol and `Injected` property wrappers, in combination with scope linking, provide a multi-level dependency injection pattern similar to the one used in SwiftUI.
 
+## Two ways to build a scope
+
+Statoscope ships two patterns, covered side by side in the tutorials below: **Reducer** (`@Reducer`, a static `update()` over a single state struct) is recommended for new features, and **Statostore** (a class with `@Published` properties) is the easy migration path for bringing an existing ViewModel-shaped screen into Statoscope.
+
 ## Topics
 
 ### Tutorials
 
 - <doc:Overview-article>
+- <doc:Overview-article-Statostore>
 - <doc:StatoscopeTutorial>

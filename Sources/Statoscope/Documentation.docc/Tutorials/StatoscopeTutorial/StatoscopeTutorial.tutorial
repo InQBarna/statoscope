@@ -1,17 +1,41 @@
-'d@Tutorials(name: "Statoscope Architecture") {
+@Tutorials(name: "Statoscope Architecture") {
   @Intro(title: "Statoscope basics") {
       Statoscope is a small library to build apps with state management,
       testing, effects management and dependency injection.
+
+      It ships two patterns for a scope's state, covered in the two chapters
+      below: **Reducer** — a `@Reducer`-annotated struct with a static
+      `update()` over a single state struct — is recommended for new
+      features. **Statoscope (Classic)** — a class with `@Published`
+      properties — is the easy migration path for bringing an existing
+      ViewModel-shaped screen into Statoscope.
   }
-  
-  @Chapter(name: "Tutorials") {
-    Jump into how state scopes are created, how to define When events,
-    write acceptance test, trigger side effects or inject params to subscopes.
-    
+
+  @Chapter(name: "Reducers (Recommended)") {
+    The recommended way to build new Statoscope features: a `@Reducer`
+    struct, a single `State`, a static `update()`, and `@SubState`/
+    `@SuperState` for composing scopes — no `self`, no scattered
+    `@Published` properties, no reentrancy hole to worry about.
+
+    @TutorialReference(tutorial: "doc:01-01-StateAndWhen-Reducer")
+    @TutorialReference(tutorial: "doc:01-02-StateWhenAndEffects-Reducer")
+    @TutorialReference(tutorial: "doc:01-03-Middleware-Reducer")
+    @TutorialReference(tutorial: "doc:01-04-Injection-Reducer")
+    @TutorialReference(tutorial: "doc:01-05-Scopes-Reducer")
+    @TutorialReference(tutorial: "doc:01-06-Testing-Reducer")
+  }
+
+  @Chapter(name: "Statoscope (Classic)") {
+    The original, class-based pattern — `Statostore` with `@Published`
+    properties and an instance `update()`. Start here if you're migrating
+    an existing `ObservableObject`/ViewModel-shaped screen: its shape maps
+    closely onto what you already have.
+
     @TutorialReference(tutorial: "doc:01-01-StateAndWhen")
     @TutorialReference(tutorial: "doc:01-02-StateWhenAndEffects")
     @TutorialReference(tutorial: "doc:01-03-Middleware")
     @TutorialReference(tutorial: "doc:01-04-Injection")
     @TutorialReference(tutorial: "doc:01-05-Scopes")
+    @TutorialReference(tutorial: "doc:01-06-Testing")
   }
 }

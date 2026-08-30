@@ -15,6 +15,7 @@ enum Tutorial05Reducer {
 
     // MARK: - Dependencies
 
+    // @extract:begin Scopes-Reducer-Dependencies-01
     struct DateProvider: Injectable {
         var currentDate: () -> Date
         static var defaultValue = DateProvider(currentDate: Date.init)
@@ -40,9 +41,12 @@ enum Tutorial05Reducer {
     struct FeedListDTO: Codable, Equatable {
         let articles: [ArticleDTO]
     }
+    // @extract:end Scopes-Reducer-Dependencies-01
 
     // MARK: - Parent Reducer
 
+    // @extract:begin Scopes-Reducer-NewsFeed-01
+    // @extract:begin Scopes-Reducer-NewsFeed-02
     @Reducer
     struct NewsFeedReducer {
         struct State: Injectable {
@@ -55,6 +59,7 @@ enum Tutorial05Reducer {
             case systemLoadedScope
             case featureTogglesLoaded(favoritesEnabled: Bool)
         }
+        // @extract:end Scopes-Reducer-NewsFeed-01
 
         static func update(
             _ when: When,
@@ -80,9 +85,12 @@ enum Tutorial05Reducer {
             }
         }
     }
+    // @extract:end Scopes-Reducer-NewsFeed-02
 
     // MARK: - Child Reducer (List)
 
+    // @extract:begin Scopes-Reducer-NewsFeedList-01
+    // @extract:begin Scopes-Reducer-NewsFeedList-02
     @Reducer
     struct NewsFeedListReducer {
         struct State: Injectable {
@@ -100,6 +108,7 @@ enum Tutorial05Reducer {
             case navigateFromListToChild(id: String)
             case favorite(id: String)
         }
+        // @extract:end Scopes-Reducer-NewsFeedList-01
 
         static func update(
             _ when: When,
@@ -149,9 +158,12 @@ enum Tutorial05Reducer {
             }
         }
     }
+    // @extract:end Scopes-Reducer-NewsFeedList-02
 
     // MARK: - Child Reducer (Article Detail)
 
+    // @extract:begin Scopes-Reducer-NewsFeedArticle-01
+    // @extract:begin Scopes-Reducer-NewsFeedArticle-02
     @Reducer
     struct NewsFeedArticleReducer {
         struct State: Injectable {
@@ -168,6 +180,7 @@ enum Tutorial05Reducer {
             case networkDidFinish(ArticleDTO)
             case favorite(id: String)
         }
+        // @extract:end Scopes-Reducer-NewsFeedArticle-01
 
         static func update(
             _ when: When,
@@ -208,11 +221,13 @@ enum Tutorial05Reducer {
             }
         }
     }
+    // @extract:end Scopes-Reducer-NewsFeedArticle-02
 
     // MARK: - Tests
 
     final class ScopesTests: XCTestCase {
 
+        // @extract:begin Scopes-Reducer-Tests-01
         func testParentCreatesChildWithParameters() throws {
             try NewsFeedReducer.Store.GIVEN {
                 NewsFeedReducer.Store(initialState: NewsFeedReducer.State())
@@ -230,6 +245,7 @@ enum Tutorial05Reducer {
             }
             .runTest()
         }
+        // @extract:end Scopes-Reducer-Tests-01
 
         func testChildInheritsFeatureToggle() throws {
             let fixedDate = Date(timeIntervalSince1970: 1000)
@@ -277,6 +293,7 @@ enum Tutorial05Reducer {
             .runTest()
         }
 
+        // @extract:begin Scopes-Reducer-Tests-02
         func testNavigationCreatesChildScope() throws {
             var initialState = NewsFeedListReducer.State()
             initialState.favoritesEnabled = true
@@ -295,5 +312,6 @@ enum Tutorial05Reducer {
             }
             .runTest()
         }
+        // @extract:end Scopes-Reducer-Tests-02
     }
 }

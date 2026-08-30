@@ -1,0 +1,96 @@
+@Tutorial(time: 25) {
+    @Intro(title: "Dependency Injection (Reducer)") {
+        This is the Reducer-pattern counterpart to <doc:01-04-Injection>: same goal — externalize system dependencies (dates, persistence, network) so business logic stays testable — expressed with `Injectable`, `ReducerDependencies`, and `dependencies.resolve()` inside a static `update()` instead of `@Injected` properties on a class.
+    }
+
+    @Section(title: "Designing dependencies") {
+        @ContentAndMedia {
+            Dependencies are declared exactly the same way as in the classic pattern — a struct conforming to `Injectable` with a `defaultValue` — the difference starts at the point they're *used*, inside a Reducer's `update()`.
+        }
+        @Steps {
+            @Step {
+                Start with a date provider. Instead of calling `Date()` directly inside business logic, inject a `DateProvider` so tests can supply a fixed date.
+
+                @Code(name: "Dependencies.swift", file: Injection-Reducer-DateProvider-01.swift)
+            }
+            @Step {
+                Next, a persistence provider abstracting `UserDefaults` — reading and writing a list of favorited articles.
+
+                @Code(name: "Dependencies.swift", file: Injection-Reducer-PersistenceProvider-01.swift)
+            }
+            @Step {
+                Finally, a network provider for fetching articles, plus the `ArticleDTO` it returns.
+
+                @Code(name: "Dependencies.swift", file: Injection-Reducer-NetworkProvider-01.swift)
+            }
+        }
+    }
+
+    @Section(title: "Resolving dependencies in update()") {
+        @ContentAndMedia {
+            A Reducer's `update()` receives a `dependencies: ReducerDependencies` parameter. Call `try dependencies.resolve()` wherever you need a dependency — there's no property wrapper required for this style, resolution happens imperatively, right where it's used.
+        }
+        @Steps {
+            @Step {
+                `NewsFeedListReducer` resolves all three dependencies across its event handlers: `PersistenceProvider` and `NetworkProvider` on load, `DateProvider` and `PersistenceProvider` when toggling a favorite. Note the network fetch becomes an effect — `effectsState.enqueue(...)` — since it's asynchronous, while persistence and date reads happen synchronously inline.
+
+                @Code(name: "NewsFeedListReducer.swift", file: Injection-Reducer-Reducer-01.swift)
+            }
+        }
+    }
+
+    @Section(title: "Testing with injected fakes") {
+        @ContentAndMedia {
+            Tests inject fakes the same way as classic Statostore — `.injectObject(...)` on the store before running the test plan — the fixtures just get resolved differently on the other end (`dependencies.resolve()` instead of `@Injected`).
+        }
+        @Steps {
+            @Step {
+                Inject a fixed `DateProvider`, an in-memory `PersistenceProvider`, and a canned `NetworkProvider`, then drive the flow with `GIVEN`/`WHEN`/`THEN` — including completing the network effect with `WHEN_OlderEffectCompletes`.
+
+                @Code(name: "InjectionTests.swift", file: Injection-Reducer-Test-01.swift)
+            }
+
+            With dependencies injected, the test controls the date, the "saved" favorites, and the network response — no real clock, disk, or network involved, and the assertions read as acceptance criteria for the feature.
+        }
+    }
+
+    @Section(title: "Reducer-only: @ReducerInjected") {
+        @ContentAndMedia {
+            The Reducer pattern also offers a **declarative** injection style with no classic-Statostore equivalent: `@ReducerInjected`, a property wrapper placed directly on a `State` struct field. Instead of calling `dependencies.resolve()` inside every handler that needs a dependency, declare it once and read it anywhere in `State` — including from outside `update()`, since it resolves into the Store's computed `state` getter.
+        }
+        @Steps {
+            @Step {
+                A simple audit-log dependency, silent by default so reducers work in tests that don't care about logging.
+
+                @Code(name: "AuditLogger.swift", file: Injection-Reducer-AuditLogger-01.swift)
+            }
+            @Step {
+                `AuditedCounter` declares `@ReducerInjected var logger: AuditLogger` once on `State`, then reads `state.logger` directly inside `update()` — compare with the `dependencies.resolve()` call sites above.
+
+                @Code(name: "AuditedCounter.swift", file: Injection-Reducer-AuditedCounter-01.swift)
+            }
+            @Step {
+                With nothing injected, `AuditLogger.defaultValue` (silent) is used automatically — no crash, no special-casing needed in tests that don't care about the logger.
+
+                @Code(name: "AuditedCounterTests.swift", file: Injection-Reducer-DefaultTest-01.swift)
+            }
+            @Step {
+                Injecting a real fake captures every call — `state.logger` resolves to whatever was injected via `.injectObject(...)`, exactly like the imperative style.
+
+                @Code(name: "AuditedCounterTests.swift", file: Injection-Reducer-InjectedTest-01.swift)
+            }
+            @Step {
+                `@ReducerInjected` also flows down the scope tree: both `ParentWithChild` and its `ChildCounter` declare the same `AuditLogger` dependency, and a child created after the parent's logger was injected resolves the *same* instance — no re-injection needed at each level.
+
+                @Code(name: "ParentChild.swift", file: Injection-Reducer-ChildParent-01.swift)
+            }
+            @Step {
+                One logger, injected once on the parent, captures messages from both the parent and a child created afterward.
+
+                @Code(name: "ParentChildTests.swift", file: Injection-Reducer-ChildInheritTest-01.swift)
+            }
+
+            Reach for `@ReducerInjected` when a dependency is used in several places across a reducer (or needs to be read outside `update()`); reach for `dependencies.resolve()` when it's needed in exactly one handler and you'd rather see it resolved right at the call site.
+        }
+    }
+}

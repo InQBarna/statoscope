@@ -41,7 +41,9 @@ Documentation is built using Swift-DocC. The library includes comprehensive docu
 
 **Scope**: The fundamental unit representing a piece of application state. Scopes are reference types (classes) that conform to the `Scope` protocol and manage a specific domain of state.
 
-**Statostore**: The primary implementation pattern combining Scope, ScopeImplementation, and StoreProtocol in a single class. Most features should be implemented as Statostores.
+**Statostore**: The class-based implementation pattern combining Scope, ScopeImplementation, and StoreProtocol in a single class. The migration path for existing ViewModel-shaped screens — see State Management Patterns below.
+
+**Reducer**: The recommended pattern for new features — a `@Reducer`-annotated struct with a `State`, a `When`, and a static `update()`. The macro generates a `Store<YourReducer>` that implements Scope/ScopeImplementation/StoreProtocol under the hood. See State Management Patterns below.
 
 **When**: An enum defining all possible events that can occur within a Scope's lifetime. Events are processed synchronously through the `update(_:)` method.
 
@@ -53,11 +55,15 @@ Documentation is built using Swift-DocC. The library includes comprehensive docu
 
 **InjectionTreeNode**: All scopes participate in a dependency injection tree, similar to SwiftUI's environment.
 
-**@Superscope**: Property wrapper linking a child scope to its parent in the injection tree.
+**@Superscope**: Property wrapper linking a child Statostore to its parent in the injection tree.
 
-**@Subscope**: Property wrapper for managing child scopes within a parent scope.
+**@Subscope**: Property wrapper for managing child Statostores within a parent scope.
 
-**Injectable & @Injected**: Protocol and property wrapper for multi-level dependency injection throughout the scope hierarchy.
+**Injectable & @Injected**: Protocol and property wrapper for multi-level dependency injection throughout the scope hierarchy (works for both Statostore and Reducer).
+
+**@SubState / @SuperState**: The Reducer-pattern equivalents of `@Subscope`/`@Superscope`, declared directly on a Reducer's `State` struct rather than on the class. See State Management Patterns below.
+
+**MiddlewareReducer**: The Reducer-pattern equivalent of `HierarchialScopeMiddleWare` — lets a Reducer intercept events from its own `@SubState` children (not its own events; that's a different concern, see below). See State Management Patterns below.
 
 ### State Updates Flow
 
@@ -70,212 +76,214 @@ Documentation is built using Swift-DocC. The library includes comprehensive docu
 
 ### Module Structure
 
-- **Statoscope**: Core library with Scope, Effect, Statostore, and injection system
-  - `Effects/`: Effect protocol, type erasure (AnyEffect), and effects handler
-  - `Injection/`: Dependency injection system (Injectable, @Injected, @Superscope, @Subscope)
-  - `SwiftUI/`: SwiftUI integration helpers (StoreView, bindings)
+- **Statoscope**: Core library with Scope, Effect, Statostore, Reducer, and injection system
+  - `Reducer/`: The Reducer pattern — `Reducer`/`MiddlewareReducer` protocols, `Store<R>`, `SubState`/`SuperState`, `ReducerDependencies`, `ReducerInjected`, child-slot machinery
+  - `Effects/`: Effect protocol, type erasure (AnyEffect), and effects handler (shared by both patterns)
+  - `Injection/`: Dependency injection system (Injectable, @Injected, @Superscope, @Subscope — Statostore-side; Reducer's equivalents live in `Reducer/`)
+  - `SwiftUI/`: SwiftUI integration helpers (StoreView, bindings, AutoConnectedView for Reducer navigation)
   - `Helpers/`: Utility code and runtime helpers
   - `Logging/`: Debug description and logging support
 
 - **StatoscopeTesting**: Testing utilities (import in test targets only)
-  - `StoreTestPlan/`: Fluent testing API (GIVEN/WHEN/THEN/FORK)
-  - `BuilderAPI/`: Alternative result builder-based testing API (B namespace)
+  - `StoreTestPlan/`: Fluent testing API (GIVEN/WHEN/THEN/FORK) — works with both Statostore and Reducer stores
   - Testing helpers for effects, scope tree inspection, and deallocation checks
 
 - **StatoscopeMacros**: Swift macros for reducing boilerplate
+  - `@Reducer`: Generates the `Store<R>` typealias and child/parent-slot wiring for a Reducer type
+  - `@SuperScope`: Incremental-migration macro linking a Reducer's State to an unmigrated legacy Statostore parent
   - `@EffectStruct`: Generates Effect conformance from static async functions
-  - `@CaseAssociatedGet`: Generates getters for enum associated values
+  - `@CaseAssociatedGet`: Generates convenience getters for enum associated values
   - `@Copy`: Generates copy methods for value types
 
 ## State Management Patterns
 
-### Single State Struct Pattern (Recommended)
+Statoscope ships two patterns for managing a scope's state. **Reducer is recommended for new features.** Statostore — the original, class-based pattern — is best treated as the migration path for bringing an existing `ObservableObject`/ViewModel-shaped screen into Statoscope with minimal reshaping: its `@Published`-properties-plus-methods shape maps closely onto what a ViewModel already looks like.
 
-**New in v2.x**: Statoscope now supports a single state struct pattern with dirty flag optimization for improved refactoring and performance.
+### Reducer Pattern (Recommended)
 
-#### Why Use Single State?
-
-**Benefits:**
-- **Centralized State**: All state in one struct, easy to understand and refactor
-- **Easy Snapshots**: `let snapshot = scope.state` for undo/redo or state restoration
-- **Performance**: Dirty flag prevents unnecessary @Published triggers (~90% reduction)
-- **No Equatable Required**: Works with any state size without expensive comparisons
-
-**Migration from Multiple @Published:**
+A Reducer is a plain struct annotated with `@Reducer`. It defines a nested `State` struct, a `When` enum, and a `static func update(...)` — no `self`, no stored properties on the reducer itself. The macro generates a `Store<YourReducer>` class (exposed as `YourReducer.Store`) that holds the actual state, schedules effects, and conforms to `ObservableObject` for SwiftUI.
 
 ```swift
-// BEFORE: Multiple @Published properties
-final class MyScope: Statostore, ObservableObject {
-    @Published var count: Int = 0
-    @Published var name: String = ""
-    @Published var items: [Item] = []
-    // State scattered across properties
-}
-
-// AFTER: Single state struct
-struct MyState {
-    var count: Int = 0
-    var name: String = ""
-    var items: [Item] = []
-}
-
-final class MyScope: Statostore, SingleStateScope, ObservableObject {
-    @Published var state: MyState = MyState()
+@Reducer
+struct CounterReducer {
+    struct State {
+        var count: Int = 0
+        var name: String = ""
+    }
 
     enum When {
         case increment
         case setName(String)
     }
 
-    // Old signature (required) - delegates to single state
-    func update(_ when: When) throws {
-        try updateWithSingleState(when)
-    }
-
-    // New signature with UpdateContext
-    func update(_ when: When, context: inout UpdateContext<When, MyState>) throws {
+    static func update(
+        _ when: When,
+        state: inout State,
+        effectsState: inout EffectsState<When>,
+        dependencies: ReducerDependencies
+    ) throws {
         switch when {
         case .increment:
-            context.state.count += 1  // Dirty flag automatically tracked
+            state.count += 1
         case .setName(let name):
-            context.state.name = name
+            state.name = name
+        }
+    }
+}
+
+// The macro generates CounterReducer.Store:
+let store = CounterReducer.Store(initialState: CounterReducer.State())
+store.send(.increment)
+print(store.state.count) // 1
+```
+
+Being `static` is the point: `update()` has no access to `self`, so it can't reenter `send()` on itself — the reentrancy hole documented for the classic Statostore pattern in `PRODUCTION_READINESS_AUDIT.md` is closed by construction here, not by a runtime guard.
+
+#### Parent-child composition: `@SubState` / `@SuperState`
+
+Child scopes are declared directly on the parent's `State` struct:
+
+```swift
+@Reducer
+struct ParentReducer {
+    struct State {
+        @SubState var child: ChildReducer.State?
+    }
+    enum When { case createChild }
+
+    static func update(
+        _ when: When,
+        state: inout State,
+        effectsState: inout EffectsState<When>,
+        dependencies: ReducerDependencies
+    ) throws {
+        switch when {
+        case .createChild:
+            state.child = ChildReducer.State()   // creates and wires the child Store
         }
     }
 }
 ```
 
-#### How Dirty Flag Works
+Assigning a value creates (or replaces) the child `Store`; assigning `nil` destroys it. The parent accesses the live child via the macro-generated `store.children.child` accessor.
 
-The `UpdateContext` tracks whether state was mutated during `update()`:
+A child that needs read access to its parent's state declares `@SuperState`:
 
 ```swift
-func update(_ when: When, context: inout UpdateContext<When, MyState>) throws {
-    switch when {
-    case .modifyingEvent:
-        context.state.count += 1
-        // Setting state.count marks dirty flag = true
-        // Framework assigns to @Published: self.state = context.state
+@Reducer
+struct ChildReducer {
+    struct State {
+        @SuperState var parent: ParentReducer.State   // read-only snapshot, injected before each update()
+        var doubled: Int = 0
+    }
+    enum When { case sync }
 
-    case .readOnlyEvent:
-        let value = context.state.count  // Just reading, no mutation
-        // dirty flag stays false
-        // Framework skips assignment, @Published not triggered!
+    static func update(
+        _ when: When,
+        state: inout State,
+        effectsState: inout EffectsState<When>,
+        dependencies: ReducerDependencies
+    ) throws {
+        switch when {
+        case .sync: state.doubled = state.parent.count * 2
+        }
     }
 }
 ```
 
-**Performance Impact:**
-- Events that don't modify state: No @Published trigger (saves SwiftUI diffing)
-- Events that modify state: Normal @Published trigger
-- Overhead: Single boolean check (~0.001ms)
-- No Equatable requirement: Works for domains of any size
+`@SuperState` is a **value snapshot** taken fresh before each `update()` call — not a live reference to the parent. It's read-only: assigning to it is a compile error.
 
-**Edge Case:**
-```swift
-context.state.count = 5
-context.state.count = 0  // Back to original value
-// dirty flag = true (false positive)
-// But SwiftUI's built-in diffing handles it → no UI update
-```
+#### Intercepting child events: `MiddlewareReducer` + `SubstateOutcome`
 
-**Verdict:** ~10% false positives are acceptable given SwiftUI's diffing.
-
-#### UpdateContext API
-
-The `UpdateContext<When, State>` provides:
+A reducer that needs to react to events from its own `@SubState` children conforms to `MiddlewareReducer`:
 
 ```swift
-public struct UpdateContext<When, State> {
-    // State access with automatic dirty tracking
-    public var state: State { get set }
+@Reducer
+struct ParentReducer: MiddlewareReducer {
+    struct State: Injectable {
+        static var defaultValue: State { State() }
+        @SubState var child: ChildReducer.State?
+        var delegatedTasks: [String] = []
+    }
+    enum When { case childDelegated(String) }
 
-    // Effects management
-    public var effectsState: EffectsState<When>
+    static func updateSubstate<Child: Reducer>(
+        _ childType: Child.Type,
+        childState: Child.State,
+        childWhen: Child.When,
+        parentState: State,               // read-only — updateSubstate never mutates directly
+        dependencies: ReducerDependencies
+    ) throws -> SubstateOutcome<When> {
+        guard let when = childWhen as? ChildReducer.When else { return .pass }
+        if case .taskCompleted(let task) = when {
+            return .react(.childDelegated(task))   // send to update(), then still forward to the child
+        }
+        return .pass
+    }
 
-    // Dependency injection access
-    public var injectionTreeNode: InjectionTreeNode?
+    static func update(
+        _ when: When,
+        state: inout State,
+        effectsState: inout EffectsState<When>,
+        dependencies: ReducerDependencies
+    ) throws {
+        switch when {
+        case .childDelegated(let task): state.delegatedTasks.append(task)
+        }
+    }
 }
 ```
 
-**Usage Examples:**
+`updateSubstate` runs BEFORE the child's own `update()`, and `parentState` is read-only by design — any reaction has to go through the returned `SubstateOutcome<When>`, which lands in `update()`, the single place `State` ever changes:
+- `.pass` — no reaction, forward the event to the child as normal
+- `.react(When)` — send `When` to this reducer's own `update()`, then still forward to the child
+- `.intercept(When?)` — optionally send `When`, but do NOT forward to the child. Use this when the reaction makes forwarding unsafe — most commonly, it replaced or removed the very child subtree the event came from.
+
+#### Dependency injection: `ReducerDependencies` / `@ReducerInjected`
 
 ```swift
-// Modify state
-context.state.count += 1
-
-// Enqueue effects
-context.effectsState.enqueue(
-    FetchDataEffect()
-        .mapToResult()
-        .map(When.dataLoaded)
-)
-
-// Access injected dependencies
-let logger = context.injectionTreeNode?._resolve() as? Logger
-```
-
-#### State Snapshots and Restoration
-
-Single state structs make snapshots trivial:
-
-```swift
-// Take snapshot
-let snapshot = scope.state
-
-// Modify state
-scope.send(.increment)
-scope.send(.setName("New"))
-
-// Restore from snapshot (undo)
-scope.state = snapshot
-```
-
-#### Subscopes with Single State
-
-**Important:** `@Subscope` properties stay on the Statostore, NOT in the state struct:
-
-```swift
-struct MyState {
-    var count: Int
-    // ❌ NO @Subscope here
-}
-
-final class MyScope: Statostore, SingleStateScope, ObservableObject {
-    @Published var state: MyState = MyState()
-    @Subscope var child: ChildScope?  // ✅ Here on Statostore
+static func update(
+    _ when: When,
+    state: inout State,
+    effectsState: inout EffectsState<When>,
+    dependencies: ReducerDependencies
+) throws {
+    let logger: Logger = try dependencies.resolve()
+    logger.log("Processing: \(when)")
 }
 ```
 
-**Rationale:** Subscopes have lifecycle and framework concerns (not pure data).
+For ambient access across the whole `State` struct rather than just inside `update()`, use `@ReducerInjected` directly on a state property — resolved from the injection tree the same way `@Injected` resolves for classic Statostore.
 
-#### Testing with Single State
-
-The fluent testing API works seamlessly:
+#### Effects
 
 ```swift
-try MyScope.GIVEN {
-    MyScope()
+static func update(
+    _ when: When,
+    state: inout State,
+    effectsState: inout EffectsState<When>,
+    dependencies: ReducerDependencies
+) throws {
+    switch when {
+    case .startLoad:
+        state.isLoading = true
+        effectsState.enqueue(
+            FetchDataEffect()
+                .mapToResult()
+                .map(When.loadCompleted)
+        )
+    case .loadCompleted(let result):
+        state.isLoading = false
+        // handle result...
+    }
 }
-.THEN(\.state.count, equals: 0)  // Access state via KeyPath
-.WHEN(.increment)
-.THEN(\.state.count, equals: 1)
-.runTest()
 ```
 
-For builder API:
+Same `EffectsState`/`Effect` infrastructure as classic Statostore — effects are enqueued during `update()` and triggered after it returns, exactly as described in State Updates Flow above.
 
-```swift
-B.TestPlan<MyScope> {
-    B.GIVEN { MyScope() }
-    B.THEN(\.state.count, equals: 0)
-    B.WHEN(.increment)
-    B.THEN(\.state.count, equals: 1)
-}.run()
-```
+### Traditional Statostore Pattern (Migration Path)
 
-### Traditional Multiple @Published Pattern
-
-The traditional pattern with multiple `@Published` properties continues to work:
+The original pattern: a class with scattered `@Published` properties and an instance-method `update(_:)`.
 
 ```swift
 final class CounterScope: Statostore, ObservableObject {
@@ -298,201 +306,9 @@ final class CounterScope: Statostore, ObservableObject {
 }
 ```
 
-This pattern is appropriate for:
-- Simple scopes with 2-3 state properties
-- When you don't need state snapshots
-- When state is naturally independent
+Reach for this when migrating an existing `ObservableObject`/ViewModel-shaped screen — the `@Published`-properties-plus-methods shape maps closely onto what's already there, so the mechanical rewrite is small. Be aware it currently has real, unresolved safety gaps that `@Reducer` closes by construction (no reentrancy guard on `send()` during `update()`; see `PRODUCTION_READINESS_AUDIT.md`) — prefer Reducer for anything new.
 
-## Reducer Pattern (Alternative to Traditional Statostore)
-
-### Overview
-
-The Reducer pattern provides a simpler, more constrained alternative to traditional Statostore for single-state management. It emphasizes pure functions and centralized state in a single struct.
-
-**Key Differences from Traditional Statostore:**
-- Single `@Published var state` instead of multiple `@Published` properties
-- Static `update()` method instead of instance method
-- Explicit `scopeLinks` parameter for parent-child relationships
-- More constrained and testable
-
-### Basic Reducer Example
-
-```swift
-struct CounterState {
-    var count: Int = 0
-    var name: String = ""
-}
-
-struct CounterReducer: Reducer {
-    enum When {
-        case increment
-        case setName(String)
-    }
-
-    static func update(
-        _ when: When,
-        state: inout CounterState,
-        effectsState: inout EffectsState<When>,
-        dependencies: ReducerDependencies,
-        scopeLinks: inout NoScopeLinks
-    ) throws {
-        switch when {
-        case .increment:
-            state.count += 1
-        case .setName(let name):
-            state.name = name
-        }
-    }
-}
-
-// Use with ReducerStore
-let store = ReducerStore<CounterReducer>(initialState: CounterState())
-store.send(.increment)
-print(store.state.count) // 1
-```
-
-### Parent-Child Scope Links
-
-Reducers support parent-child relationships through the `scopeLinks` parameter, enabling:
-- Type-safe parent state access
-- Automatic SwiftUI observation chains
-- Declarative child scope management
-
-**Define Scope Links:**
-
-```swift
-// Child's scope links include weak parent reference
-struct ChildScopeLinks {
-    weak var parent: ReducerStore<ParentReducer>?
-}
-
-// Parent's scope links include strong child references
-struct ParentScopeLinks {
-    var child: ReducerStore<ChildReducer>?
-}
-```
-
-**Parent Reducer (creates child):**
-
-```swift
-struct ParentReducer: Reducer {
-    typealias ScopeLinks = ParentScopeLinks
-
-    enum When {
-        case createChild
-        case increment
-    }
-
-    static func update(
-        _ when: When,
-        state: inout ParentState,
-        effectsState: inout EffectsState<When>,
-        dependencies: ReducerDependencies,
-        scopeLinks: inout ParentScopeLinks
-    ) throws {
-        switch when {
-        case .createChild:
-            // Create child with automatic parent linking
-            scopeLinks.child = dependencies.createChildStore(
-                ChildReducer.self,
-                initialState: ChildState()
-            ) { parent in
-                ChildScopeLinks(parent: parent as? ReducerStore<ParentReducer>)
-            }
-
-        case .increment:
-            state.count += 1
-        }
-    }
-}
-```
-
-**Child Reducer (accesses parent):**
-
-```swift
-struct ChildReducer: Reducer {
-    typealias ScopeLinks = ChildScopeLinks
-
-    enum When {
-        case syncWithParent
-    }
-
-    static func update(
-        _ when: When,
-        state: inout ChildState,
-        effectsState: inout EffectsState<When>,
-        dependencies: ReducerDependencies,
-        scopeLinks: inout ChildScopeLinks
-    ) throws {
-        switch when {
-        case .syncWithParent:
-            // Access parent state (live reference!)
-            if let parent = scopeLinks.parent {
-                state.value = parent.state.count
-            }
-        }
-    }
-}
-```
-
-**Parent Observation:**
-
-When a child's `scopeLinks.parent` is set, ReducerStore automatically:
-1. Observes the parent's `objectWillChange` publisher
-2. Republishes parent changes to the child's `objectWillChange`
-3. Ensures SwiftUI views observing the child update when parent changes
-
-This solves the SwiftUI navigation view caching issue where child views don't re-render when parent state changes.
-
-### Reducer with Effects
-
-```swift
-struct AsyncReducer: Reducer {
-    enum When {
-        case startLoad
-        case loadCompleted(Result<Data, Error>)
-    }
-
-    static func update(
-        _ when: When,
-        state: inout AsyncState,
-        effectsState: inout EffectsState<When>,
-        dependencies: ReducerDependencies,
-        scopeLinks: inout NoScopeLinks
-    ) throws {
-        switch when {
-        case .startLoad:
-            state.isLoading = true
-            effectsState.enqueue(
-                FetchDataEffect()
-                    .mapToResult()
-                    .map(When.loadCompleted)
-            )
-
-        case .loadCompleted(let result):
-            state.isLoading = false
-            // Handle result...
-        }
-    }
-}
-```
-
-### When to Use Reducers vs Traditional Statostore
-
-**Use Reducer when:**
-- You want centralized state in a single struct
-- You need easy state snapshots (`let snapshot = store.state`)
-- You prefer static pure functions
-- You want compile-time guarantees about state shape
-- You're building new features
-
-**Use Traditional Statostore when:**
-- You have existing code using multiple `@Published` properties
-- You prefer instance methods with access to `self`
-- You need more flexibility in state structure
-- Migrating existing code would be too costly
-
-Both patterns work with the same testing, effects, and injection infrastructure.
+Both patterns share the same testing, effects, and injection infrastructure.
 
 ## Testing Patterns
 
@@ -501,12 +317,22 @@ Both patterns work with the same testing, effects, and injection infrastructure.
 Statoscope emphasizes "Acceptance as Code" - tests declare expected behavior using a fluent API:
 
 ```swift
+// Classic Statostore: KeyPaths point directly at @Published properties
 try MyScope.GIVEN {
     MyScope()
 }
 .THEN(\.stateProperty, equals: initialValue)
 .WHEN(.userAction)
 .THEN(\.stateProperty, equals: newValue)
+.runTest()
+
+// Reducer: KeyPaths go through .state, since state is a single struct
+try MyReducer.Store.GIVEN {
+    MyReducer.Store(initialState: MyReducer.State())
+}
+.THEN(\.state.stateProperty, equals: initialValue)
+.WHEN(.userAction)
+.THEN(\.state.stateProperty, equals: newValue)
 .runTest()
 ```
 
@@ -530,21 +356,6 @@ Effects are tested by simulating their completion:
 // or
 .WHEN_OlderEffectCompletes(with: .whenCase(.result))
 ```
-
-### Builder API (Alternative)
-
-The `B` namespace provides a result builder API for better debugging:
-
-```swift
-B.TestPlan<MyScope> {
-    B.GIVEN { MyScope() }
-    B.THEN(\.state, equals: value)
-    B.WHEN(.action)
-    B.THEN(\.state, equals: newValue)
-}.run()
-```
-
-The builder API executes steps imperatively with `@inline(never)` functions, making it easier to set breakpoints and step through tests.
 
 ## Macros
 
@@ -592,10 +403,25 @@ enum When {
     case operationCompleted(Result<Success, Failure>)
 }
 
-func update(_ when: When, context: inout UpdateContext<When, State>) throws {
+// Reducer pattern: effectsState is a parameter of static update()
+static func update(_ when: When, state: inout State, effectsState: inout EffectsState<When>, dependencies: ReducerDependencies) throws {
     switch when {
     case .userStartedOperation:
-        context.effectsState.enqueue(
+        effectsState.enqueue(
+            MyEffect()
+                .mapToResult()
+                .map(When.operationCompleted)
+        )
+    case .operationCompleted(let result):
+        // handle result
+    }
+}
+
+// Classic Statostore: effectsState is available directly on self
+func update(_ when: When) throws {
+    switch when {
+    case .userStartedOperation:
+        effectsState.enqueue(
             MyEffect()
                 .mapToResult()
                 .map(When.operationCompleted)
@@ -618,114 +444,12 @@ By default `runTest()` checks for pending effects at the end. Disable with `asse
 
 **ScopeImplementation vs Scope**: `Scope` is the public protocol. `ScopeImplementation` is the internal protocol with the `update(_:)` method and effects handling. `Statostore` conforms to both.
 
-**Middleware**: Scopes support middleware for intercepting When events - useful for logging, analytics, or modifying behavior without changing core logic.
+**Middleware**: Two distinct mechanisms, both available on Reducer's generated `Store<R>` (since it's also a Statostore) as well as classic Statostore. `addMiddleWare { store, when, forward in ... }` intercepts a scope's OWN events before its own `update()` runs — useful for logging/analytics without changing core logic. `MiddlewareReducer`/`HierarchialScopeMiddleWare` is a different concern: intercepting events from a scope's CHILD scopes (see State Management Patterns below).
 
 **Effects are NOT immediately triggered**: Effects enqueued during `update(_:)` are triggered after the method completes. The `effectsState` accumulates them during the update.
 
 **Type erasure with AnyEffect**: Effects are type-erased to `AnyEffect<When>` internally. The original "pristine" effect is preserved for testing and comparison using `pristineEquals(_:)` and `pristineIs(_:)`.
 
-**Single State Bridge Pattern**: Scopes using `SingleStateScope` must implement both the old `update(_:)` signature (as a bridge) and the new `update(_:context:)` signature. The bridge delegates to `updateWithSingleState()` which handles dirty flag tracking automatically.
-
-## Migration Guides
-
-### Migrating to Single State Pattern
-
-**Step 1: Define State Struct**
-
-```swift
-// Collect all @Published properties into a struct
-struct CounterState {
-    var count: Int = 0
-    var name: String = ""
-    var isLoading: Bool = false
-}
-```
-
-**Step 2: Replace @Published Properties**
-
-```swift
-// Before
-final class CounterScope: Statostore, ObservableObject {
-    @Published var count: Int = 0
-    @Published var name: String = ""
-    @Published var isLoading: Bool = false
-
-// After
-final class CounterScope: Statostore, SingleStateScope, ObservableObject {
-    @Published var state: CounterState = CounterState()
-```
-
-**Step 3: Adopt SingleStateScope Protocol**
-
-```swift
-final class CounterScope: Statostore, SingleStateScope, ObservableObject {
-    @Published var state: CounterState = CounterState()
-
-    // Add bridge method
-    func update(_ when: When) throws {
-        try updateWithSingleState(when)
-    }
-
-    // Add new signature with UpdateContext
-    func update(_ when: When, context: inout UpdateContext<When, CounterState>) throws {
-        // Implementation...
-    }
-}
-```
-
-**Step 4: Update update() Implementation**
-
-```swift
-// Before
-func update(_ when: When) throws {
-    switch when {
-    case .increment:
-        count += 1
-    case .setName(let name):
-        self.name = name
-    }
-}
-
-// After
-func update(_ when: When, context: inout UpdateContext<When, CounterState>) throws {
-    switch when {
-    case .increment:
-        context.state.count += 1  // Access via context.state
-    case .setName(let name):
-        context.state.name = name
-    }
-}
-```
-
-**Step 5: Update SwiftUI Views**
-
-```swift
-// Before
-Text("\(scope.count)")
-
-// After
-Text("\(scope.state.count)")
-```
-
-**Step 6: Update Tests**
-
-```swift
-// Before
-.THEN(\.count, equals: 1)
-
-// After
-.THEN(\.state.count, equals: 1)
-```
-
-**Common Pitfalls:**
-
-1. **Don't put @Subscope in state struct** - Keep subscopes on Statostore class
-2. **Remember the bridge method** - Must implement both `update(_:)` signatures
-3. **Update KeyPaths in tests** - Add `.state` prefix to all KeyPath assertions
-4. **Import @_spi for updateWithSingleState** - Tests need `@_spi(Internal) @testable import Statoscope`
-
 ## Project Status
 
 See `PRODUCTION_READINESS_AUDIT.md` for current production readiness assessment and known limitations.
-
-See `SINGLE_STATE_PROGRESS.md` for details on single state pattern implementation status.

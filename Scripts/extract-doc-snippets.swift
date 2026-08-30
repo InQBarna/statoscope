@@ -16,7 +16,16 @@ struct Config {
         "Tutorial03_Middleware.swift": "03-Middleware",
         "Tutorial04_Injection.swift": "04-Injection",
         "Tutorial05_Scopes.swift": "05-Scopes",
-        "Tutorial06_Testing.swift": "06-Testing"
+        "Tutorial06_Testing.swift": "06-Testing",
+
+        // Reducer-pattern track (parallel to the classic track above)
+        "Tutorial01_StateAndWhen_Reducer.swift": "01-StateAndWhen-Reducer",
+        "Tutorial02_StateWhenAndEffects_Reducer.swift": "02-StateWhenAndEffects-Reducer",
+        "Tutorial03_Middleware_Reducer.swift": "03-Middleware-Reducer",
+        "Tutorial04_Injection_Reducer.swift": "04-Injection-Reducer",
+        "Tutorial04b_ReducerInjected.swift": "04-Injection-Reducer",
+        "Tutorial05_Scopes_Reducer.swift": "05-Scopes-Reducer",
+        "Tutorial06_Testing_Reducer.swift": "06-Testing-Reducer"
     ]
 }
 

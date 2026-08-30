@@ -1,0 +1,73 @@
+@Tutorial(time: 20) {
+    @Intro(title: "Single entry point and/or middlewares (Reducer)") {
+        `Store<R>` — the class the `@Reducer` macro generates for you — is built on the same
+        single-entry-point foundation as classic Statostore, so `addMiddleWare` works exactly the
+        same way here. Nothing to relearn: you get event interception, logging, and crash
+        reporting for free.
+    }
+
+    @Section(title: "Logging middleware") {
+        @ContentAndMedia {
+            Logging is an important part of the code. Debugging is great, but sometimes the scheduler
+            is affected by our breakpoints, and having understandable logs may help us getting rid of
+            some bugs.
+        }
+        @Steps {
+            @Step {
+                Let's grab our Reducer counter example, adding some error throwing to illustrate the
+                current example.
+
+                @Code(name: "CounterReducer.swift", file: Middleware-Reducer-Counter-01.swift)
+            }
+            @Step {
+                And the CounterView with no protection to avoid the throw.
+
+                @Code(name: "CounterView.swift", file: Middleware-Reducer-CounterView-02.swift)
+            }
+            @Step {
+                `addMiddleWare` can be added to the generated `Store` to trap all events, exactly
+                like on a classic Statostore — the closure receives the store, the `When`, and a
+                `forward` continuation. Logging is straightforward, either for terminal logging,
+                analytics, or crash reports.
+
+                @Code(name: "CounterView.swift", file: Middleware-Reducer-CounterView-03.swift)
+            }
+
+            Having a comprehensive crash and analytics reporting is mandatory in production apps.
+            A single entry point/middleware enables easy implementation for these features — and
+            since it's part of the shared `Statostore`/`ScopeImplementation` foundation, it applies
+            identically whether your scope is a hand-written class or a `@Reducer`-generated `Store`.
+
+            This is a different mechanism from `MiddlewareReducer` (documented alongside `@SubState`
+            in the Scopes tutorial): `addMiddleWare` sees every event a *single* scope sends to
+            itself; `MiddlewareReducer` lets a *parent* Reducer intercept events from its own child
+            scopes before they run. Reach for `addMiddleWare` for cross-cutting concerns like logging
+            on one scope, and `MiddlewareReducer` when a parent needs to react to what its children do.
+        }
+    }
+
+    @Section(title: "Built-in Library logging") {
+        @ContentAndMedia {
+            The error reporting added in the previous step is great. Terminal logging however is
+            unnecessary. Statoscope has a built-in feature for logging. See how to use it.
+        }
+        @Steps {
+            @Step {
+                Enable the logging globally in your app.
+
+                @Code(name: "App.swift", file: Middleware-Reducer-Counter-04.swift)
+            }
+            @Step {
+                Rather than eyeballing terminal output, the Reducer pattern's testing-first design
+                means you can assert directly on what the middleware observed — `addMiddleWare`
+                composes with `GIVEN`/`WHEN`/`THEN` like any other scope behavior.
+
+                @Code(name: "CounterTests.swift", file: Middleware-Reducer-Counter-05.swift)
+            }
+
+            The single entry point enables Statoscope to build many of its features internally.
+            A middleware can be added to any `Store` — hand-written or macro-generated — so you can
+            benefit from the same single entry point regardless of which pattern you're using.
+        }
+    }
+}
