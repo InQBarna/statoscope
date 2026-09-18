@@ -315,3 +315,233 @@ enum Tutorial05Reducer {
         // @extract:end Scopes-Reducer-Tests-02
     }
 }
+
+/// Tutorial 05, "Reacting to child events" section: the same News Feed example, now with
+/// `favorites` owned once by the root via `MiddlewareReducer` instead of duplicated in
+/// `NewsFeedListReducer` and `NewsFeedArticleReducer` above. Nested in its own namespace only
+/// so this file can compile both the "before" (duplicated, `Tutorial05Reducer` above) and
+/// "after" (deduplicated, here) versions side by side — the tutorial reader never sees this
+/// namespace, only the unqualified type names extracted from inside it.
+extension Tutorial05Reducer {
+
+    enum Favorites {
+
+        // @extract:begin Scopes-Reducer-NewsFeed-03
+        @Reducer
+        struct NewsFeedReducer: MiddlewareReducer {
+            struct State: Injectable {
+                static var defaultValue: State { State() }
+                var loadingFeatureToggles: Bool = true
+                var favorites: [Favorite] = []
+                @SubState var atList: NewsFeedListReducer.State?
+            }
+
+            enum When {
+                case systemLoadedScope
+                case featureTogglesLoaded(favoritesEnabled: Bool)
+                case toggleFavorite(id: String)
+            }
+
+            static func update(
+                _ when: When,
+                state: inout State,
+                effectsState: inout EffectsState<When>,
+                dependencies: ReducerDependencies
+            ) throws {
+                switch when {
+                case .systemLoadedScope:
+                    state.loadingFeatureToggles = true
+                    // The root is now the single owner of `favorites` — load it once here,
+                    // instead of every child loading its own copy on its own systemLoadedScope.
+                    let persistence: PersistenceProvider = try dependencies.resolve()
+                    state.favorites = try persistence.get()
+                    // Simulate loading feature toggles
+                    effectsState.enqueue(
+                        AnyEffect { true }  // Simulate favoritesEnabled = true
+                            .map { When.featureTogglesLoaded(favoritesEnabled: $0) }
+                    )
+
+                case .featureTogglesLoaded(let favoritesEnabled):
+                    state.loadingFeatureToggles = false
+                    // Create child scope with feature toggle parameter
+                    var listState = NewsFeedListReducer.State()
+                    listState.favoritesEnabled = favoritesEnabled
+                    state.atList = listState
+
+                case .toggleFavorite(let id):
+                    let date: DateProvider = try dependencies.resolve()
+                    let persistence: PersistenceProvider = try dependencies.resolve()
+
+                    if let favIndex = state.favorites.firstIndex(where: { $0.id == id }) {
+                        state.favorites.remove(at: favIndex)
+                    } else {
+                        state.favorites.append(Favorite(id: id, dateAdded: date.currentDate()))
+                    }
+                    try persistence.set(state.favorites)
+                }
+            }
+
+            // Both NewsFeedListReducer and NewsFeedArticleReducer send `.favorite(id:)` — this
+            // single updateSubstate catches it from either one, no matter how deep in the tree
+            // it was sent.
+            static func updateSubstate<Child: Reducer>(
+                _ childType: Child.Type,
+                childState: Child.State,
+                childWhen: Child.When,
+                parentState: State,
+                dependencies: ReducerDependencies
+            ) throws -> SubstateOutcome<When> {
+                if let listWhen = childWhen as? NewsFeedListReducer.When,
+                   case .favorite(let id) = listWhen {
+                    return .intercept(.toggleFavorite(id: id))
+                }
+                if let articleWhen = childWhen as? NewsFeedArticleReducer.When,
+                   case .favorite(let id) = articleWhen {
+                    return .intercept(.toggleFavorite(id: id))
+                }
+                return .pass
+            }
+        }
+        // @extract:end Scopes-Reducer-NewsFeed-03
+
+        // @extract:begin Scopes-Reducer-NewsFeedList-03
+        @Reducer
+        struct NewsFeedListReducer {
+            struct State: Injectable {
+                static var defaultValue: State { State() }
+                var favoritesEnabled: Bool = false
+                var loading: Bool = false
+                var loadedDTO: FeedListDTO?
+                @SubState var readingArticle: NewsFeedArticleReducer.State?
+
+                // No more local `favorites` copy — reads the root's canonical list directly.
+                // NewsFeedListReducer implements no MiddlewareReducer at all; it doesn't need
+                // to, since the root intercepts `.favorite` from this reducer's own When
+                // without any relay code here (see the next type, where Article sends the
+                // same event two levels further down and the root still catches it directly).
+                @SuperState var newsFeed: NewsFeedReducer.State
+            }
+
+            enum When {
+                case systemLoadedScope
+                case networkListDidFinish(FeedListDTO)
+                case navigateFromListToChild(id: String)
+                case favorite(id: String)
+            }
+
+            static func update(
+                _ when: When,
+                state: inout State,
+                effectsState: inout EffectsState<When>,
+                dependencies: ReducerDependencies
+            ) throws {
+                switch when {
+                case .systemLoadedScope:
+                    state.loading = true
+                    effectsState.enqueue(
+                        AnyEffect {
+                            FeedListDTO(articles: [
+                                ArticleDTO(id: "1", title: "Article 1", content: "Content 1"),
+                                ArticleDTO(id: "2", title: "Article 2", content: "Content 2")
+                            ])
+                        }
+                        .map(When.networkListDidFinish)
+                    )
+
+                case .networkListDidFinish(let dto):
+                    state.loading = false
+                    state.loadedDTO = dto
+
+                case .navigateFromListToChild(let id):
+                    // Create child article scope
+                    var articleState = NewsFeedArticleReducer.State()
+                    articleState.favoritesEnabled = state.favoritesEnabled
+                    articleState.id = id
+                    state.readingArticle = articleState
+
+                case .favorite:
+                    // Never reached: NewsFeedReducer.updateSubstate returns .intercept for this
+                    // event, so it stops there and this case never runs. Kept here only because
+                    // `When` must stay exhaustive — the case itself is still what the view sends.
+                    break
+                }
+            }
+        }
+        // @extract:end Scopes-Reducer-NewsFeedList-03
+
+        // @extract:begin Scopes-Reducer-NewsFeedArticle-03
+        @Reducer
+        struct NewsFeedArticleReducer {
+            struct State: Injectable {
+                static var defaultValue: State { State() }
+                var favoritesEnabled: Bool = false
+                var id: String = ""
+                var loading: Bool = false
+                var loadedDTO: ArticleDTO?
+
+                // Skips the direct parent (NewsFeedListReducer) and reads the root two levels
+                // up — safe here because `favorites` is declared directly on NewsFeedReducer's
+                // own State, not mirrored from somewhere else.
+                @SuperState var newsFeed: NewsFeedReducer.State
+            }
+
+            enum When {
+                case systemLoadedScope
+                case networkDidFinish(ArticleDTO)
+                case favorite(id: String)
+            }
+
+            static func update(
+                _ when: When,
+                state: inout State,
+                effectsState: inout EffectsState<When>,
+                dependencies: ReducerDependencies
+            ) throws {
+                switch when {
+                case .systemLoadedScope:
+                    let articleId = state.id  // Copy to avoid capturing inout parameter
+
+                    state.loading = true
+                    effectsState.enqueue(
+                        AnyEffect {
+                            ArticleDTO(id: articleId, title: "Article \(articleId)", content: "Content for \(articleId)")
+                        }
+                        .map(When.networkDidFinish)
+                    )
+
+                case .networkDidFinish(let dto):
+                    state.loading = false
+                    state.loadedDTO = dto
+
+                case .favorite:
+                    // Never reached: NewsFeedReducer.updateSubstate intercepts this event
+                    // before it gets here.
+                    break
+                }
+            }
+        }
+        // @extract:end Scopes-Reducer-NewsFeedArticle-03
+
+        final class MiddlewareReducerTests: XCTestCase {
+            // @extract:begin Scopes-Reducer-Tests-03
+            func testGrandchildFavoriteReachesRootAcrossTwoLevels() throws {
+                let fixedDate = Date(timeIntervalSince1970: 1000)
+
+                try NewsFeedReducer.Store.GIVEN(state: NewsFeedReducer.State()) { $0
+                    .injectObject(DateProvider { fixedDate })
+                    .injectObject(PersistenceProvider(get: { [] }, set: { _ in }))
+                }
+                .WHEN(.systemLoadedScope)
+                .WHEN_OlderEffectCompletes(with: .featureTogglesLoaded(favoritesEnabled: true))
+                .WHEN(\.children.atList, .navigateFromListToChild(id: "1"))
+                // Three levels apart: root -> atList -> readingArticle. NewsFeedListReducer
+                // implements no MiddlewareReducer at all, yet the root still intercepts this
+                // grandchild's event directly.
+                .WHEN(\.children.atList?.children.readingArticle, .favorite(id: "1"))
+                .THEN(\.state.favorites, equals: [Favorite(id: "1", dateAdded: fixedDate)])
+                .runTest()
+            }
+            // @extract:end Scopes-Reducer-Tests-03
+        }
+    }
+}

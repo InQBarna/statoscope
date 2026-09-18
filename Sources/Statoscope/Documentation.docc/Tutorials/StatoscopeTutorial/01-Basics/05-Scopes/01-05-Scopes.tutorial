@@ -119,4 +119,90 @@
             State scopes naturally align with screens, as navigating from a list to a detail typically opens a new scope. Statoscope’s scope and memory management is fully domain-controlled, meaning SwiftUI’s declarative syntax and navigation must adapt by mapping state and events to bindings or closures.
         }
     }
+
+    @Section(title: "Reacting to child events: HierarchialScopeMiddleWare") {
+        @ContentAndMedia {
+            Back in "Designing Scopes," splitting `NewsFeedList` and `NewsFeedArticle` apart
+            left favorites management duplicated across both — favoriting an article from the
+            detail view had no way to update the list's own copy. `@Subscope`/`@Superscope`
+            only move data in one direction each: a parent hands a value down when it creates a
+            child, and a child gets a read-only link back up. Neither lets a child's *event*
+            change what a parent owns. `HierarchialScopeMiddleWare` is the piece that does: a
+            parent intercepts an event from a child before deciding whether to let it through.
+        }
+        @Steps {
+            @Step {
+                Move `favorites` up to the root and make it the single owner. `NewsFeed`
+                conforms to `HierarchialScopeMiddleWare` and implements `updateSubscope`, which
+                runs for every event either child sends — matching `NewsFeedList.When.favorite`
+                or `NewsFeedArticle.When.favorite` and reacting by mutating `favorites`
+                directly. Since the children have nothing left to do with `.favorite`, this
+                simply returns without calling `event.forward()` — the event stops here instead
+                of reaching the child's own `update()`.
+
+                @Code(name: "NewsFeed.swift", file: Scopes-NewsFeed-03.swift)
+            }
+            @Step {
+                `updateSubscope` is more flexible than it might look: because it's an ordinary
+                instance method on the same class that owns `favorites`, it can mutate `self`
+                directly — no delegated event, no separate `update()` call to route through
+                (contrast this with the Reducer pattern's `MiddlewareReducer`, where
+                `parentState` is read-only and any reaction has to go through a `When` the
+                parent's own `update()` processes). `event.forward()` is an explicit call you
+                make yourself, so you choose the ordering: call it first to react *after* the
+                child has processed the event, last to react *before*, or not at all to consume
+                it, as done here.
+
+                That explicit ordering is exactly what a real app got wrong on the Reducer side
+                of this same library: a login screen reacted to a child's submit event, and a
+                guard inside the child's own handler for that *same* event read a parent-owned
+                flag the reaction had already flipped moments earlier — rejecting every
+                legitimate submit. `HierarchialScopeMiddleWare` doesn't remove that class of
+                bug, but it does make the ordering a decision you make explicitly at the
+                `event.forward()` call site, rather than a fixed rule baked into which case of an
+                enum you returned.
+
+                @Code(name: "NewsFeed.swift", file: Scopes-NewsFeed-03.swift)
+            }
+            @Step {
+                `NewsFeedList` drops its local `favorites` and the toggle/persist logic
+                entirely — `.favorite` is now dead code in its own `update()` (kept only
+                because `When` must stay exhaustive) and reads the shared list via
+                `@Superscope` instead. Notice `NewsFeedList` implements no
+                `HierarchialScopeMiddleWare` of its own: the root still intercepts events from
+                *its* child, `NewsFeedArticle`, two levels down, with no relay code needed
+                here. Every ancestor implementing `HierarchialScopeMiddleWare` is checked for
+                every descendant's event, regardless of depth.
+
+                @Code(name: "NewsFeedList.swift", file: Scopes-NewsFeedList-03.swift)
+            }
+            @Step {
+                `NewsFeedArticle` gets the same treatment, and its `@Superscope` skips its
+                direct parent (`NewsFeedList`) to read the root two levels up. Unlike the
+                Reducer pattern's `@SuperState` — a value snapshot copied at read time, which
+                can go stale if it's mirroring some other, independently-updated descendant's
+                data — `@Superscope` resolves to a **live reference** to the actual ancestor
+                object. There's no equivalent staleness trap to watch for here: skipping levels
+                is always safe, because there's nothing being copied or cached in between.
+
+                @Code(name: "NewsFeedArticle.swift", file: Scopes-NewsFeedArticle-03.swift)
+            }
+            @Step {
+                Proof it works: sending `.favorite(id:)` to `readingArticle` — two levels below
+                the root, through `atList` — still lands in the root's own `favorites`, with no
+                code at all in `NewsFeedList` to make that happen.
+
+                @Code(name: "ScopesTests.swift", file: Scopes-Tests-03.swift)
+            }
+
+            The same three tools from the Reducer tutorial apply here, just with class-based
+            names: a plain constructor parameter for a value fixed at creation time (like
+            `favoritesEnabled`), `@Superscope` for a child reading an ancestor's current value,
+            and `HierarchialScopeMiddleWare` for a child's event changing what an ancestor owns.
+            The mechanics differ — direct mutation instead of a delegated `When`, an explicit
+            `forward()` instead of a fixed `SubstateOutcome` — but the reason to reach for the
+            last one is identical: two scopes need to agree on something neither should have to
+            own twice.
+        }
+    }
 }

@@ -744,3 +744,172 @@ final class DefaultTriggerReducerTests: XCTestCase {
         XCTAssertEqual(child.state.executedEvents.count, 0, "No defaultTrigger means no automatic event")
     }
 }
+
+// MARK: - Skip-Level @SuperState Staleness Regression (Audit Issue #6)
+
+/// Leaf — skips its direct parent (StalenessMiddleReducer) to read the root two levels up.
+@Reducer
+struct StalenessLeafReducer {
+    struct State: Injectable {
+        static var defaultValue: State { State() }
+        @SuperState var root: StalenessRootReducer.State
+    }
+    enum When { case noop }
+    static func update(_ when: When, state: inout State, effectsState: inout EffectsState<When>, dependencies: ReducerDependencies) throws {}
+}
+
+/// Middle — owns a field the leaf reaches only through the root's stale-or-fresh mirror of it.
+@Reducer
+struct StalenessMiddleReducer {
+    struct State: Injectable {
+        static var defaultValue: State { State() }
+        var label: String = "initial"
+        @SubState var leaf: StalenessLeafReducer.State?
+    }
+    enum When {
+        case createLeaf
+        case setLabel(String)
+    }
+    static func update(_ when: When, state: inout State, effectsState: inout EffectsState<When>, dependencies: ReducerDependencies) throws {
+        switch when {
+        case .createLeaf: state.leaf = StalenessLeafReducer.State()
+        case .setLabel(let value): state.label = value
+        }
+    }
+}
+
+/// Root — implements MiddlewareReducer but selectively `.pass`es everything, so it never
+/// reprocesses (and never refreshes its own `_rawState.middle` mirror) in reaction to a
+/// descendant event. This is exactly what lets `_rawState.middle` go stale: nothing here is
+/// broken about `.pass` itself — a middleware that doesn't care about an event correctly leaves
+/// it alone — but a naive skip-level @SuperState read on the other side must still see current
+/// data regardless.
+@Reducer
+struct StalenessRootReducer: MiddlewareReducer {
+    struct State: Injectable {
+        static var defaultValue: State { State() }
+        @SubState var middle: StalenessMiddleReducer.State?
+    }
+    enum When { case createMiddle }
+    static func update(_ when: When, state: inout State, effectsState: inout EffectsState<When>, dependencies: ReducerDependencies) throws {
+        switch when {
+        case .createMiddle: state.middle = StalenessMiddleReducer.State()
+        }
+    }
+    static func updateSubstate<Child: Reducer>(
+        _ childType: Child.Type,
+        childState: Child.State,
+        childWhen: Child.When,
+        parentState: State,
+        dependencies: ReducerDependencies
+    ) throws -> SubstateOutcome<When> {
+        .pass
+    }
+}
+
+final class SkipLevelSuperStateStalenessTests: XCTestCase {
+
+    /// Reproduces Audit Issue #6: a leaf's skip-level @SuperState must reflect the middle
+    /// reducer's CURRENT state, not whatever the root's own cached mirror of it happened to be
+    /// the last time the root itself processed an event.
+    func testSkipLevelSuperStateReflectsLiveMiddleStateNotStaleRootMirror() throws {
+        let root = StalenessRootReducer.Store(initialState: StalenessRootReducer.State())
+        root.send(.createMiddle)
+
+        guard let middle = root.children.middle else {
+            XCTFail("Middle store not created")
+            return
+        }
+        middle.send(.createLeaf)
+
+        guard let leaf = middle.children.leaf else {
+            XCTFail("Leaf store not created")
+            return
+        }
+
+        // Mutate middle directly. Root's own updateSubstate `.pass`es this (correctly — it's
+        // not root's concern), so root never reprocesses and never refreshes its own
+        // `_rawState.middle` as a side effect of this send.
+        middle.send(.setLabel("updated"))
+
+        // The leaf's skip-level read must still see "updated", not the "initial" value frozen
+        // into the root's `_rawState` at creation time.
+        XCTAssertEqual(leaf.state.root.middle?.label, "updated")
+    }
+}
+
+// MARK: - .react Ordering Regression (Audit Issue #5)
+
+/// Child — reads a parent-owned flag via @SuperState, and records what its OWN update() sees
+/// for that flag while processing the very event the parent also reacts to.
+@Reducer
+struct OrderingChildReducer {
+    struct State: Injectable {
+        static var defaultValue: State { State() }
+        @SuperState var parent: OrderingParentReducer.State
+        var observedParentFlagDuringOwnUpdate: Bool?
+    }
+    enum When { case triggerEvent }
+    static func update(_ when: When, state: inout State, effectsState: inout EffectsState<When>, dependencies: ReducerDependencies) throws {
+        switch when {
+        case .triggerEvent:
+            state.observedParentFlagDuringOwnUpdate = state.parent.flag
+        }
+    }
+}
+
+/// Parent — reacts to the child's `.triggerEvent` by flipping `flag`, via `.react` (not
+/// `.intercept`), so the event still reaches the child's own `update()` afterward.
+@Reducer
+struct OrderingParentReducer: MiddlewareReducer {
+    struct State: Injectable {
+        static var defaultValue: State { State() }
+        var flag: Bool = false
+        @SubState var child: OrderingChildReducer.State?
+    }
+    enum When {
+        case createChild
+        case reactToChildTrigger
+    }
+    static func update(_ when: When, state: inout State, effectsState: inout EffectsState<When>, dependencies: ReducerDependencies) throws {
+        switch when {
+        case .createChild: state.child = OrderingChildReducer.State()
+        case .reactToChildTrigger: state.flag = true
+        }
+    }
+    static func updateSubstate<Child: Reducer>(
+        _ childType: Child.Type,
+        childState: Child.State,
+        childWhen: Child.When,
+        parentState: State,
+        dependencies: ReducerDependencies
+    ) throws -> SubstateOutcome<When> {
+        guard let when = childWhen as? OrderingChildReducer.When, case .triggerEvent = when else { return .pass }
+        return .react(.reactToChildTrigger)
+    }
+}
+
+final class ReactOrderingRegressionTests: XCTestCase {
+
+    /// Pins down Audit Issue #5 as an explicit, checked contract rather than only prose: a
+    /// parent's `.react` reaction to a child's event runs BEFORE that same event reaches the
+    /// child's own `update()` — so the child observes the POST-reaction value, not the
+    /// pre-reaction one, for anything it reads off the parent via @SuperState.
+    func testReactRunsBeforeChildsOwnUpdateForTheSameEvent() throws {
+        let parent = OrderingParentReducer.Store(initialState: OrderingParentReducer.State())
+        parent.send(.createChild)
+
+        guard let child = parent.children.child else {
+            XCTFail("Child store not created")
+            return
+        }
+
+        XCTAssertEqual(parent.state.flag, false)
+        child.send(.triggerEvent)
+
+        // The parent's reaction already flipped `flag` to true by the time the child's own
+        // update() ran for the very event that triggered it.
+        XCTAssertEqual(child.state.observedParentFlagDuringOwnUpdate, true)
+        XCTAssertEqual(parent.state.flag, true)
+    }
+}

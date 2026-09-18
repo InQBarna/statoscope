@@ -51,6 +51,13 @@
             
             The single entry point enables Statoscope to build many of its features internally.
             A middleware can be added to the Statostore so user can also benefit from the single entry point.
-        }   
+
+            This is a different mechanism from `HierarchialScopeMiddleWare` (see "Reacting to
+            child events: HierarchialScopeMiddleWare" in the Scopes tutorial): the middleware
+            here sees every event a *single* scope sends to itself; `HierarchialScopeMiddleWare`
+            lets a *parent* scope intercept events from its own child scopes before they run.
+            Reach for this middleware for cross-cutting concerns like logging on one scope, and
+            `HierarchialScopeMiddleWare` when a parent needs to react to what its children do.
+        }
     }
 }

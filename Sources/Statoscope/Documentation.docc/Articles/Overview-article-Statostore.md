@@ -333,3 +333,38 @@ final class NewsFeedArticle: Statostore, ObservableObject {
 `@Superscope` walks up the injection tree to find the nearest ancestor of the declared type — the same tree `@Injected`/`Injectable` dependency resolution uses (see Dependency Injection below), just resolving to a live scope instead of a plain value.
 
 Splitting scopes this way keeps each `State`/`When` focused on one concern, makes each scope independently testable via `GIVEN`/`WHEN`/`THEN`, and lets SwiftUI views compose the same way the scopes do — one view per scope, each observing only the state it owns. The tradeoff: state that's genuinely shared across siblings (like `favoritesEnabled` above) has to flow through `@Superscope`/`@Subscope` or dependency injection rather than living in one convenient place — usually a worthwhile trade once a screen has grown past two or three concerns, not something to reach for on day one.
+
+## Reacting to child events: HierarchialScopeMiddleWare
+
+`@Subscope`/`@Superscope` only move data in one direction each: a parent hands a value down when it creates a child, and a child gets a read-only link back up. Neither lets a child's *event* change what a parent owns. `HierarchialScopeMiddleWare` is for that: a parent intercepts an event from a child before deciding whether to let it through.
+
+Say favoriting an article needs to update a single, shared list of favorites — not a copy living separately in both `NewsFeedList` and `NewsFeedArticle`. Move ownership to the parent and let it intercept the child's event:
+
+```swift
+final class NewsFeedList: Statostore, ObservableObject, HierarchialScopeMiddleWare {
+    @Published var loadedArticles: [Article] = []
+    @Published var favorites: Set<String> = []
+    @Subscope var readingArticle: NewsFeedArticle?
+
+    // ...
+
+    // Runs for every event `readingArticle` sends, before it reaches the child's own update().
+    func updateSubscope<Child: ScopeImplementation>(_ event: SubscopeEvent<Child>) throws {
+        guard let articleEvent = event as? SubscopeEvent<NewsFeedArticle>,
+              case .favorite = articleEvent.when else {
+            try event.forward()
+            return
+        }
+        favorites.formSymmetricDifference([articleEvent.child.id])  // toggle membership
+        // The child no longer owns `favorites` at all, so this simply returns — never calling
+        // event.forward() — rather than letting an event the child has nothing left to do with
+        // reach its update() anyway.
+    }
+}
+```
+
+Unlike the Reducer pattern's `MiddlewareReducer`, where `parentState` is read-only and any reaction has to go through a `When` the parent's own `update()` processes, `updateSubscope` is an ordinary instance method — it can mutate `self` directly, no delegation required. And where `SubstateOutcome` fixes the ordering (`.react` always reacts before forwarding, `.intercept` never forwards), `event.forward()` is a call you make yourself: call it first to react *after* the child processes the event, last to react *before*, or not at all to consume it, as above.
+
+That flexibility doesn't remove the ordering pitfall, though — it just moves the decision point. A real app on the Reducer side of this same library reacted to a child's submit event, and a guard inside the child's own handler for that *same* event read a parent-owned flag the reaction had already flipped moments earlier, rejecting every legitimate submit. The `HierarchialScopeMiddleWare` equivalent is exactly as possible: react-then-forward means the child's own `update()` for that event runs *after* your reaction already changed the state it might be checking.
+
+One more contrast worth calling out: a child can point `@Superscope` past its direct parent, straight at any ancestor by type (`allHierarchialScopeMiddlewareParents()` walks the whole chain the same way, so an ancestor two levels up intercepts a grandchild's event with no relay code in the reducer in between). For the Reducer pattern's `@SuperState`, that skip-level read is only safe when the data lives directly on the target ancestor's own state — a value snapshot mirroring some *other* descendant's data can go stale. `@Superscope` has no such trap: it resolves to a **live reference** to the actual ancestor object, not a value copied at some point in time, so skipping levels is always safe here — there's nothing cached in between to go stale.

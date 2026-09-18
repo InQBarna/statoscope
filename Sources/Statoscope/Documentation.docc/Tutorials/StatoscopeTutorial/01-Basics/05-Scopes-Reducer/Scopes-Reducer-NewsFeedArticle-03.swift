@@ -7,11 +7,9 @@ struct NewsFeedArticleReducer {
         var loading: Bool = false
         var loadedDTO: ArticleDTO?
 
-        // Skips the direct parent (NewsFeedListReducer) and reads the root two levels up —
-        // safe here because `favorites` is declared directly on NewsFeedReducer's own State,
-        // not mirrored from somewhere else. Contrast with the callout in the tutorial text:
-        // reading a grandparent's *cached copy of a different descendant's* state is the
-        // pattern that goes stale.
+        // Skips the direct parent (NewsFeedListReducer) and reads the root two levels
+        // up — safe here because `favorites` is declared directly on NewsFeedReducer's
+        // own State, not mirrored from somewhere else.
         @SuperState var newsFeed: NewsFeedReducer.State
     }
 
@@ -44,8 +42,8 @@ struct NewsFeedArticleReducer {
             state.loadedDTO = dto
 
         case .favorite:
-            // Never reached: NewsFeedReducer.updateSubstate intercepts this event before it
-            // gets here — see the "Reacting to child events" section.
+            // Never reached: NewsFeedReducer.updateSubstate intercepts this event
+            // before it gets here.
             break
         }
     }

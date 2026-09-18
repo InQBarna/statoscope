@@ -384,7 +384,7 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
             AnySuperSlot(
                 inject: { store, state in
                     if let parentStore = resolveAncestor(Statoscope.Store<\(reducerType)>.self, from: store) {
-                        state.$\(prop.name) = SuperState(injectedValue: parentStore._rawState)
+                        state.$\(prop.name) = SuperState(injectedValue: parentStore.state)
                     }
                 }\(subscribeArg)
             )

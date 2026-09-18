@@ -8,10 +8,10 @@ struct NewsFeedListReducer {
         @SubState var readingArticle: NewsFeedArticleReducer.State?
 
         // No more local `favorites` copy — reads the root's canonical list directly.
-        // NewsFeedListReducer implements no MiddlewareReducer at all; it doesn't need to,
-        // since the root intercepts `.favorite` from this reducer's own When without any
-        // relay code here (see the next step, where Article sends the same event two levels
-        // further down and the root still catches it directly).
+        // NewsFeedListReducer implements no MiddlewareReducer at all; it doesn't need
+        // to, since the root intercepts `.favorite` from this reducer's own When
+        // without any relay code here (see the next type, where Article sends the
+        // same event two levels further down and the root still catches it directly).
         @SuperState var newsFeed: NewsFeedReducer.State
     }
 
@@ -53,9 +53,9 @@ struct NewsFeedListReducer {
             state.readingArticle = articleState
 
         case .favorite:
-            // Never reached: NewsFeedReducer.updateSubstate returns .intercept for this event,
-            // so it stops there and this case never runs. Kept here only because `When` must
-            // stay exhaustive — the case itself is still what the view sends.
+            // Never reached: NewsFeedReducer.updateSubstate returns .intercept for this
+            // event, so it stops there and this case never runs. Kept here only because
+            // `When` must stay exhaustive — the case itself is still what the view sends.
             break
         }
     }

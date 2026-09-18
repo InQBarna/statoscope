@@ -5,9 +5,9 @@
 
 /// Protocol enabling type-erased dispatch of `updateSubstate` across the reducer hierarchy.
 ///
-/// Every `@Reducer`-generated `Store` class and `ReducerStore<R>` conforms to this protocol.
-/// It allows any ancestor's `updateSubstate` to be called when any descendant sends an event,
-/// regardless of how deep in the hierarchy the event originates.
+/// Every `@Reducer`-generated `Store` class conforms to this protocol. It allows any ancestor's
+/// `updateSubstate` to be called when any descendant sends an event, regardless of how deep in
+/// the hierarchy the event originates.
 ///
 /// ## How it works
 /// When a grandchild sends an event:

@@ -52,8 +52,9 @@ struct NewsFeedReducer: MiddlewareReducer {
         }
     }
 
-    // Both NewsFeedListReducer and NewsFeedArticleReducer send `.favorite(id:)` — this single
-    // updateSubstate catches it from either one, no matter how deep in the tree it was sent.
+    // Both NewsFeedListReducer and NewsFeedArticleReducer send `.favorite(id:)` — this
+    // single updateSubstate catches it from either one, no matter how deep in the tree
+    // it was sent.
     static func updateSubstate<Child: Reducer>(
         _ childType: Child.Type,
         childState: Child.State,

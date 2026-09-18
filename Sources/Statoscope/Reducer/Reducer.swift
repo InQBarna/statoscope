@@ -12,14 +12,20 @@ import Foundation
 /// Reducers provide a simpler, more constrained alternative to Statostore for cases
 /// where you want centralized state management with a single state struct.
 ///
+/// Don't conform to this protocol by hand — annotate your type with `@Reducer` instead. The
+/// macro generates the `_childSlots`/`_superSlots`/`ChildStores` machinery this protocol
+/// requires (so `@SubState`/`@SuperState` composition works) and a `Store` typealias for the
+/// shared, generic `Store<R>` class that actually runs it.
+///
 /// ## Example:
 /// ```swift
-/// struct CounterState {
-///     var count: Int = 0
-///     var isLoading: Bool = false
-/// }
+/// @Reducer
+/// struct CounterReducer {
+///     struct State {
+///         var count: Int = 0
+///         var isLoading: Bool = false
+///     }
 ///
-/// struct CounterReducer: Reducer {
 ///     enum When {
 ///         case increment
 ///         case loadData
@@ -28,7 +34,7 @@ import Foundation
 ///
 ///     static func update(
 ///         _ when: When,
-///         state: inout CounterState,
+///         state: inout State,
 ///         effectsState: inout EffectsState<When>,
 ///         dependencies: ReducerDependencies
 ///     ) throws {
@@ -51,8 +57,10 @@ import Foundation
 ///     }
 /// }
 ///
-/// // Use with ReducerStore:
-/// let store = ReducerStore<CounterReducer>(initialState: CounterState())
+/// // The macro generates CounterReducer.Store:
+/// let store = CounterReducer.Store(initialState: CounterReducer.State())
+/// store.send(.increment)
+/// print(store.state.count) // 1
 /// ```
 public protocol Reducer {
     /// The event type for this reducer
