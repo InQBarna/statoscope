@@ -370,12 +370,24 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
 
         for prop in superStateProperties {
             let reducerType = inferReducerType(from: prop.type)
+            let subscribeArg = prop.observed ? """
+            ,
+                subscribe: { store in
+                    guard let parentStore = resolveAncestor(Statoscope.Store<\(reducerType)>.self, from: store),
+                          let childStore = store as? Store else { return nil }
+                    return parentStore.objectWillChange.sink { [weak childStore] _ in
+                        childStore?.objectWillChange.send()
+                    }
+                }
+            """ : ""
             superSlotEntries.append("""
-            AnySuperSlot(inject: { store, state in
+            AnySuperSlot(
+                inject: { store, state in
                     if let parentStore = resolveAncestor(Statoscope.Store<\(reducerType)>.self, from: store) {
                         state.$\(prop.name) = SuperState(injectedValue: parentStore._rawState)
                     }
-                })
+                }\(subscribeArg)
+            )
             """)
         }
 
@@ -421,12 +433,11 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
         subStateProperties: [(name: String, type: String)]
     ) -> [DeclSyntax] {
         guard !subStateProperties.isEmpty else { return [] }
-        return subStateProperties.flatMap { prop -> [DeclSyntax] in
+        return subStateProperties.map { prop -> DeclSyntax in
             let reducerType = inferReducerType(from: prop.type)
-            let inlineMethod = "build\(prop.name.capitalized)View"
-            let navMethod = "build\(prop.name.capitalized)PresentedView"
-            let inlineDecl = DeclSyntax("""
-            public static func \(raw: inlineMethod)<V: _StatoscopeView>(
+            let method = "build\(prop.name.capitalized)View"
+            return DeclSyntax("""
+            public static func \(raw: method)<V: _StatoscopeView>(
                 content: @escaping (\(raw: prop.type), @escaping (\(raw: reducerType).When) -> Void) -> V
             ) -> some _StatoscopeView {
                 _ReducerChildViewConnector<Store, Statoscope.Store<\(raw: reducerType)>, V>(
@@ -435,19 +446,6 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
                 )
             }
             """)
-            let navDecl = DeclSyntax("""
-            public static func \(raw: navMethod)<V: _StatoscopeView>(
-                dismissWhen: When,
-                content: @escaping (\(raw: prop.type), @escaping (\(raw: reducerType).When) -> Void) -> V
-            ) -> some _StatoscopeView {
-                _ReducerChildNavigationConnector<Store, Statoscope.Store<\(raw: reducerType)>, V>(
-                    storeKeyPath: \\.children.\(raw: prop.name),
-                    dismissWhen: dismissWhen,
-                    content: content
-                )
-            }
-            """)
-            return [inlineDecl, navDecl]
         }
     }
 }

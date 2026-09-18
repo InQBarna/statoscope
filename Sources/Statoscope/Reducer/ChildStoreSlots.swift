@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import Combine
 
 /// Protocol for the generated `ChildStores` accessor struct.
 /// The `@Reducer` macro generates a conforming struct with typed properties for each `@SubState`.
@@ -71,7 +72,20 @@ public struct AnySuperSlot<ChildState> {
     /// Injects into `state`. `store` is the child `Store<R>` passed as `AnyObject`.
     public let inject: (AnyObject, inout ChildState) -> Void
 
-    public init(inject: @escaping (AnyObject, inout ChildState) -> Void) {
+    /// Only non-nil for a `@SuperState(observed: true)` slot. Called exactly once, when the
+    /// child `Store` is created, with the child `Store<R>` passed as `AnyObject`. Resolves the
+    /// referenced ancestor and, if found, subscribes to its `objectWillChange`, relaying it to
+    /// the child's own `objectWillChange` so SwiftUI views observing the child re-render when
+    /// the ancestor's state changes — mirroring `@Superscope`'s classic relay. Returns the
+    /// `AnyCancellable` for the caller to retain for the child's lifetime, or `nil` if no
+    /// matching ancestor is currently resolvable.
+    public let subscribe: ((AnyObject) -> AnyCancellable?)?
+
+    public init(
+        inject: @escaping (AnyObject, inout ChildState) -> Void,
+        subscribe: ((AnyObject) -> AnyCancellable?)? = nil
+    ) {
         self.inject = inject
+        self.subscribe = subscribe
     }
 }

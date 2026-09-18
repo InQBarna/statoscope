@@ -193,17 +193,6 @@ final class ReducerMacroTests: XCTestCase {
                         content: content
                     )
                 }
-
-                public static func buildChildPresentedView<V: _StatoscopeView>(
-                    dismissWhen: When,
-                    content: @escaping (Child.State, @escaping (Child.When) -> Void) -> V
-                ) -> some _StatoscopeView {
-                    _ReducerChildNavigationConnector<Store, Statoscope.Store<Child>, V>(
-                        storeKeyPath: \.children.child,
-                        dismissWhen: dismissWhen,
-                        content: content
-                    )
-                }
             }
 
             extension Parent: Reducer {

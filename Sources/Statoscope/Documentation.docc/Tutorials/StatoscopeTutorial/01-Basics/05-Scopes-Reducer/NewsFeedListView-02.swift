@@ -12,15 +12,15 @@ struct NewsFeedListView: StoreViewProtocol {
             }
         }
         .overlay { if model.loading { ProgressView() } }
-        // The @Reducer macro generates this from `@SubState var readingArticle` on
-        // NewsFeedListReducer.State — no manual Binding, no manual NavigationLink.
-        // (Requires adding a `.userDismissedArticle` When case that sets
-        // `state.readingArticle = nil` in update().)
-        .background {
-            NewsFeedListReducer.buildReadingArticlePresentedView(
-                dismissWhen: .userDismissedArticle,
-                content: NewsFeedArticleView.init
-            )
+        // `NewsFeedListReducer.bind` builds the Binding from `readingArticle` (requires adding a
+        // `.userDismissedArticle` When case that sets `state.readingArticle = nil` in update());
+        // the macro-generated `buildReadingArticleView` resolves the live child store — safe
+        // here regardless of nesting depth, since it resolves through the shared registry
+        // rather than a level-specific @EnvironmentObject.
+        .navigationDestination(
+            isPresented: NewsFeedListReducer.bind(\.readingArticle, in: model, dismissWhen: .userDismissedArticle, send: send)
+        ) {
+            NewsFeedListReducer.buildReadingArticleView(content: NewsFeedArticleView.init)
         }
     }
 }

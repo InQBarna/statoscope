@@ -284,6 +284,53 @@ enum DeepHierarchy {
     }
 }
 
+// MARK: - @SuperState(observed: true) relay fixture
+
+enum ObservedSuperState {
+    @Reducer
+    struct ParentReducer {
+        struct State: Injectable {
+            static var defaultValue: State { State() }
+            var counter: Int = 0
+            @SubState var child: ChildReducer.State?
+        }
+        enum When {
+            case increment
+            case createChild
+        }
+        static func update(
+            _ when: When,
+            state: inout State,
+            effectsState: inout EffectsState<When>,
+            dependencies: ReducerDependencies
+        ) throws {
+            switch when {
+            case .increment: state.counter += 1
+            case .createChild: state.child = ChildReducer.State()
+            }
+        }
+    }
+
+    @Reducer
+    struct ChildReducer {
+        struct State: Injectable {
+            static var defaultValue: State { State() }
+            @SuperState(observed: true) var parent: ParentReducer.State
+        }
+        enum When { case noop }
+        static func update(
+            _ when: When,
+            state: inout State,
+            effectsState: inout EffectsState<When>,
+            dependencies: ReducerDependencies
+        ) throws {
+            switch when {
+            case .noop: break
+            }
+        }
+    }
+}
+
 // MARK: - Test Cases
 
 /// Tests for Reducer pattern with @Reducer macro
@@ -539,7 +586,7 @@ final class ReducerTests: XCTestCase {
     // When a parent reassigns a @SubState slot that already has a live child store,
     // the old store is replaced with a fresh one carrying the new state, and any
     // grandchild stores that existed in the old child are migrated to the new child.
-    func testReassignChildStateMigratesGrandchildren() {
+    func testReassignChildStateDiscardsGrandchildren() {
         let parent = DeepHierarchy.ParentReducer.Store(initialState: DeepHierarchy.ParentReducer.State())
 
         // Create child, then open a grandchild inside it.
@@ -554,7 +601,8 @@ final class ReducerTests: XCTestCase {
         grandchildStore?.send(.setLabel("original"))
         XCTAssertEqual(grandchildStore?.state.label, "original")
 
-        // Reassign the child slot (Pattern 3): parent creates a fresh child state.
+        // Reassign the child slot (already non-nil, replaced by a different value): parent
+        // creates a fresh child state with no grandchild of its own.
         parent.send(.replaceChild(newValue: 99))
 
         guard let child2 = parent.children.child else {
@@ -563,9 +611,10 @@ final class ReducerTests: XCTestCase {
         }
         XCTAssertFalse(child1 === child2, "child store should be a new instance")
         XCTAssertEqual(child2.state.value, 99, "new child state carries the replacement value")
-        // Grandchild store is migrated from the old child to the new child.
-        XCTAssertNotNil(child2.children.grandchild, "grandchild store should survive child replacement via migration")
-        XCTAssertEqual(child2.children.grandchild?.state.label, "original", "migrated grandchild retains its state")
+        // Reassigning a child discards its previous subtree outright — no grandchild
+        // migration. A reducer that wants to preserve something across being recreated is
+        // responsible for restoring it itself (e.g. in its own defaultWhen).
+        XCTAssertNil(child2.children.grandchild, "grandchild store should NOT survive child replacement")
     }
 
     // MARK: - Pattern 4: new child state with pre-populated @SubState descendants
@@ -584,5 +633,30 @@ final class ReducerTests: XCTestCase {
         XCTAssertNotNil(parent.children.child, "child store should be created")
         XCTAssertNotNil(parent.children.child?.children.grandchild,
                         "grandchild store should be created recursively from the pre-populated initial state")
+    }
+
+    // MARK: - @SuperState(observed: true) relay
+
+    // A child declaring @SuperState(observed: true) should have its own objectWillChange fire
+    // whenever the referenced ancestor's state changes — even though nothing about the child's
+    // OWN _rawState changed — so SwiftUI views observing only the child still refresh.
+    func testObservedSuperStateRelaysAncestorChanges() {
+        let parent = ObservedSuperState.ParentReducer.Store(initialState: ObservedSuperState.ParentReducer.State())
+        parent.send(.createChild)
+
+        guard let child = parent.children.child else {
+            XCTFail("child store missing after createChild")
+            return
+        }
+
+        var notificationCount = 0
+        let cancellable = child.objectWillChange.sink { _ in notificationCount += 1 }
+
+        parent.send(.increment)
+
+        XCTAssertEqual(notificationCount, 1, "child's objectWillChange should fire when the observed ancestor changes")
+        XCTAssertEqual(child.state.parent.counter, 1, "child's @SuperState snapshot reflects the new ancestor value")
+
+        cancellable.cancel()
     }
 }

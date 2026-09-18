@@ -102,10 +102,13 @@
                 @Code(name: "NewsFeedListView.swift", file: NewsFeedListView-01.swift)
             }
             @Step {
-                The macro-generated `buildReadingArticlePresentedView(dismissWhen:content:)` —
+                `NewsFeedListReducer.bind(_:in:dismissWhen:send:)` replaces the hand-built
+                `Binding`, and the macro-generated `buildReadingArticleView(content:)` —
                 generated from the `@SubState var readingArticle` declared a few steps ago —
-                replaces all of that: the `Binding`, the `NavigationLink`, and the environment
-                lookup.
+                replaces the manual environment lookup for the child store. Pair it with
+                whichever presentation modifier fits — `.navigationDestination` here, or
+                `.sheet`/`.fullScreenCover`/`NavigationLink` elsewhere — it's safe as content
+                for any of them, at any nesting depth.
 
                 @Code(name: "NewsFeedListView.swift", file: NewsFeedListView-02.swift)
             }

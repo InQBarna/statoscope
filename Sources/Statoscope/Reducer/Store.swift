@@ -44,13 +44,10 @@ public final class Store<R: Reducer>: Statostore, ObservableObject {
     /// Child store cache — keyed by `AnyChildSlot.key`. Managed during `update()`.
     var _childCache: [AnyHashable: AnyObject] = [:]
 
-    // Used by applyChildSlots to migrate grandchildren when a child store is replaced.
-    fileprivate func migrateGrandchildren(from oldStore: any _ChildCacheable) {
-        _childCache = oldStore._childCache
-        for grandchild in _childCache.values {
-            (grandchild as? any InjectionTreeNode)?._parentNode = self
-        }
-    }
+    /// Retains the `AnyCancellable`s from `@SuperState(observed: true)` relays for this
+    /// store's lifetime. Populated exactly once, in `_wireSuperSlots()`, when this store is
+    /// created as someone's child.
+    private var _superObservers: [AnyCancellable] = []
 
     // Recursively applies child slots using `initialState` (passed by the caller) rather
     // than reading _rawState, so the caller controls which state drives the recursion.
@@ -115,34 +112,34 @@ public final class Store<R: Reducer>: Statostore, ObservableObject {
     // _rawState is committed before defaultTrigger so that any @SuperState read inside
     // the child's first update already sees the updated parent state.
     //
-    // Pattern 3 — reassign (dirty, old child exists): replace with fresh store and migrate
-    //   grandchildren so they survive. triggerDefault is NOT fired (child was already live).
-    // Pattern 1/4 — new child (dirty, no old child): create store, recursively initialize
-    //   any @SubState descendants already in the initial state (dirty flags are read here,
-    //   before the state getter would reset them via injectIntoParent), then fire triggerDefault.
+    // Reassigning an already-non-nil @SubState is treated exactly like creating a brand-new
+    // one: the previous child Store (and everything nested under it) is discarded outright —
+    // no grandchild migration, no "carry the old live subtree over" special case. A recreated
+    // child gets a fresh Store, its own @SubState descendants are recursively initialized from
+    // whatever the newly-assigned State specifies, and triggerDefault fires on it exactly as it
+    // would for a genuinely new child. If a reducer wants to preserve something across being
+    // recreated, that's its own responsibility to restore in its own defaultWhen (e.g. re-fetch
+    // from a dependency), not something the framework carries over silently on its behalf.
     private func applyChildSlots(_ mutableState: inout R.State, triggerDefaults: Bool) {
         var newChildren: [(AnyObject, AnyChildSlot<R.State>)] = []
         for slot in R._childSlots {
             guard slot.isDirty(mutableState) else { continue }
             if slot.isPresent(mutableState) {
-                let oldChild = _childCache[slot.key]
                 let child = slot.create(mutableState)
                 if let childNode = child as? any InjectionTreeNode {
                     childNode._parentNode = self
                 }
-                if let oldCacheable = oldChild as? any _ChildCacheable,
-                   let newStore = child as? any _ChildCacheable {
-                    // Pattern 3: replacing existing child — migrate grandchildren.
-                    newStore.migrateGrandchildren(from: oldCacheable)
-                } else {
-                    // Pattern 1/4: brand-new child — recursively initialize descendants from
-                    // the initial state while dirty flags are still set, then schedule triggerDefault.
-                    (child as? any _ChildCacheable)?._applyChildSlotsRecursively(
-                        state: slot.extractChildState(mutableState),
-                        triggerDefaults: false
-                    )
-                    newChildren.append((child, slot))
-                }
+                // Wire any @SuperState(observed: true) relays now that the child's parent
+                // link is established — exactly once, at child-creation time.
+                (child as? any _SuperSlotWireable)?._wireSuperSlots()
+                // Recursively initialize any @SubState descendants already present in the
+                // initial state (dirty flags are read here, before the state getter would
+                // reset them via injectIntoParent), then schedule triggerDefault.
+                (child as? any _ChildCacheable)?._applyChildSlotsRecursively(
+                    state: slot.extractChildState(mutableState),
+                    triggerDefaults: false
+                )
+                newChildren.append((child, slot))
                 _childCache[slot.key] = child
             } else {
                 _childCache.removeValue(forKey: slot.key)
@@ -164,15 +161,32 @@ public final class Store<R: Reducer>: Statostore, ObservableObject {
     }
 }
 
-// MARK: - _ChildCacheable (fileprivate — grandchild migration support)
+// MARK: - _ChildCacheable (fileprivate — recursive descendant initialization support)
 
 fileprivate protocol _ChildCacheable: AnyObject {
-    var _childCache: [AnyHashable: AnyObject] { get }
-    func migrateGrandchildren(from oldStore: any _ChildCacheable)
     func _applyChildSlotsRecursively(state: Any, triggerDefaults: Bool)
 }
 
 extension Store: _ChildCacheable {}
+
+// MARK: - _SuperSlotWireable (fileprivate — @SuperState(observed: true) relay support)
+
+fileprivate protocol _SuperSlotWireable: AnyObject {
+    func _wireSuperSlots()
+}
+
+extension Store: _SuperSlotWireable {
+    /// Subscribes to each `@SuperState(observed: true)` slot's ancestor exactly once, so this
+    /// store's `objectWillChange` fires whenever the referenced ancestor's state changes —
+    /// even though nothing about this store's own `_rawState` changed. Slots without
+    /// `observed: true` have `subscribe == nil` and are skipped.
+    fileprivate func _wireSuperSlots() {
+        for slot in R._superSlots {
+            guard let subscribe = slot.subscribe, let cancellable = subscribe(self) else { continue }
+            _superObservers.append(cancellable)
+        }
+    }
+}
 
 // MARK: - Injectable (when State: Injectable)
 
