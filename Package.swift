@@ -21,6 +21,8 @@ let package = Package(
             name: "StatoscopeTesting",
             targets: ["StatoscopeTesting"]
         )
+        // StatoscopeDemos intentionally has no product — it's internal-only demo/preview code
+        // for working on Statoscope itself, never a dependency consumer apps link against.
     ],
     dependencies: [
         // .package(url: "https://github.com/realm/SwiftLint", from: "0.0.0")
@@ -37,6 +39,15 @@ let package = Package(
             ],
             path: "Sources/Statoscope"
             // plugins: [.plugin(name: "SwiftLintBuildToolPlugin", package: "SwiftLintPlugins")]
+        ),
+        // Internal-only demo/preview code (e.g. EnvironmentInjectionCrashDemo.swift) — kept out
+        // of the "Statoscope" target so it's never part of a consumer app's build graph. No
+        // product exposes this target; it exists purely so `swift test`/Xcode previews still
+        // work when developing Statoscope itself.
+        .target(
+            name: "StatoscopeDemos",
+            dependencies: ["Statoscope"],
+            path: "Sources/StatoscopeDemos"
         ),
         .testTarget(
             name: "StatoscopeTests",

@@ -329,3 +329,59 @@ struct NewsFeedArticleReducer {
 `@SuperState` is a **value snapshot**, not a live reference — it's read-only, so assigning to it is a compile error. It resolves the same way `@ReducerInjected`/`ReducerDependencies` resolve a plain dependency (see Dependency Injection), just yielding a scope's state instead of an arbitrary value.
 
 Splitting scopes this way keeps each `State`/`When` focused on one concern, makes each scope independently testable via `GIVEN`/`WHEN`/`THEN`, and lets SwiftUI views compose the same way the scopes do. The tradeoff is the same one classic Statostore composition makes: state that's genuinely shared across siblings (like `favoritesEnabled` above) has to flow through `@SuperState`/`@SubState` or dependency injection rather than living in one convenient place — usually worthwhile once a screen has grown past two or three concerns, not something to reach for on day one.
+
+## Reducers talking to each other: MiddlewareReducer
+
+`@SubState`/`@SuperState` only move data in one direction each: a parent hands a value down when it creates a child, and a child can read a read-only snapshot of an ancestor. Neither lets a child's *event* change what a parent owns. That's what `MiddlewareReducer` is for: a parent intercepts an event from a child **before** the child processes it, and reacts on its own `update()` instead.
+
+Say favoriting an article needs to update a single, shared list of favorites — not a copy living separately in both `NewsFeedListReducer` and `NewsFeedArticleReducer`. Move ownership to the parent and let it intercept the child's event:
+
+```swift
+@Reducer
+struct NewsFeedListReducer: MiddlewareReducer {
+    struct State: Injectable {
+        static var defaultValue: State { State() }
+        var loadedArticles: [Article] = []
+        var favorites: Set<String> = []
+        @SubState var readingArticle: NewsFeedArticleReducer.State?
+    }
+
+    enum When {
+        case favorited(id: String)
+        // ...
+    }
+
+    static func update(
+        _ when: When,
+        state: inout State,
+        effectsState: inout EffectsState<When>,
+        dependencies: ReducerDependencies
+    ) throws {
+        switch when {
+        case .favorited(let id):
+            state.favorites.formSymmetricDifference([id])  // toggle membership
+        }
+    }
+
+    // Runs BEFORE `readingArticle`'s own update() sees `.favorite` — see the ordering note below.
+    static func updateSubstate<Child: Reducer>(
+        _ childType: Child.Type,
+        childState: Child.State,
+        childWhen: Child.When,
+        parentState: State,
+        dependencies: ReducerDependencies
+    ) throws -> SubstateOutcome<When> {
+        guard let articleWhen = childWhen as? NewsFeedArticleReducer.When,
+              case .favorite = articleWhen else { return .pass }
+        // The child no longer owns `favorites` at all, so consume the event here rather
+        // than still forwarding it to a child that has nothing left to do with it.
+        return .intercept(.favorited(id: childState.article?.id ?? ""))
+    }
+}
+```
+
+`updateSubstate` returns a `SubstateOutcome<When>`, one of three cases: `.pass` (not this reducer's concern, forward the event to the child as usual), `.react(when)` (send `when` to this reducer's own `update()`, **then still forward** the original event to the child), or `.intercept(when)` (send `when`, but do **not** forward it — used above, since the child has nothing left to react to). Reach for `.intercept` whenever forwarding afterward would be pointless or unsafe — most commonly because the reaction just replaced or tore down the very child subtree the event came from.
+
+The parenthetical above — "runs before the child's own `update()`" — is not a minor implementation detail. If a child's own handler for that same event reads a value the parent's `.react`/`.intercept` reaction just changed (say, a `submitting` flag computed from a parent-owned field), it will see the value *after* the reaction already ran, not before, because the reaction happens first. A guard like `!state.submitting` inside the handler for the very event that flips `submitting` to `true` will reject every legitimate call. If a child needs a "not already in progress" guard, it needs its own, locally-owned flag — not one read live off the parent.
+
+One more thing worth calling out about `@SuperState` combined with `MiddlewareReducer`: a child can point `@SuperState` past its direct parent, straight at any ancestor by type — `NewsFeedArticleReducer` could declare `@SuperState var rootFeed: NewsFeedReducer.State` even if its direct parent is `NewsFeedListReducer`, and it would resolve correctly (`MiddlewareReducer`'s own event-interception works the same way — an ancestor two levels up can intercept a grandchild's event with no relay code in the reducer in between). That skip-level read is safe *only* when the data lives directly on the target ancestor's own `State` — an ancestor's state is committed the instant its own `update()` returns, so a snapshot of it is never stale. It is **not** safe to skip a level to read a field that itself merely mirrors some *other*, independently-updated descendant's data: that mirrored copy only refreshes when the reducer holding it processes an event of its own, which can leave it stale exactly when it matters. Always point `@SuperState` at whichever reducer actually **owns** the data.
