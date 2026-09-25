@@ -61,15 +61,15 @@ struct NewsFeedReducer: MiddlewareReducer {
         childWhen: Child.When,
         parentState: State,
         dependencies: ReducerDependencies
-    ) throws -> SubstateOutcome<When> {
+    ) throws -> When? {
         if let listWhen = childWhen as? NewsFeedListReducer.When,
            case .favorite(let id) = listWhen {
-            return .intercept(.toggleFavorite(id: id))
+            return .toggleFavorite(id: id)
         }
         if let articleWhen = childWhen as? NewsFeedArticleReducer.When,
            case .favorite(let id) = articleWhen {
-            return .intercept(.toggleFavorite(id: id))
+            return .toggleFavorite(id: id)
         }
-        return .pass
+        return nil
     }
 }

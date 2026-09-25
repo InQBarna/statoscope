@@ -42,8 +42,8 @@ struct NewsFeedArticleReducer {
             state.loadedDTO = dto
 
         case .favorite:
-            // Never reached: NewsFeedReducer.updateSubstate intercepts this event
-            // before it gets here.
+            // Same no-op as NewsFeedListReducer's own `.favorite` case above —
+            // NewsFeedReducer.updateSubstate reacts to it after this runs.
             break
         }
     }

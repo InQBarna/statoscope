@@ -204,8 +204,8 @@ extension Store: ReducerDispatchable {
         when: Any,
         parentState: Parent.State,
         dependencies: ReducerDependencies
-    ) throws -> SubstateOutcome<Parent.When> {
-        guard let typedWhen = when as? R.When else { return .pass }
+    ) throws -> Parent.When? {
+        guard let typedWhen = when as? R.When else { return nil }
         return try Parent.updateSubstate(
             R.self,
             childState: state,
@@ -230,35 +230,27 @@ extension Store: HierarchialScopeMiddleWare where R: MiddlewareReducer {
     public func updateSubscope<Child: ScopeImplementation>(
         _ event: SubscopeEvent<Child>
     ) throws {
-        var outcome: SubstateOutcome<R.When> = .pass
+        // Forward first: the child's own update() always runs before any ancestor reacts, so a
+        // reaction that goes on to destroy or replace this child subtree can never race with a
+        // stale event still being delivered into it — that race is why this order was chosen.
+        try event.forward()
 
-        if let dispatchable = event.child as? any ReducerDispatchable,
-           ObjectIdentifier(dispatchable as AnyObject) != ObjectIdentifier(self) {
-            // updateSubstate is read-only over parentState: it only decides, it never mutates.
-            // Any reaction comes back through the returned SubstateOutcome and is applied by
-            // `send(delegateWhen)` below, which routes through update() like any other event.
-            outcome = try dispatchable._callUpdateSubstate(
-                R.self,
-                when: event.when,
-                parentState: state,
-                dependencies: ReducerDependenciesImpl(node: self, parentStore: self)
-            )
+        guard let dispatchable = event.child as? any ReducerDispatchable,
+              ObjectIdentifier(dispatchable as AnyObject) != ObjectIdentifier(self) else {
+            return
         }
 
-        switch outcome {
-        case .pass:
-            try event.forward()
-        case .react(let delegateWhen):
-            // Reaction doesn't invalidate the child — send it, then still forward.
+        // updateSubstate is read-only over parentState: it only decides, it never mutates.
+        // childState here (read inside _callUpdateSubstate) is already the child's post-update
+        // state, since event.forward() above already ran. Any reaction routes through
+        // send(delegateWhen) below, which applies it via update() like any other event.
+        if let delegateWhen = try dispatchable._callUpdateSubstate(
+            R.self,
+            when: event.when,
+            parentState: state,
+            dependencies: ReducerDependenciesImpl(node: self, parentStore: self)
+        ) {
             send(delegateWhen)
-            try event.forward()
-        case .intercept(let delegateWhen):
-            // Reaction may have invalidated the child's subtree — consume the event,
-            // do NOT forward it. Forwarding here would deliver `event.when` into state
-            // that updateSubstate itself may have just torn down or replaced.
-            if let delegateWhen {
-                send(delegateWhen)
-            }
         }
     }
 }

@@ -33,14 +33,14 @@ struct ParentMiddlewareReducer: MiddlewareReducer {
         childWhen: Child.When,
         parentState: State,
         dependencies: ReducerDependencies
-    ) throws -> SubstateOutcome<When> {
-        guard let when = childWhen as? ChildReducer.When else { return .pass }
+    ) throws -> When? {
+        guard let when = childWhen as? ChildReducer.When else { return nil }
 
         switch when {
         case .taskCompleted(let task):
-            return .react(.childIntercepted(delegatedTask: task))
+            return .childIntercepted(delegatedTask: task)
         case .simpleAction:
-            return .react(.childIntercepted(delegatedTask: nil))
+            return .childIntercepted(delegatedTask: nil)
         }
     }
 
@@ -106,8 +106,8 @@ struct RootMiddlewareReducer: MiddlewareReducer {
         childWhen: Child.When,
         parentState: State,
         dependencies: ReducerDependencies
-    ) throws -> SubstateOutcome<When> {
-        .react(.rootIntercepted)
+    ) throws -> When? {
+        .rootIntercepted
     }
 
     static func update(
@@ -148,10 +148,10 @@ struct TwoChildParentReducer: MiddlewareReducer {
         childWhen: Child.When,
         parentState: State,
         dependencies: ReducerDependencies
-    ) throws -> SubstateOutcome<When> {
+    ) throws -> When? {
         guard let when = childWhen as? ChildReducer.When,
-              case .taskCompleted = when else { return .pass }
-        return .react(.primaryChildCompletedTask)
+              case .taskCompleted = when else { return nil }
+        return .primaryChildCompletedTask
     }
 
     static func update(
@@ -346,7 +346,7 @@ final class MiddlewareReducerTests: XCTestCase {
 
         XCTAssertNil(parent.children.secondaryChild, "secondaryChild should not exist yet")
 
-        // primaryChild.send(.taskCompleted) → updateSubstate returns .react(.primaryChildCompletedTask)
+        // primaryChild.send(.taskCompleted) → updateSubstate returns .primaryChildCompletedTask
         // → update() assigns state.secondaryChild → Store creates the child.
         primary.send(.taskCompleted("trigger"))
 
@@ -463,9 +463,9 @@ struct ChildContainerReducer: MiddlewareReducer {
         childWhen: Child.When,
         parentState: State,
         dependencies: ReducerDependencies
-    ) throws -> SubstateOutcome<When> {
-        // Still forwards — root handles grandchild events directly; this just counts.
-        .react(.grandchildEventIntercepted)
+    ) throws -> When? {
+        // Root handles grandchild events directly; this just counts.
+        .grandchildEventIntercepted
     }
 
     static func update(
@@ -505,17 +505,17 @@ struct RootDeepReducer: MiddlewareReducer {
         childWhen: Child.When,
         parentState: State,
         dependencies: ReducerDependencies
-    ) throws -> SubstateOutcome<When> {
-        // React directly to GrandchildCounterReducer events — no forwarding needed in ChildContainerReducer
+    ) throws -> When? {
+        // React directly to GrandchildCounterReducer events — no relay needed in ChildContainerReducer
         if let when = childWhen as? GrandchildCounterReducer.When {
             switch when {
             case .setValue(let v):
-                return .react(.grandchildUpdated(v))
+                return .grandchildUpdated(v)
             case .reset:
-                return .react(.grandchildUpdated(0))
+                return .grandchildUpdated(0)
             }
         }
-        return .react(.rootIntercepted)
+        return .rootIntercepted
     }
 
     static func update(
@@ -778,12 +778,12 @@ struct StalenessMiddleReducer {
     }
 }
 
-/// Root — implements MiddlewareReducer but selectively `.pass`es everything, so it never
-/// reprocesses (and never refreshes its own `_rawState.middle` mirror) in reaction to a
+/// Root — implements MiddlewareReducer but returns `nil` (no reaction) for everything, so it
+/// never reprocesses (and never refreshes its own `_rawState.middle` mirror) in reaction to a
 /// descendant event. This is exactly what lets `_rawState.middle` go stale: nothing here is
-/// broken about `.pass` itself — a middleware that doesn't care about an event correctly leaves
-/// it alone — but a naive skip-level @SuperState read on the other side must still see current
-/// data regardless.
+/// broken about returning `nil` itself — a middleware that doesn't care about an event correctly
+/// leaves it alone — but a naive skip-level @SuperState read on the other side must still see
+/// current data regardless.
 @Reducer
 struct StalenessRootReducer: MiddlewareReducer {
     struct State: Injectable {
@@ -802,8 +802,8 @@ struct StalenessRootReducer: MiddlewareReducer {
         childWhen: Child.When,
         parentState: State,
         dependencies: ReducerDependencies
-    ) throws -> SubstateOutcome<When> {
-        .pass
+    ) throws -> When? {
+        nil
     }
 }
 
@@ -838,7 +838,7 @@ final class SkipLevelSuperStateStalenessTests: XCTestCase {
     }
 }
 
-// MARK: - .react Ordering Regression (Audit Issue #5)
+// MARK: - Child-First Ordering (Audit Issue #5 — now structurally eliminated)
 
 /// Child — reads a parent-owned flag via @SuperState, and records what its OWN update() sees
 /// for that flag while processing the very event the parent also reacts to.
@@ -858,8 +858,9 @@ struct OrderingChildReducer {
     }
 }
 
-/// Parent — reacts to the child's `.triggerEvent` by flipping `flag`, via `.react` (not
-/// `.intercept`), so the event still reaches the child's own `update()` afterward.
+/// Parent — reacts to the child's `.triggerEvent` by flipping `flag`. Since forwarding to the
+/// child always happens first now, this reaction necessarily runs after the child's own
+/// update() has already completed for this event.
 @Reducer
 struct OrderingParentReducer: MiddlewareReducer {
     struct State: Injectable {
@@ -883,19 +884,22 @@ struct OrderingParentReducer: MiddlewareReducer {
         childWhen: Child.When,
         parentState: State,
         dependencies: ReducerDependencies
-    ) throws -> SubstateOutcome<When> {
-        guard let when = childWhen as? OrderingChildReducer.When, case .triggerEvent = when else { return .pass }
-        return .react(.reactToChildTrigger)
+    ) throws -> When? {
+        guard let when = childWhen as? OrderingChildReducer.When, case .triggerEvent = when else { return nil }
+        return .reactToChildTrigger
     }
 }
 
 final class ReactOrderingRegressionTests: XCTestCase {
 
-    /// Pins down Audit Issue #5 as an explicit, checked contract rather than only prose: a
-    /// parent's `.react` reaction to a child's event runs BEFORE that same event reaches the
-    /// child's own `update()` — so the child observes the POST-reaction value, not the
-    /// pre-reaction one, for anything it reads off the parent via @SuperState.
-    func testReactRunsBeforeChildsOwnUpdateForTheSameEvent() throws {
+    /// Pins down that Audit Issue #5 is gone, not just documented around: a parent's reaction
+    /// to a child's event now always runs AFTER that same event has already reached the
+    /// child's own `update()` — so the child observes the pre-reaction value, not a
+    /// post-reaction one, for anything it reads off the parent via @SuperState. The real bug
+    /// this once caused (a login guard rejecting every legitimate submit because a parent's
+    /// reaction to the same event had already flipped a flag the guard read) can no longer
+    /// happen, by construction.
+    func testChildsOwnUpdateRunsBeforeParentReactionForTheSameEvent() throws {
         let parent = OrderingParentReducer.Store(initialState: OrderingParentReducer.State())
         parent.send(.createChild)
 
@@ -907,9 +911,9 @@ final class ReactOrderingRegressionTests: XCTestCase {
         XCTAssertEqual(parent.state.flag, false)
         child.send(.triggerEvent)
 
-        // The parent's reaction already flipped `flag` to true by the time the child's own
-        // update() ran for the very event that triggered it.
-        XCTAssertEqual(child.state.observedParentFlagDuringOwnUpdate, true)
+        // The child's own update() ran first, while `flag` was still false — the parent's
+        // reaction to this same event only flips it afterward.
+        XCTAssertEqual(child.state.observedParentFlagDuringOwnUpdate, false)
         XCTAssertEqual(parent.state.flag, true)
     }
 }

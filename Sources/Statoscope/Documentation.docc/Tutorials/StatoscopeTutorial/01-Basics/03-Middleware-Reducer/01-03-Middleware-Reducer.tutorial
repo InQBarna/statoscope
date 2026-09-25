@@ -40,10 +40,10 @@
 
             This is a different mechanism from `MiddlewareReducer` (see "Reacting to child events:
             MiddlewareReducer" in the Scopes tutorial): `addMiddleWare` sees every event a *single*
-            scope sends to itself; `MiddlewareReducer` lets a *parent* Reducer intercept events from
-            its own child scopes before they run. Reach for `addMiddleWare` for cross-cutting concerns
-            like logging on one scope, and `MiddlewareReducer` when a parent needs to react to what
-            its children do.
+            scope sends to itself; `MiddlewareReducer` lets a *parent* Reducer react to events from
+            its own child scopes once they've already run. Reach for `addMiddleWare` for
+            cross-cutting concerns like logging on one scope, and `MiddlewareReducer` when a parent
+            needs to react to what its children do.
         }
     }
 

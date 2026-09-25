@@ -211,7 +211,7 @@ struct Counter {
 There are much more interesting topics covered by the Statoscope library.
 * Dependency injection (`ReducerDependencies` / `@ReducerInjected`)
 * Scope composition (`@SubState` / `@SuperState`)
-* Intercepting child-scope events (`MiddlewareReducer` / `SubstateOutcome`)
+* Reacting to child-scope events (`MiddlewareReducer` / `updateSubstate`)
 * Effects testing
 * SwiftUI views coupling to stores
 Follow the links to the tutorials or documentation below for more info.

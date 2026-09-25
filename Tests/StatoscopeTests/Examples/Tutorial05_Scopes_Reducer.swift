@@ -390,16 +390,16 @@ extension Tutorial05Reducer {
                 childWhen: Child.When,
                 parentState: State,
                 dependencies: ReducerDependencies
-            ) throws -> SubstateOutcome<When> {
+            ) throws -> When? {
                 if let listWhen = childWhen as? NewsFeedListReducer.When,
                    case .favorite(let id) = listWhen {
-                    return .intercept(.toggleFavorite(id: id))
+                    return .toggleFavorite(id: id)
                 }
                 if let articleWhen = childWhen as? NewsFeedArticleReducer.When,
                    case .favorite(let id) = articleWhen {
-                    return .intercept(.toggleFavorite(id: id))
+                    return .toggleFavorite(id: id)
                 }
-                return .pass
+                return nil
             }
         }
         // @extract:end Scopes-Reducer-NewsFeed-03
@@ -416,9 +416,9 @@ extension Tutorial05Reducer {
 
                 // No more local `favorites` copy — reads the root's canonical list directly.
                 // NewsFeedListReducer implements no MiddlewareReducer at all; it doesn't need
-                // to, since the root intercepts `.favorite` from this reducer's own When
+                // to, since the root reacts to `.favorite` from this reducer's own When
                 // without any relay code here (see the next type, where Article sends the
-                // same event two levels further down and the root still catches it directly).
+                // same event two levels further down and the root still reacts to it directly).
                 @SuperState var newsFeed: NewsFeedReducer.State
             }
 
@@ -460,9 +460,11 @@ extension Tutorial05Reducer {
                     state.readingArticle = articleState
 
                 case .favorite:
-                    // Never reached: NewsFeedReducer.updateSubstate returns .intercept for this
-                    // event, so it stops there and this case never runs. Kept here only because
-                    // `When` must stay exhaustive — the case itself is still what the view sends.
+                    // A no-op here: this reducer no longer owns `favorites`, so its own
+                    // update() has nothing left to do with the event — it still runs (forwarding
+                    // always happens), it just does nothing. NewsFeedReducer.updateSubstate
+                    // reacts to it afterward. Kept here only because `When` must stay
+                    // exhaustive — the case itself is still what the view sends.
                     break
                 }
             }
@@ -514,8 +516,8 @@ extension Tutorial05Reducer {
                     state.loadedDTO = dto
 
                 case .favorite:
-                    // Never reached: NewsFeedReducer.updateSubstate intercepts this event
-                    // before it gets here.
+                    // Same no-op as NewsFeedListReducer's own `.favorite` case above —
+                    // NewsFeedReducer.updateSubstate reacts to it after this runs.
                     break
                 }
             }
@@ -535,7 +537,7 @@ extension Tutorial05Reducer {
                 .WHEN_OlderEffectCompletes(with: .featureTogglesLoaded(favoritesEnabled: true))
                 .WHEN(\.children.atList, .navigateFromListToChild(id: "1"))
                 // Three levels apart: root -> atList -> readingArticle. NewsFeedListReducer
-                // implements no MiddlewareReducer at all, yet the root still intercepts this
+                // implements no MiddlewareReducer at all, yet the root still reacts to this
                 // grandchild's event directly.
                 .WHEN(\.children.atList?.children.readingArticle, .favorite(id: "1"))
                 .THEN(\.state.favorites, equals: [Favorite(id: "1", dateAdded: fixedDate)])

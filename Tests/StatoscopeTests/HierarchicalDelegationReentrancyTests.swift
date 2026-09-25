@@ -2,28 +2,24 @@
 //  HierarchicalDelegationReentrancyTests.swift
 //  Statoscope
 //
-//  Regression test for a synchronous-reentrancy defect in the MiddlewareReducer / hierarchical
-//  delegation mechanism (see Store.updateSubscope in Sources/Statoscope/Reducer/Store.swift).
+//  Confirms the hierarchical delegation mechanism (see Store.updateSubscope in
+//  Sources/Statoscope/Reducer/Store.swift) is safe even when an ancestor's reaction tears down
+//  the very subtree the triggering event came from.
 //
 //  Mechanism under test, with a 3-level Child -> Parent -> GrandParent hierarchy:
 //
-//   1. Child sends `.ping`. Because GrandParent conforms to MiddlewareReducer, the event
-//      is routed (top-down) into `GrandParent.updateSubstate(...)` BEFORE Child's own
-//      `update()` runs. Per the framework's own "grandparents see the original grandchild"
-//      design, GrandParent receives Child's event and When type directly (Parent is skipped).
-//   2. GrandParent's `updateSubstate` reacts to `.ping` by tearing down the Parent/Child
-//      subtree the event came from (`state.parent = nil`), and returns `.intercept(...)`
-//      to say so explicitly.
-//   3. `Store.updateSubscope` honors that: it sends the delegated When, but does NOT call
-//      `event.forward()` — Child's original `.ping` is consumed rather than delivered into
-//      a subtree that was just synchronously destroyed by a reaction to that very event.
+//   1. Child sends `.ping`. `event.forward()` always runs first, so Child's own `update()`
+//      processes `.ping` on a still-valid, not-yet-torn-down copy of itself.
+//   2. Only after that does the event reach `GrandParent.updateSubstate(...)` — per the
+//      framework's own "grandparents see the original grandchild" design, GrandParent receives
+//      Child's event and When type directly (Parent is skipped, no relay needed there).
+//   3. GrandParent reacts by tearing down the Parent/Child subtree the event came from
+//      (`state.parent = nil`) and delegates `.teardownSubtree`.
 //
-//  Before the fix, `updateSubstate` returned a plain `When?` and `Store.updateSubscope` called
-//  `event.forward()` unconditionally, with no way for a reaction to block delivery. A middleware
-//  that tore its own child down still had that child's original event land on it afterward —
-//  state silently written to an object no longer reachable from the tree. `SubstateOutcome`
-//  (Sources/Statoscope/MiddlewareReducer.swift) makes that an explicit, atomic choice: `.pass`/
-//  `.react` still forward, `.intercept` consumes the event. This test pins the `.intercept` case.
+//  Because forwarding always happens before any ancestor reaction, there is no ordering in
+//  which a reaction can destroy a subtree before the event it's reacting to has already been
+//  safely applied to it — the race `SubstateOutcome.intercept` used to exist to guard against
+//  (see git history) cannot occur under this ordering, so there's nothing left to intercept.
 //
 
 import XCTest
@@ -101,12 +97,11 @@ private struct RTGrandParentReducer: MiddlewareReducer {
         childWhen: Child.When,
         parentState: State,
         dependencies: ReducerDependencies
-    ) throws -> SubstateOutcome<When> {
-        guard let when = childWhen as? RTChildReducer.When else { return .pass }
+    ) throws -> When? {
+        guard let when = childWhen as? RTChildReducer.When else { return nil }
         switch when {
         case .ping:
-            // Tearing the subtree down makes forwarding the ping unsafe — consume it.
-            return .intercept(.teardownSubtree)
+            return .teardownSubtree
         }
     }
 
@@ -130,10 +125,10 @@ private struct RTGrandParentReducer: MiddlewareReducer {
 
 final class HierarchicalDelegationReentrancyTests: XCTestCase {
 
-    /// Once GrandParent's middleware has torn the Parent/Child subtree down in reaction to
-    /// Child's `.ping` (via `.intercept`), that same `.ping` must not also silently land on
-    /// Child's state — the event is consumed, not forwarded.
-    func testInterceptedChildEventDoesNotApplyAfterMiddlewareTearsDownItsOwnSubtree() throws {
+    /// Child's own `.ping` handler always runs first — safely, on a still-valid subtree — and
+    /// only afterward does GrandParent's reaction get to tear that subtree down. Both effects
+    /// are observed: the child's own update applied, and the subtree is gone.
+    func testChildsOwnUpdateAppliesSafelyBeforeAncestorReactionTearsDownItsSubtree() throws {
         let grandParent = RTGrandParentReducer.Store(initialState: RTGrandParentReducer.State())
         grandParent.send(.setup)
 
@@ -151,17 +146,11 @@ final class HierarchicalDelegationReentrancyTests: XCTestCase {
         // Child sends the event that triggers GrandParent's delegation and subtree teardown.
         childStore.send(.ping)
 
-        // GrandParent's middleware did react and did tear the subtree down.
+        // Child's own update() ran first, on the still-live object, before anything tore it down.
+        XCTAssertEqual(childStore.state.pings, 1, "Child's own .ping handler applied safely")
+
+        // GrandParent's reaction then ran, and did tear the subtree down.
         XCTAssertEqual(grandParent.state.teardownCount, 1, "GrandParent's delegated reaction should run once")
         XCTAssertNil(grandParent.state.parent, "GrandParent's reaction removed the Parent/Child subtree")
-
-        // FIXED: `.intercept` stopped `event.forward()` from running, so Child's own `.ping`
-        // never reached its `update()` — no write landed on the now-unreachable object.
-        XCTAssertEqual(
-            childStore.state.pings,
-            0,
-            "Child's ping must not silently apply once its own subtree was torn down mid-flight " +
-            "by the very middleware reaction that ping triggered"
-        )
     }
 }

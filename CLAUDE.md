@@ -193,7 +193,7 @@ struct ChildReducer {
 
 `@SuperState` is a **value snapshot** taken fresh before each `update()` call — not a live reference to the parent. It's read-only: assigning to it is a compile error.
 
-#### Intercepting child events: `MiddlewareReducer` + `SubstateOutcome`
+#### Reacting to child events: `MiddlewareReducer`
 
 A reducer that needs to react to events from its own `@SubState` children conforms to `MiddlewareReducer`:
 
@@ -209,16 +209,16 @@ struct ParentReducer: MiddlewareReducer {
 
     static func updateSubstate<Child: Reducer>(
         _ childType: Child.Type,
-        childState: Child.State,
+        childState: Child.State,          // already updated — the child's own update() always ran first
         childWhen: Child.When,
         parentState: State,               // read-only — updateSubstate never mutates directly
         dependencies: ReducerDependencies
-    ) throws -> SubstateOutcome<When> {
-        guard let when = childWhen as? ChildReducer.When else { return .pass }
+    ) throws -> When? {
+        guard let when = childWhen as? ChildReducer.When else { return nil }
         if case .taskCompleted(let task) = when {
-            return .react(.childDelegated(task))   // send to update(), then still forward to the child
+            return .childDelegated(task)   // sent to this reducer's own update()
         }
-        return .pass
+        return nil
     }
 
     static func update(
@@ -234,10 +234,16 @@ struct ParentReducer: MiddlewareReducer {
 }
 ```
 
-`updateSubstate` runs BEFORE the child's own `update()`, and `parentState` is read-only by design — any reaction has to go through the returned `SubstateOutcome<When>`, which lands in `update()`, the single place `State` ever changes:
-- `.pass` — no reaction, forward the event to the child as normal
-- `.react(When)` — send `When` to this reducer's own `update()`, then still forward to the child
-- `.intercept(When?)` — optionally send `When`, but do NOT forward to the child. Use this when the reaction makes forwarding unsafe — most commonly, it replaced or removed the very child subtree the event came from.
+`updateSubstate` runs AFTER the child's own `update()` — the event is always forwarded to the
+child first, unconditionally; there is no way to intercept or veto it, and none is needed, since
+by the time an ancestor's reaction runs the child has already safely applied the event to itself.
+`parentState` is read-only by design — any reaction has to go through the returned `When?`, which
+lands in `update()`, the single place `State` ever changes. Return `nil` for no reaction, or a
+`When` to send it to this reducer's own `update()`.
+
+Events from *any* `MiddlewareReducer`-conforming ancestor's descendants reach it directly this
+way, at any depth — a middle level with no `MiddlewareReducer` conformance of its own doesn't
+need to relay anything for a grandparent (or higher) to see a grandchild's raw event type.
 
 #### Dependency injection: `ReducerDependencies` / `@ReducerInjected`
 

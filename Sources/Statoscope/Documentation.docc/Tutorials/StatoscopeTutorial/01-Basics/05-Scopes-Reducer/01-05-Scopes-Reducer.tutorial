@@ -132,46 +132,48 @@
             `.favorite(id:)` — favoriting an article from the detail view had no way to update
             the list's own copy. `@SubState`/`@SuperState` only move data *down* the tree (parent
             creates child) or give a *read-only* snapshot of an ancestor. Neither lets a child's
-            event change what a parent owns. `MiddlewareReducer` is the piece that does: a parent
-            intercepts an event *before* the child processes it, and reacts on its own state.
+            event change what a parent owns. `MiddlewareReducer` is the piece that does: an
+            ancestor reacts to an event *after* the child that sent it has already processed it.
         }
         @Steps {
             @Step {
                 Move `favorites` up to the root and make it the single owner. `NewsFeedReducer`
                 conforms to `MiddlewareReducer` and implements `updateSubstate`, which runs
-                **before** the event reaches whichever child sent it. Matching either
-                `NewsFeedListReducer.When.favorite` or `NewsFeedArticleReducer.When.favorite`
-                and returning `.intercept(...)` reacts with `.toggleFavorite(id:)` on the root's
-                own `update()` — and, because it's `.intercept` rather than `.react`, stops the
-                event there instead of still forwarding it to the child afterward.
+                **after** the event has already reached whichever child sent it — `childState`
+                is that child's state once its own `update()` finished. Matching either
+                `NewsFeedListReducer.When.favorite` or `NewsFeedArticleReducer.When.favorite` and
+                returning `.toggleFavorite(id:)` sends that `When` to the root's own `update()`.
+                The event was already forwarded to the child by the time this runs — there's no
+                separate step to opt into that, and no way to prevent it.
 
                 @Code(name: "NewsFeedReducer.swift", file: Scopes-Reducer-NewsFeed-03.swift)
             }
             @Step {
-                `SubstateOutcome` has three cases, and picking the right one matters: `.pass`
-                leaves the event alone; `.react(when)` sends `when` to the parent's own
-                `update()` and *still* forwards the original event to the child afterward;
-                `.intercept(when)` does the same but does **not** forward it. `.intercept` is
-                right here because the children have nothing left to do with `.favorite` — they
-                don't own `favorites` anymore.
+                `updateSubstate` returns a plain `When?` — `nil` for no reaction, or a `When` to
+                send to the parent's own `update()`. This mirrors `statoscope-zustand`'s
+                `onChildAction(action, childState)`, which documents the same ordering choice:
+                the child's own state passed in is already updated by the time an ancestor sees
+                the event.
 
-                Watch the ordering if you ever reach for `.react` instead: it runs the parent's
-                reaction *before* the child's own `update()` sees the same event — not after. A
-                real app hit this directly: a login screen's own `.userSubmitsForm` handler
-                guarded on `!state.submitting`, where `submitting` read a parent field that a
-                `.react` reaction to that *same* event had already flipped to `true` a moment
-                earlier in the same call — so the guard rejected every legitimate submit. If a
-                child's own handler for an event a parent also reacts to needs a "not already
-                in progress" guard, it can no longer trust a parent-owned flag for that check.
+                That ordering is exactly why a parent reaction can safely destroy or replace the
+                child subtree the event came from — say, tearing the child down after three
+                failed attempts — without any risk of the event still being "in flight" toward a
+                subtree that no longer exists. The child already, safely, applied it to itself
+                first. A real app hit the *opposite* problem under an earlier design where the
+                parent reacted **before** forwarding: a login screen's own `.userSubmitsForm`
+                handler guarded on `!state.submitting`, where `submitting` read a parent field
+                that the parent's reaction to that *same* event had already flipped to `true`
+                moments earlier — rejecting every legitimate submit. Forwarding first, always,
+                is what makes that entire class of bug impossible rather than just avoidable.
 
                 @Code(name: "NewsFeedReducer.swift", file: Scopes-Reducer-NewsFeed-03.swift)
             }
             @Step {
                 `NewsFeedListReducer` drops its local `favorites` field and the toggle/persist
-                logic entirely — `.favorite` is now dead code in its own `update()` (kept only
-                because `When` must stay exhaustive) and reads the shared list via `@SuperState`
+                logic entirely — `.favorite` still runs in its own `update()` (forwarding always
+                happens), it's just a no-op now — and reads the shared list via `@SuperState`
                 instead. Notice `NewsFeedListReducer` implements no `MiddlewareReducer` of its
-                own: the root still intercepts events from *its* child, `NewsFeedArticleReducer`,
+                own: the root still reacts to events from *its* child, `NewsFeedArticleReducer`,
                 two levels down, with no relay code needed here. Every ancestor's
                 `updateSubstate` is checked for every descendant's event, regardless of depth —
                 an intermediate reducer that doesn't care about an event simply doesn't match it.
@@ -211,9 +213,9 @@
             Three different tools now cover three different directions of data flow in a scope
             tree: a plain constructor parameter for a value fixed at creation time (like
             `favoritesEnabled` in "Designing Scopes"), `@SuperState` for a child reading an
-            ancestor's *current* value, and `MiddlewareReducer`/`SubstateOutcome` for a child's
-            event changing what an ancestor owns. Reach for the last one whenever two reducers
-            need to agree on something neither of them should have to own twice.
+            ancestor's *current* value, and `MiddlewareReducer` for a child's event changing
+            what an ancestor owns. Reach for the last one whenever two reducers need to agree on
+            something neither of them should have to own twice.
         }
     }
 }
