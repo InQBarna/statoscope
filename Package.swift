@@ -26,8 +26,11 @@ let package = Package(
     ],
     dependencies: [
         // .package(url: "https://github.com/realm/SwiftLint", from: "0.0.0")
-        // Depend on the Swift 5.9 release of SwiftSyntax
-        .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "509.0.0"),
+        // EXPERIMENT (experiment/swift-syntax-600 branch): bumped from 509.0.0 (Swift 5.9-era,
+        // no typed-throws grammar support at all — throws(SomeError) on an @EffectStruct function
+        // silently misparses the whole rest of the signature) to 604.0.0, matching this machine's
+        // Swift 6.4 toolchain, to pick up SE-0413 (typed throws) parsing support.
+        .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "604.0.0"),
         .package(url: "https://github.com/swiftlang/swift-docc-plugin", branch: "main"),
         .package(url: "https://github.com/SimplyDanny/SwiftLintPlugins", from: "0.58.2")
     ],

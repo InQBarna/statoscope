@@ -145,7 +145,17 @@ public struct EffectStructMacro: PeerMacro {
                                 parameterClause: FunctionParameterClauseSyntax {},
                                 effectSpecifiers: FunctionEffectSpecifiersSyntax(
                                     asyncSpecifier: .keyword(.async),
-                                    throwsSpecifier: .keyword(.throws)
+                                    // Preserve the original function's own throws(SpecificError)
+                                    // clause verbatim when present, instead of always widening to
+                                    // plain `throws` — a typed-throws function satisfies Effect's
+                                    // `async throws -> ResultType` requirement either way, but
+                                    // dropping the specific type here loses real information a
+                                    // caller of the generated struct could otherwise catch on.
+                                    // Falls back to plain `throws` for a non-throwing or
+                                    // plain-throws original — runEffect() must throw at all,
+                                    // since Effect's own requirement does.
+                                    throwsClause: funcDecl.signature.effectSpecifiers?.throwsClause
+                                        ?? ThrowsClauseSyntax(throwsSpecifier: .keyword(.throws))
                                 ),
                                 returnClause: funcDecl.signature.returnClause
                             ),
