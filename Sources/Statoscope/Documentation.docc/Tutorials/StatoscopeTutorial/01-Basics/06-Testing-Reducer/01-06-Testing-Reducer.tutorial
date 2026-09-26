@@ -64,6 +64,34 @@
         }
     }
 
+    @Section(title: "Completing effects precisely") {
+        @ContentAndMedia {
+            `WHEN_OlderEffectCompletes` requires already knowing the final, mapped `When` value —
+            fine when there's only ever one obvious effect pending, but it never actually calls the
+            effect's own `.map()`. `WHEN_EffectCompletes` finds a *specific* effect by its own type
+            and replays its real mapping from a raw result — proving the wiring, not assuming it.
+        }
+        @Steps {
+            @Step {
+                `FetchArticleTitleEffect` is a real, named `Effect` — not the `AnyEffect { ... }`
+                closure shorthand used elsewhere. `WHEN_EffectCompletes` needs a nameable type to
+                look up among whatever's pending; a bare closure has none of its own.
+
+                @Code(name: "Tutorial06_Testing_Reducer.swift", file: Testing-Reducer-ChildReducer-01.swift)
+            }
+
+            @Step {
+                `WHEN_EffectCompletes(FetchArticleTitleEffect.self, with: "Article 42")` finds the
+                pending `FetchArticleTitleEffect` and feeds it a raw title — exactly what
+                `runEffect()` itself would produce — then replays `.map(When.articleLoaded)` for
+                real. Break that `.map()` call and this test fails; a hand-typed
+                `.WHEN(.articleLoaded(title: "..."))` wouldn't have noticed.
+
+                @Code(name: "TestingPatternsTests.swift", file: Testing-Reducer-EffectCompletesMapping-01.swift)
+            }
+        }
+    }
+
     @Section(title: "Testing scope composition") {
         @ContentAndMedia {
             `readingArticle` is a child `Store`, not just a value — so beyond asserting on it, we can
@@ -127,9 +155,10 @@
             }
 
             That's the full testing vocabulary for the Reducer pattern: `GIVEN`/`WHEN`/`THEN` for flow,
-            `WHEN_OlderEffectCompletes` for effects, `WITH`/`POP` or `.children.`-keypaths for child
-            stores, and closures or injected fakes for anything more specific. All of it runs against
-            production reducer code — there's nothing test-only about the reducers themselves.
+            `WHEN_OlderEffectCompletes` or `WHEN_EffectCompletes` for effects, `WITH`/`POP` or
+            `.children.`-keypaths for child stores, and closures or injected fakes for anything more
+            specific. All of it runs against production reducer code — there's nothing test-only
+            about the reducers themselves.
         }
     }
 }

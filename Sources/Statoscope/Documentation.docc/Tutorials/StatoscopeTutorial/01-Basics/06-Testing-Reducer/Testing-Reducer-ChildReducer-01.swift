@@ -1,3 +1,15 @@
+/// A real, *named* effect — deliberately not the `AnyEffect { ... }` closure shorthand.
+/// `WHEN_EffectCompletes` (see below) needs to look an effect up by its own type, and a bare
+/// closure has no nameable type of its own: every `AnyEffect { ... }.map(...)` with the same
+/// `ResultType` is indistinguishable from any other. Reach for a named `Effect` conformance
+/// whenever a test needs to target one specifically.
+struct FetchArticleTitleEffect: Effect {
+    let articleId: String
+    func runEffect() async throws -> String {
+        "Article \(articleId)"
+    }
+}
+
 @Reducer
 struct NewsFeedArticleReducer {
     struct State {
@@ -24,7 +36,7 @@ struct NewsFeedArticleReducer {
         case .systemLoadedScope:
             state.loading = true
             effectsState.enqueue(
-                AnyEffect { "Article \(articleId)" }
+                FetchArticleTitleEffect(articleId: articleId)
                     .map(When.articleLoaded)
             )
         case .articleLoaded(let title):

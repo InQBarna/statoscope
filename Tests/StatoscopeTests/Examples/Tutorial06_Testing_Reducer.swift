@@ -41,6 +41,18 @@ enum Tutorial06Reducer {
     // MARK: - Child Reducer
 
     // @extract:begin Testing-Reducer-ChildReducer-01
+    /// A real, *named* effect — deliberately not the `AnyEffect { ... }` closure shorthand.
+    /// `WHEN_EffectCompletes` (see below) needs to look an effect up by its own type, and a bare
+    /// closure has no nameable type of its own: every `AnyEffect { ... }.map(...)` with the same
+    /// `ResultType` is indistinguishable from any other. Reach for a named `Effect` conformance
+    /// whenever a test needs to target one specifically.
+    struct FetchArticleTitleEffect: Effect {
+        let articleId: String
+        func runEffect() async throws -> String {
+            "Article \(articleId)"
+        }
+    }
+
     @Reducer
     struct NewsFeedArticleReducer {
         struct State {
@@ -67,7 +79,7 @@ enum Tutorial06Reducer {
             case .systemLoadedScope:
                 state.loading = true
                 effectsState.enqueue(
-                    AnyEffect { "Article \(articleId)" }
+                    FetchArticleTitleEffect(articleId: articleId)
                         .map(When.articleLoaded)
                 )
             case .articleLoaded(let title):
@@ -189,6 +201,27 @@ enum Tutorial06Reducer {
             .runTest()
         }
         // @extract:end Testing-Reducer-EffectCompletion-01
+
+        /// Test demonstrates completing a SPECIFIC effect by its own type, replaying its real
+        /// `.map()` — contrast with `testEffectCompletion` above, which requires the tester to
+        /// already know the final, already-mapped `.networkDidFinish(...)` value. Here,
+        /// `WHEN_EffectCompletes` finds the pending `FetchArticleTitleEffect` by type and feeds
+        /// it a raw title — exactly what `runEffect()` itself would produce — proving
+        /// `.map(When.articleLoaded)` is wired correctly, not just assuming it. If that `.map`
+        /// call were broken or removed, this test would fail; a hand-typed
+        /// `.WHEN(.articleLoaded(title: "..."))` would not.
+        // @extract:begin Testing-Reducer-EffectCompletesMapping-01
+        func testEffectCompletesReplaysTheRealMapping() throws {
+            try NewsFeedArticleReducer.Store.GIVEN(
+                state: NewsFeedArticleReducer.State(id: "42")
+            )
+            .WHEN(.systemLoadedScope)
+            .WHEN_EffectCompletes(FetchArticleTitleEffect.self, with: "Article 42")
+            .THEN(\.state.loading, equals: false)
+            .THEN(\.state.loadedTitle, equals: "Article 42")
+            .runTest()
+        }
+        // @extract:end Testing-Reducer-EffectCompletesMapping-01
 
         /// Test demonstrates navigation creates a child store
         // @extract:begin Testing-Reducer-Navigation-01
