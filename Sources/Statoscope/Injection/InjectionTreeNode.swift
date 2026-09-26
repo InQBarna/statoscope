@@ -117,6 +117,17 @@ public extension InjectionTreeNode {
         }
     }
 
+    /// Same as `_resolve<T: Injectable>` above, but the default comes from `key` instead of
+    /// `T.defaultValue` — lets `T` be a real protocol, not just an `Injectable`-conforming type.
+    /// Backs `@InjectedByKey`.
+    func _resolve<T>(_ key: InjectionKey<T>, appendingLog: String = "") -> T {
+        do {
+            return try _resolveUnsafe(appendingLog: appendingLog)
+        } catch {
+            return key.defaultValue
+        }
+    }
+
     /// Searches and returns the requested type inside the injection store or up to the injection tree
     ///
     /// Method will search first in ad-hoc injected objects and later up in the injection tree.
@@ -167,6 +178,24 @@ public extension InjectionTreeNode {
 
 public extension InjectionTreeNode {
 
+    /// Registers `obj` for later resolution (`@Injected`, `@InjectedByKey`, `resolve()`) by the
+    /// generic type `T` is inferred as at THIS call site — not `obj`'s own concrete runtime type.
+    ///
+    /// For a concrete `Injectable` type this is invisible: `injectObject(DateProvider(...))`
+    /// infers `T == DateProvider`, matching what `@Injected var date: DateProvider` resolves by.
+    ///
+    /// To inject something resolvable *by a protocol type*, `T` must be the protocol at the call
+    /// site — an explicit upcast, or a variable already declared with the protocol type:
+    /// ```swift
+    /// scope.injectObject(RealNetworkService() as NetworkService)   // T inferred as NetworkService
+    /// // or:
+    /// let service: NetworkService = RealNetworkService()
+    /// scope.injectObject(service)                                  // same T
+    /// ```
+    /// Injecting the bare concrete value (`injectObject(RealNetworkService())`) registers it under
+    /// `RealNetworkService`, not `NetworkService` — a later `resolve()`/`@InjectedByKey` asking for
+    /// `NetworkService` won't find it, and falls through to its default (or throws) silently, not
+    /// with a compile error.
     @discardableResult
     func injectObject<T>(_ obj: T) -> Self {
         injectionStore.registerValue(obj)

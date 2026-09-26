@@ -15,13 +15,24 @@ class InjectionStore {
         weak var dependency: AnyObject?
     }
 
+    // Keyed by the GENERIC PARAMETER T, not type(of: dependency). These differ, confirmed
+    // empirically (not just in theory — see the class-subtype check below), for CLASS SUBTYPING:
+    // `func f<T>(_ x: T) { type(of: x) }` called as `f(dogInstance as Animal)` reports `Dog`, not
+    // `Animal`, even though T is inferred as Animal — normal Swift class polymorphism, unrelated
+    // to protocols. So `register(dogInstance as Animal)` used to key under "Dog", while a later
+    // `resolve() as Animal` looked up "Animal" — mismatch, silently unresolvable.
+    // (Protocol-typed injection turns out NOT to need this fix — inside a generic function body,
+    // T.self and type(of: dependency) already agree for an existential-typed T; that path's real
+    // blocker was Injectable's `Self`-returning defaultValue requirement, fixed separately via
+    // InjectionKey/@InjectedByKey, not here.)
+    // No behavior change when no subclassing is involved — T.self == type(of: dependency) then.
     func register<T: AnyObject>(_ dependency: T) {
-        let key = "\(type(of: dependency))".removeOptionalDescription
+        let key = String(describing: T.self).removeOptionalDescription
         injectedByClassDescription[key] = WeakDependency(dependency: dependency)
     }
 
     func registerValue<T: Any>(_ dependency: T) {
-        let key = "\(type(of: dependency))".removeOptionalDescription
+        let key = String(describing: T.self).removeOptionalDescription
         injectedByValueDescription[key] = dependency
     }
 

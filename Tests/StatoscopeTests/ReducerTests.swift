@@ -137,6 +137,45 @@ enum LoggingCounter {
     }
 }
 
+// A real Swift protocol, not an Injectable-conforming struct-of-closures — the scenario
+// protocol-typed injection (InjectionStore's registerValue keying by T, ReducerDependencies.resolve
+// no longer requiring Injectable) exists to support.
+protocol NetworkServiceProtocol {
+    func fetchTitle() -> String
+}
+struct RealNetworkServiceProtocolImpl: NetworkServiceProtocol {
+    func fetchTitle() -> String { "real-title" }
+}
+struct MockNetworkServiceProtocolImpl: NetworkServiceProtocol {
+    func fetchTitle() -> String { "mock-title" }
+}
+
+enum ProtocolTypedCounter {
+    @Reducer
+    struct Reducer {
+        struct State {
+            var title: String = ""
+        }
+
+        enum When {
+            case load
+        }
+
+        static func update(
+            _ when: When,
+            state: inout State,
+            effectsState: inout EffectsState<When>,
+            dependencies: ReducerDependencies
+        ) throws {
+            switch when {
+            case .load:
+                let service: NetworkServiceProtocol = try dependencies.resolve()
+                state.title = service.fetchTitle()
+            }
+        }
+    }
+}
+
 enum ParentChild {
     // Parent-Child examples now use @Reducer macro with automatic child Store creation!
     @Reducer
@@ -457,6 +496,28 @@ final class ReducerTests: XCTestCase {
 
         XCTAssertEqual(store.state.count, 1)
         // Logger was successfully resolved (no errors thrown)
+    }
+
+    func testProtocolTypedDependencyResolvesTheInjectedConformance() {
+        let store = ProtocolTypedCounter.Reducer.Store(initialState: ProtocolTypedCounter.Reducer.State())
+
+        // The explicit `as NetworkServiceProtocol` upcast is required — see injectObject's own
+        // doc. Without it, T would be inferred as RealNetworkServiceProtocolImpl, and
+        // dependencies.resolve() as NetworkServiceProtocol below would throw.
+        store.injectObject(RealNetworkServiceProtocolImpl() as NetworkServiceProtocol)
+
+        store.send(.load)
+
+        XCTAssertEqual(store.state.title, "real-title")
+    }
+
+    func testProtocolTypedDependencySwapsForTesting() {
+        let store = ProtocolTypedCounter.Reducer.Store(initialState: ProtocolTypedCounter.Reducer.State())
+        store.injectObject(MockNetworkServiceProtocolImpl() as NetworkServiceProtocol)
+
+        store.send(.load)
+
+        XCTAssertEqual(store.state.title, "mock-title")
     }
 
     // MARK: - Parent-Child with SuperState/SubState

@@ -34,11 +34,15 @@ import Foundation
 public protocol ReducerDependencies {
     /// Resolve an injected dependency from the injection tree
     ///
-    /// Searches up the injection tree to find an instance of the requested type.
+    /// Searches up the injection tree to find an instance of the requested type. Not constrained
+    /// to `Injectable` — this never falls back to a default value (see `throws` below), so there's
+    /// nothing here that actually needs `T.defaultValue`. That makes `T` a real Swift protocol
+    /// usable here, not just an `Injectable`-conforming struct — as long as it was injected
+    /// *as that protocol type* (see `injectObject`'s own doc for why that matters).
     ///
     /// - Returns: The resolved instance
     /// - Throws: If the dependency cannot be found in the injection tree
-    func resolve<T: Injectable>() throws -> T
+    func resolve<T>() throws -> T
 
     /// Inject an object into the injection tree
     ///
@@ -59,7 +63,7 @@ public struct ReducerDependenciesImpl: ReducerDependencies {
         self.node = node
     }
 
-    public func resolve<T: Injectable>() throws -> T {
+    public func resolve<T>() throws -> T {
         guard let node = node else {
             throw InjectionError.noInjectionTree
         }

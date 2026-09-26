@@ -236,9 +236,36 @@ class InjectObjectTests: XCTestCase {
         XCTAssertEqual(sut.injectedStruct.uuid, injectableStruct.uuid)
     }
 
-    func testInjectPtotocol() {
-        // TODO: Protocols can't be injected, solution for now is to create protocolwitness
-        //  we may create a protocol witness macro to facilitate this
+    // Was: "TODO: Protocols can't be injected, solution for now is to create protocolwitness".
+    // Fixed via InjectionKey/@InjectedByKey — see InjectionKey.swift's own doc for why Injectable
+    // alone can never let a real protocol be the injected type.
+    protocol GreeterProtocol {
+        var greeting: String { get }
+    }
+    struct RealGreeter: GreeterProtocol {
+        let greeting = "real"
+    }
+    struct DefaultGreeter: GreeterProtocol {
+        let greeting = "default"
+    }
+    static let greeterKey = InjectionKey<GreeterProtocol>(defaultValue: DefaultGreeter())
+
+    final class ScopeWithProtocolInjectable: Statostore, ObservableObject {
+        typealias When = Void
+        @InjectedByKey(InjectObjectTests.greeterKey) var greeter: GreeterProtocol
+        func update(_ when: Void) throws { }
+    }
+
+    func testInjectProtocol() {
+        let sut = ScopeWithProtocolInjectable()
+
+        // Returns the key's default value before injection — same shape as testInjectClass/
+        // testInjectStruct above, just via the key instead of Injectable.defaultValue.
+        XCTAssertEqual(sut.greeter.greeting, "default")
+
+        // Explicit upcast required — see injectObject's own doc.
+        sut.injectObject(RealGreeter() as GreeterProtocol)
+        XCTAssertEqual(sut.greeter.greeting, "real")
     }
 
     enum ParentChildGrandSon {
