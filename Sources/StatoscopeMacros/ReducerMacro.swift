@@ -101,6 +101,7 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
         let superStateProperties = findSuperStateProperties(in: stateStruct)
         let parentStoreProperties = findSuperScopeProperties(in: stateStruct)
         let injectedProperties = findReducerInjectedProperties(in: stateStruct)
+        let injectedByKeyProperties = findReducerInjectedByKeyProperties(in: stateStruct)
 
         // 1. typealias Store = Statoscope.Store<ReducerName>  (always)
         let typeAlias: DeclSyntax = DeclSyntax("""
@@ -121,12 +122,14 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
         // 3. _childSlots / _superSlots (whenever there is anything to wire)
         let hasSlots = !subStateProperties.isEmpty || !superStateProperties.isEmpty
             || !parentStoreProperties.isEmpty || !injectedProperties.isEmpty
+            || !injectedByKeyProperties.isEmpty
         if hasSlots {
             let slotMembers = try generateSlotMembers(
                 subStateProperties: subStateProperties,
                 superStateProperties: superStateProperties,
                 parentStoreProperties: parentStoreProperties,
-                injectedProperties: injectedProperties
+                injectedProperties: injectedProperties,
+                injectedByKeyProperties: injectedByKeyProperties
             )
             members += slotMembers
         }
@@ -246,6 +249,38 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
         return properties
     }
 
+    /// Same as `findReducerInjectedProperties` above, but for `@ReducerInjectedByKey(KeyExpr)` —
+    /// which, unlike `@ReducerInjected`, takes a positional argument: the `InjectionKey<Value>`
+    /// reference to resolve by. Extracted as raw source text (`keyExpr`) so the generated
+    /// `AnySuperSlot` can splice it back in verbatim — the macro never evaluates it, just relays it.
+    private static func findReducerInjectedByKeyProperties(
+        in stateStruct: StructDeclSyntax
+    ) -> [(name: String, type: String, keyExpr: String)] {
+        var properties: [(String, String, String)] = []
+        for member in stateStruct.memberBlock.members {
+            guard let varDecl = member.decl.as(VariableDeclSyntax.self) else { continue }
+            var reducerInjectedByKeyAttribute: AttributeSyntax?
+            for attr in varDecl.attributes {
+                guard case .attribute(let attribute) = attr else { continue }
+                if attribute.attributeName.as(IdentifierTypeSyntax.self)?.name.text == "ReducerInjectedByKey" {
+                    reducerInjectedByKeyAttribute = attribute
+                    break
+                }
+            }
+            guard let attribute = reducerInjectedByKeyAttribute,
+                  let args = attribute.arguments?.as(LabeledExprListSyntax.self),
+                  let keyArg = args.first else { continue }
+            let keyExpr = keyArg.expression.description.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let binding = varDecl.bindings.first,
+               let identifier = binding.pattern.as(IdentifierPatternSyntax.self)?.identifier.text,
+               let typeAnnotation = binding.typeAnnotation?.type {
+                let typeName = typeAnnotation.description.trimmingCharacters(in: .whitespacesAndNewlines)
+                properties.append((identifier, typeName, keyExpr))
+            }
+        }
+        return properties
+    }
+
     private static func findSubStateProperties(in stateStruct: StructDeclSyntax) -> [(name: String, type: String)] {
         var properties: [(String, String)] = []
         for member in stateStruct.memberBlock.members {
@@ -320,7 +355,8 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
         subStateProperties: [(name: String, type: String)],
         superStateProperties: [(name: String, type: String, observed: Bool)],
         parentStoreProperties: [(name: String, type: String, observed: Bool)],
-        injectedProperties: [(name: String, type: String)]
+        injectedProperties: [(name: String, type: String)],
+        injectedByKeyProperties: [(name: String, type: String, keyExpr: String)]
     ) throws -> [DeclSyntax] {
 
         // _childSlots
@@ -409,6 +445,16 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
             AnySuperSlot(inject: { store, state in
                     if let node = store as? any InjectionTreeNode {
                         state.$\(prop.name) = ReducerInjected(injectedValue: node.resolveForBinding())
+                    }
+                })
+            """)
+        }
+
+        for prop in injectedByKeyProperties {
+            superSlotEntries.append("""
+            AnySuperSlot(inject: { store, state in
+                    if let node = store as? any InjectionTreeNode {
+                        state.$\(prop.name) = ReducerInjectedByKey(injectedValue: node.resolveForBinding(\(prop.keyExpr)))
                     }
                 })
             """)
