@@ -263,8 +263,21 @@ class InjectObjectTests: XCTestCase {
         // testInjectStruct above, just via the key instead of Injectable.defaultValue.
         XCTAssertEqual(sut.greeter.greeting, "default")
 
-        // Explicit upcast required — see injectObject's own doc.
-        sut.injectObject(RealGreeter() as GreeterProtocol)
+        // The `for key:` overload — T is pinned by the key's own type, no explicit upcast needed
+        // (see testInjectObjectByKeyNeedsNoUpcast below for that mechanism in isolation).
+        sut.injectObject(RealGreeter(), for: InjectObjectTests.greeterKey)
+        XCTAssertEqual(sut.greeter.greeting, "real")
+    }
+
+    func testInjectObjectByKeyNeedsNoUpcast() {
+        let sut = ScopeWithProtocolInjectable()
+
+        // No "as GreeterProtocol" anywhere — the key parameter alone pins T to GreeterProtocol,
+        // even though RealGreeter's own static type here is RealGreeter. Without the `for key:`
+        // overload, this exact call (bare injectObject(RealGreeter())) would silently register
+        // under "RealGreeter" instead, and the assertion below would see "default", not "real".
+        sut.injectObject(RealGreeter(), for: InjectObjectTests.greeterKey)
+
         XCTAssertEqual(sut.greeter.greeting, "real")
     }
 

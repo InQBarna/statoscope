@@ -72,6 +72,12 @@ extension InjectedForEffectByKey.InjectionBox: AnyEffectInjectable {
     }
 }
 
+extension InjectedForEffectByKey: Equatable {
+    public static func == (lhs: InjectedForEffectByKey<Value>, rhs: InjectedForEffectByKey<Value>) -> Bool {
+        type(of: lhs) == type(of: rhs)
+    }
+}
+
 /// Marks an `@EffectStruct` function parameter as resolved from the injection tree (via
 /// `@InjectedForEffect` on the generated struct) rather than stored/compared as an ordinary
 /// parameter. Purely a marker at the call site — `wrappedValue` is never read for anything but

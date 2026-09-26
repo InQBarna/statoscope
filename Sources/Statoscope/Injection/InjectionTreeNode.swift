@@ -195,9 +195,25 @@ public extension InjectionTreeNode {
     /// Injecting the bare concrete value (`injectObject(RealNetworkService())`) registers it under
     /// `RealNetworkService`, not `NetworkService` — a later `resolve()`/`@InjectedByKey` asking for
     /// `NetworkService` won't find it, and falls through to its default (or throws) silently, not
-    /// with a compile error.
+    /// with a compile error. **Prefer the `for key:` overload below when injecting by protocol** —
+    /// it closes this gotcha structurally instead of relying on the caller to remember the upcast.
     @discardableResult
     func injectObject<T>(_ obj: T) -> Self {
+        injectionStore.registerValue(obj)
+        logInjectionTree()
+        return self
+    }
+
+    /// Same as `injectObject(_:)` above, but `T` is pinned by `key`'s own type instead of
+    /// inferred from `obj` — no explicit upcast needed, and no way to get it wrong:
+    /// ```swift
+    /// scope.injectObject(RealNetworkService(), for: networkServiceKey)   // T == NetworkService,
+    /// ```                                                                // forced by the key alone
+    /// `key.defaultValue` itself is unused here — only relevant at resolution time
+    /// (`@InjectedByKey`) — this overload exists purely to make the call site's generic inference
+    /// unambiguous.
+    @discardableResult
+    func injectObject<T>(_ obj: T, for key: InjectionKey<T>) -> Self {
         injectionStore.registerValue(obj)
         logInjectionTree()
         return self

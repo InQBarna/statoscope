@@ -121,7 +121,7 @@ final class ReducerInjectedByKeyTests: XCTestCase {
 
         try AuditedCounterByKey.Store.GIVEN {
             AuditedCounterByKey.Store(initialState: .init())
-                .injectObject(logger as AuditLoggerProtocol)
+                .injectObject(logger, for: auditLoggerKey)
         }
         .WHEN(.increment)
         .THEN(\.state.count, equals: 1)
@@ -134,7 +134,7 @@ final class ReducerInjectedByKeyTests: XCTestCase {
         let logger = CapturingAuditLogger()
 
         let parentStore = ParentWithChildByKey.Store(initialState: .init())
-            .injectObject(logger as AuditLoggerProtocol)
+            .injectObject(logger, for: auditLoggerKey)
 
         parentStore.send(.openChild)
 

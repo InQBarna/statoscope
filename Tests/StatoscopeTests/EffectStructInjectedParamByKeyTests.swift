@@ -80,7 +80,7 @@ final class EffectStructInjectedParamByKeyTests: XCTestCase {
 
     func testInjectedServiceIsUsedWhenPresentInTheTree() async throws {
         let scope = GreeterScope()
-            .injectObject(MockGreetingService() as GreetingServiceProtocol)
+            .injectObject(MockGreetingService(), for: greetingServiceKey)
 
         scope.send(.load("World"))
 
