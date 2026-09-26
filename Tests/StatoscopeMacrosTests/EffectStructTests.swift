@@ -467,4 +467,78 @@ final class StatoscopeMacrosTests: XCTestCase {
         throw XCTSkip("macros are only supported when running tests for the host platform")
         #endif
     }
+
+    /// Requires swift-syntax 600.x+ — 509.x has no dedicated grammar for typed throws (SE-0413)
+    /// at all: `throws(SomeError)` on the original function used to misparse the *entire rest of
+    /// the signature* (the return type included) as unexpected tokens attached to the function
+    /// body, not just lose the error type. Confirmed by reverting this fix locally and rerunning:
+    /// the generated `runEffect()` came back with no return type at all, not merely untyped throws.
+    func testCreateEffectMacroPreservesTypedThrows() throws {
+        #if canImport(StatoscopeMacros)
+        assertMacroExpansion(
+            #"""
+            enum SomeNamespace {
+                @EffectStruct
+                func methodName() throws(MyEffectError) -> Int {
+                    return 2
+                }
+            }
+            """#,
+            expandedSource: #"""
+            enum SomeNamespace {
+                func methodName() throws(MyEffectError) -> Int {
+                    return 2
+                }
+
+                public struct MethodNameEffect: Effect {
+                    public func runEffect() async throws(MyEffectError) -> Int {
+                        try await methodName()
+                    }
+                    public init() {
+                    }
+                }
+            }
+            """#,
+            macros: testMacros
+        )
+        #else
+        throw XCTSkip("macros are only supported when running tests for the host platform")
+        #endif
+    }
+
+    /// Regression guard for the fix above — a plain (untyped) `throws` original must still expand
+    /// to plain `throws`, not `throws()` or anything else the ThrowsClauseSyntax fallback path
+    /// might accidentally produce.
+    func testCreateEffectMacroWithPlainThrowsUnaffected() throws {
+        #if canImport(StatoscopeMacros)
+        assertMacroExpansion(
+            #"""
+            enum SomeNamespace {
+                @EffectStruct
+                func methodName() throws -> Int {
+                    return 2
+                }
+            }
+            """#,
+            expandedSource: #"""
+            enum SomeNamespace {
+                func methodName() throws -> Int {
+                    return 2
+                }
+
+                public struct MethodNameEffect: Effect {
+                    public func runEffect() async throws -> Int {
+                        try await methodName()
+                    }
+                    public init() {
+                    }
+                }
+            }
+            """#,
+            macros: testMacros
+        )
+        #else
+        throw XCTSkip("macros are only supported when running tests for the host platform")
+        #endif
+    }
 }
