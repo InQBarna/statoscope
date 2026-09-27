@@ -26,11 +26,15 @@ let package = Package(
     ],
     dependencies: [
         // .package(url: "https://github.com/realm/SwiftLint", from: "0.0.0")
-        // EXPERIMENT (experiment/swift-syntax-600 branch): bumped from 509.0.0 (Swift 5.9-era,
-        // no typed-throws grammar support at all — throws(SomeError) on an @EffectStruct function
-        // silently misparses the whole rest of the signature) to 604.0.0, matching this machine's
-        // Swift 6.4 toolchain, to pick up SE-0413 (typed throws) parsing support.
-        .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "604.0.0"),
+        // Bumped from 509.0.0 (Swift 5.9-era, no typed-throws grammar support at all —
+        // throws(SomeError) on an @EffectStruct function used to silently misparse the whole rest
+        // of the signature, return type included) to 600.0.0 — the FIRST 6.0-era release, already
+        // sufficient: confirmed ThrowsClauseSyntax is present as of 600.0.0 itself (checked
+        // 600.0.0 through 603.0.0's generated syntax nodes directly), so this is the lowest floor
+        // that picks up SE-0413 (typed throws) parsing support — not 604.x, which was only ever
+        // an artifact of matching one particular dev machine's toolchain, not an actual
+        // requirement. Raises this package's minimum toolchain to Xcode 16.0 (Swift 6.0).
+        .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "600.0.0"),
         .package(url: "https://github.com/swiftlang/swift-docc-plugin", branch: "main"),
         .package(url: "https://github.com/SimplyDanny/SwiftLintPlugins", from: "0.58.2")
     ],
