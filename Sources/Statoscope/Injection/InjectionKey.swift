@@ -24,11 +24,11 @@ import Foundation
 /// let NetworkServiceKey = InjectionKey<NetworkService>(defaultValue: RealNetworkService())
 ///
 /// final class MyScope: Statostore {
-///     @InjectedByKey(NetworkServiceKey) var service: NetworkService
+///     @Injected(NetworkServiceKey) var service: NetworkService
 /// }
 /// ```
 ///
-/// Used with `@InjectedByKey` (classic `Statostore`) — see that type's own doc. Resolving a
+/// Used with `@Injected` (classic `Statostore`) — see that type's own doc. Resolving a
 /// dependency injected under this key still goes through the same tree walk as `Injectable`
 /// (`InjectionTreeNode._resolveUnsafe`) — `defaultValue` is only ever the fallback when nothing
 /// was actually injected, not a cache or a replacement for real injection.

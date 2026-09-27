@@ -91,8 +91,8 @@ enum Tutorial05 {
             self.favoritesEnabled = favoritesEnabled
         }
 
-        @Injected var date: DateProvider
-        @Injected var persistence: PersistenceProvider
+        @Injected(DateProvider.self) var date: DateProvider
+        @Injected(PersistenceProvider.self) var persistence: PersistenceProvider
 
         func update(_ when: When) throws {
             switch when {
@@ -150,8 +150,8 @@ enum Tutorial05 {
             self.id = id
         }
 
-        @Injected var date: DateProvider
-        @Injected var persistence: PersistenceProvider
+        @Injected(DateProvider.self) var date: DateProvider
+        @Injected(PersistenceProvider.self) var persistence: PersistenceProvider
 
         func update(_ when: When) throws {
             switch when {
@@ -284,8 +284,8 @@ extension Tutorial05 {
 
             static var defaultValue: NewsFeed { NewsFeed() }
 
-            @Injected var date: DateProvider
-            @Injected var persistence: PersistenceProvider
+            @Injected(DateProvider.self) var date: DateProvider
+            @Injected(PersistenceProvider.self) var persistence: PersistenceProvider
 
             func update(_ when: When) throws {
                 switch when {

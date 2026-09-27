@@ -42,7 +42,7 @@ public protocol InjectionTreeNodeProtocol {
 /// or using the Injected property wrapper
 /// ```swift
 /// final class YourScope: Statostore {
-///   @Injected var clock: InjectedClock
+///   @Injected(InjectedClock.self) var clock: InjectedClock
 ///   func update(_ when: When) throws {
 ///      print("current time: \(clock.currentTime)")
 ///   }
@@ -119,7 +119,7 @@ public extension InjectionTreeNode {
 
     /// Same as `_resolve<T: Injectable>` above, but the default comes from `key` instead of
     /// `T.defaultValue` — lets `T` be a real protocol, not just an `Injectable`-conforming type.
-    /// Backs `@InjectedByKey`.
+    /// Backs `@Injected`.
     func _resolve<T>(_ key: InjectionKey<T>, appendingLog: String = "") -> T {
         do {
             return try _resolveUnsafe(appendingLog: appendingLog)
@@ -178,11 +178,11 @@ public extension InjectionTreeNode {
 
 public extension InjectionTreeNode {
 
-    /// Registers `obj` for later resolution (`@Injected`, `@InjectedByKey`, `resolve()`) by the
+    /// Registers `obj` for later resolution (`@Injected`, `resolve()`) by the
     /// generic type `T` is inferred as at THIS call site — not `obj`'s own concrete runtime type.
     ///
     /// For a concrete `Injectable` type this is invisible: `injectObject(DateProvider(...))`
-    /// infers `T == DateProvider`, matching what `@Injected var date: DateProvider` resolves by.
+    /// infers `T == DateProvider`, matching what `@Injected(DateProvider.self) var date: DateProvider` resolves by.
     ///
     /// To inject something resolvable *by a protocol type*, `T` must be the protocol at the call
     /// site — an explicit upcast, or a variable already declared with the protocol type:
@@ -193,7 +193,7 @@ public extension InjectionTreeNode {
     /// scope.injectObject(service)                                  // same T
     /// ```
     /// Injecting the bare concrete value (`injectObject(RealNetworkService())`) registers it under
-    /// `RealNetworkService`, not `NetworkService` — a later `resolve()`/`@InjectedByKey` asking for
+    /// `RealNetworkService`, not `NetworkService` — a later `resolve()`/`@Injected` asking for
     /// `NetworkService` won't find it, and falls through to its default (or throws) silently, not
     /// with a compile error. **Prefer the `for key:` overload below when injecting by protocol** —
     /// it closes this gotcha structurally instead of relying on the caller to remember the upcast.
@@ -210,7 +210,7 @@ public extension InjectionTreeNode {
     /// scope.injectObject(RealNetworkService(), for: networkServiceKey)   // T == NetworkService,
     /// ```                                                                // forced by the key alone
     /// `key.defaultValue` itself is unused here — only relevant at resolution time
-    /// (`@InjectedByKey`) — this overload exists purely to make the call site's generic inference
+    /// (`@Injected`) — this overload exists purely to make the call site's generic inference
     /// unambiguous.
     @discardableResult
     func injectObject<T>(_ obj: T, for key: InjectionKey<T>) -> Self {

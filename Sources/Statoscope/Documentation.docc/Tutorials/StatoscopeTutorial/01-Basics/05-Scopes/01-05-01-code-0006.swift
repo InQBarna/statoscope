@@ -8,7 +8,7 @@ final class NewsFeed: Statostore, ObservableObject {
         case networkReturnsFeatureToggle(Result<[String: String], EquatableError>)
     }
 
-    @Injected var network: NetworkProvider
+    @Injected(NetworkProvider.self) var network: NetworkProvider
     func update(_ when: When) throws { }
 }
 
@@ -26,8 +26,8 @@ final class NewsFeedList: Statostore, ObservableObject {
     }
 
     init(favoritesEnabled: Bool) { self.favoritesEnabled = favoritesEnabled }
-    @Injected var date: DateProvider
-    @Injected var persistence: PersistenceProvider
-    @Injected var network: NetworkProvider
+    @Injected(DateProvider.self) var date: DateProvider
+    @Injected(PersistenceProvider.self) var persistence: PersistenceProvider
+    @Injected(NetworkProvider.self) var network: NetworkProvider
     func update(_ when: When) throws { }
 }

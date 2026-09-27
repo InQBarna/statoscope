@@ -24,7 +24,7 @@ class InjectionStore {
     // (Protocol-typed injection turns out NOT to need this fix — inside a generic function body,
     // T.self and type(of: dependency) already agree for an existential-typed T; that path's real
     // blocker was Injectable's `Self`-returning defaultValue requirement, fixed separately via
-    // InjectionKey/@InjectedByKey, not here.)
+    // InjectionKey/@Injected, not here.)
     // No behavior change when no subclassing is involved — T.self == type(of: dependency) then.
     func register<T: AnyObject>(_ dependency: T) {
         let key = String(describing: T.self).removeOptionalDescription

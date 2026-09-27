@@ -210,8 +210,8 @@ class InjectObjectTests: XCTestCase {
     }
     final class ScopeWihInjectables: Statostore, ObservableObject {
         typealias When = Void
-        @Injected var injectedStruct: InjectableStruct
-        @Injected var injectedClass: InjectableClass
+        @Injected(InjectableStruct.self) var injectedStruct: InjectableStruct
+        @Injected(InjectableClass.self) var injectedClass: InjectableClass
         func update(_ when: Void) throws { }
     }
 
@@ -253,7 +253,7 @@ class InjectObjectTests: XCTestCase {
 
     final class ScopeWithProtocolInjectable: Statostore, ObservableObject {
         typealias When = Void
-        @InjectedByKey(InjectObjectTests.greeterKey) var greeter: GreeterProtocol
+        @Injected(InjectObjectTests.greeterKey) var greeter: GreeterProtocol
         func update(_ when: Void) throws { }
     }
 
@@ -286,7 +286,7 @@ class InjectObjectTests: XCTestCase {
     // separately-named global. See InjectionKeyProviding.swift's own doc.
     final class ScopeWithProviderInjectable: Statostore, ObservableObject {
         typealias When = Void
-        @InjectedByKey(DefaultGreeter.self) var greeter: GreeterProtocol
+        @Injected(DefaultGreeter.self) var greeter: GreeterProtocol
         func update(_ when: Void) throws { }
     }
 
@@ -314,8 +314,8 @@ class InjectObjectTests: XCTestCase {
         final class GrandSon: InjectionTreeNode, ObservableObject {
             @Superscope var parent: Parent
             @Superscope var child: Child
-            @Injected var injectedStruct: InjectableStruct
-            @Injected var injectedClass: InjectableClass
+            @Injected(InjectableStruct.self) var injectedStruct: InjectableStruct
+            @Injected(InjectableClass.self) var injectedClass: InjectableClass
         }
     }
 
@@ -338,22 +338,22 @@ class InjectObjectTests: XCTestCase {
     enum ParentChildGrandSonAccessAtAllLevels {
         final class Parent: InjectionTreeNode, Injectable, ObservableObject {
             @Subscope var child: Child? = Child()
-            @Injected var injectedStruct: InjectableStruct
-            @Injected var injectedClass: InjectableClass
+            @Injected(InjectableStruct.self) var injectedStruct: InjectableStruct
+            @Injected(InjectableClass.self) var injectedClass: InjectableClass
             static var defaultValue: Parent = Parent()
         }
         final class Child: InjectionTreeNode, Injectable, ObservableObject {
             @Superscope var parent: Parent
             @Subscope var grandson: GrandSon? = GrandSon()
-            @Injected var injectedStruct: InjectableStruct
-            @Injected var injectedClass: InjectableClass
+            @Injected(InjectableStruct.self) var injectedStruct: InjectableStruct
+            @Injected(InjectableClass.self) var injectedClass: InjectableClass
             static var defaultValue: Child = Child()
         }
         final class GrandSon: InjectionTreeNode, ObservableObject {
             @Superscope var parent: Parent
             @Superscope var child: Child
-            @Injected var injectedStruct: InjectableStruct
-            @Injected var injectedClass: InjectableClass
+            @Injected(InjectableStruct.self) var injectedStruct: InjectableStruct
+            @Injected(InjectableClass.self) var injectedClass: InjectableClass
         }
     }
 

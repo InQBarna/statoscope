@@ -8,6 +8,6 @@ final class NewsFeed: Statostore, ObservableObject {
         case networkReturnsFeatureToggle(Result<[String: String], EquatableError>)
     }
 
-    @Injected var network: NetworkProvider
+    @Injected(NetworkProvider.self) var network: NetworkProvider
     func update(_ when: When) throws { }
 }

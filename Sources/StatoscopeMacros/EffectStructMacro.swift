@@ -75,10 +75,6 @@ public struct EffectStructMacro: PeerMacro {
         let equatableRequested: Bool = extractEquatableParam(from: node)
         let parameterList = funcDecl.signature.parameterClause.parameters
         let newGenericParameterClause = buildGenericParameterClause(funcDecl: funcDecl)
-        let injectedAttr = AttributeSyntax(
-            atSign: .atSignToken(),
-            attributeName: IdentifierTypeSyntax(name: .identifier("InjectedForEffect"))
-        )
         let newStructDeclaration = StructDeclSyntax(
             modifiers: DeclModifierListSyntax {
                 DeclModifierSyntax(name: .keyword(.public))
@@ -96,34 +92,16 @@ public struct EffectStructMacro: PeerMacro {
             memberBlock: MemberBlockSyntax(
                 members: MemberBlockItemListSyntax {
                     for param in parameterList {
-                        let isInjectedForEffect: Bool = param.isInjectedForEffect(context: context)
-                        if let keyExpr = param.injectedParamByKeyExpression {
-                            // @InjectedParamByKey(KeyExpr) — built via a string-parsed DeclSyntax
-                            // rather than the structured AttributeSyntax builder used just below,
-                            // since that builder has no simple way to attach an argument list; the
-                            // key expression is only ever relayed as source text either way, never
-                            // evaluated by the macro itself.
+                        if let keyExpr = param.injectedParamExpression {
+                            // @InjectedParam(KeyExpr) — built via a string-parsed DeclSyntax rather
+                            // than a structured AttributeSyntax builder, since that builder has no
+                            // simple way to attach an argument list; the key expression is only
+                            // ever relayed as source text either way, never evaluated by the macro.
                             let propName = (param.secondName?.trimm ?? param.firstName.trimm).text
                             let propType = param.type.trimm.description
                             MemberBlockItemSyntax(
                                 decl: DeclSyntax(
-                                    "@InjectedForEffectByKey(\(raw: keyExpr)) var \(raw: propName): \(raw: propType)"
-                                )
-                            )
-                        } else if isInjectedForEffect {
-                            MemberBlockItemSyntax(
-                                decl: VariableDeclSyntax(
-                                    attributes: [.attribute(injectedAttr)],
-                                    bindingSpecifier: .keyword(Keyword.var),
-                                    bindings: [
-                                        PatternBindingSyntax(
-                                            pattern: IdentifierPatternSyntax(identifier: param.secondName?.trimm ?? param.firstName.trimm),
-                                            typeAnnotation: TypeAnnotationSyntax(
-                                                colon: .colonToken(),
-                                                type: param.type
-                                            )
-                                        )
-                                    ]
+                                    "@InjectedForEffect(\(raw: keyExpr)) var \(raw: propName): \(raw: propType)"
                                 )
                             )
                         } else {
@@ -321,20 +299,16 @@ extension FunctionParameterSyntax {
     func isInjectedForEffect(
         context: some MacroExpansionContext
     ) -> Bool {
-        return attributes.contains(where: {
-            guard case let .attribute(attr) = $0 else { return false }
-            let name = attr.attributeName.as(IdentifierTypeSyntax.self)?.name.text
-            return name == "InjectedParam" || name == "InjectedParamByKey"
-        })
+        injectedParamExpression != nil
     }
 
-    /// The key expression from an `@InjectedParamByKey(KeyExpr)` attribute, as raw source text —
-    /// `nil` for a plain `@InjectedParam` (or no injection attribute at all). Extracted, not
-    /// evaluated: the macro relays it verbatim into the generated `InjectedForEffectByKey(KeyExpr)`.
-    var injectedParamByKeyExpression: String? {
+    /// The key expression from an `@InjectedParam(KeyExpr)` attribute, as raw source text — `nil`
+    /// for a parameter with no injection attribute at all. Extracted, not evaluated: the macro
+    /// relays it verbatim into the generated `InjectedForEffect(KeyExpr)`.
+    var injectedParamExpression: String? {
         for attr in attributes {
             guard case let .attribute(attribute) = attr,
-                  attribute.attributeName.as(IdentifierTypeSyntax.self)?.name.text == "InjectedParamByKey",
+                  attribute.attributeName.as(IdentifierTypeSyntax.self)?.name.text == "InjectedParam",
                   let args = attribute.arguments?.as(LabeledExprListSyntax.self),
                   let keyArg = args.first else { continue }
             return keyArg.expression.description.trimmingCharacters(in: .whitespacesAndNewlines)

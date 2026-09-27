@@ -5,7 +5,7 @@
 //
 //  Demonstrates the difference between:
 //    - Old: call `try dependencies.resolve()` inside each handler
-//    - New: declare `@ReducerInjected var dep: Dep` once on State; access as `state.dep`
+//    - New: declare `@ReducerInjected(Dep.self) var dep: Dep` once on State; access as `state.dep`
 //
 
 import Foundation
@@ -43,7 +43,7 @@ enum Tutorial04bReducerInjected {
 
             /// Dependency declared once on State.
             /// The @Reducer macro generates injection in the Store's state getter.
-            @ReducerInjected var logger: AuditLogger
+            @ReducerInjected(AuditLogger.self) var logger: AuditLogger
         }
 
         enum When {
@@ -89,7 +89,7 @@ enum Tutorial04bReducerInjected {
         struct State {
             var value: Int = 0
             // Child also declares the same dependency — resolved from parent's tree
-            @ReducerInjected var logger: AuditLogger
+            @ReducerInjected(AuditLogger.self) var logger: AuditLogger
         }
 
         enum When {
@@ -114,7 +114,7 @@ enum Tutorial04bReducerInjected {
     struct ParentWithChild {
         struct State {
             var label: String = ""
-            @ReducerInjected var logger: AuditLogger
+            @ReducerInjected(AuditLogger.self) var logger: AuditLogger
             @SubState var child: ChildCounter.State?
         }
 

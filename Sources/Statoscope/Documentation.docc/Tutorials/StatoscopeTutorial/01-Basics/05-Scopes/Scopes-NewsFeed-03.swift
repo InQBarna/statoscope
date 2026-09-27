@@ -10,8 +10,8 @@ final class NewsFeed: Statostore, ObservableObject, Injectable, HierarchialScope
 
     static var defaultValue: NewsFeed { NewsFeed() }
 
-    @Injected var date: DateProvider
-    @Injected var persistence: PersistenceProvider
+    @Injected(DateProvider.self) var date: DateProvider
+    @Injected(PersistenceProvider.self) var persistence: PersistenceProvider
 
     func update(_ when: When) throws {
         switch when {

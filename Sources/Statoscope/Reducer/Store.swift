@@ -190,6 +190,11 @@ extension Store: _SuperSlotWireable {
 
 // MARK: - Injectable (when State: Injectable)
 
+// A conditional conformance to `Injectable` doesn't automatically extend to `InjectionKeyProviding`
+// even though `Injectable` inherits it — Swift requires the conditional conformance to the
+// inherited protocol spelled out explicitly too.
+extension Store: InjectionKeyProviding where R.State: Injectable {}
+
 extension Store: Injectable where R.State: Injectable {
     public static var defaultValue: Store<R> {
         Store<R>(initialState: R.State.defaultValue)

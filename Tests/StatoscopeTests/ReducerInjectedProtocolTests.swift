@@ -1,8 +1,8 @@
 //
-//  ReducerInjectedByKeyTests.swift
+//  ReducerInjectedProtocolTests.swift
 //  Statoscope
 //
-//  @ReducerInjectedByKey — the protocol-typed sibling of @ReducerInjected. Mirrors
+//  @ReducerInjected with a genuine Swift protocol (not just an Injectable value type). Mirrors
 //  Tutorial04b_ReducerInjected.swift's own tests, but with a real protocol (AuditLoggerProtocol)
 //  instead of a struct-of-closures, proving the motivating scenario end to end: declarative,
 //  State-ambient injection for a genuine Swift protocol.
@@ -33,7 +33,7 @@ let auditLoggerKey = InjectionKey<AuditLoggerProtocol>(defaultValue: SilentAudit
 struct AuditedCounterByKey {
     struct State {
         var count: Int = 0
-        @ReducerInjectedByKey(auditLoggerKey) var logger: AuditLoggerProtocol
+        @ReducerInjected(auditLoggerKey) var logger: AuditLoggerProtocol
     }
 
     enum When {
@@ -58,7 +58,7 @@ struct AuditedCounterByKey {
 struct ChildCounterByKey {
     struct State {
         var value: Int = 0
-        @ReducerInjectedByKey(auditLoggerKey) var logger: AuditLoggerProtocol
+        @ReducerInjected(auditLoggerKey) var logger: AuditLoggerProtocol
     }
 
     enum When {
@@ -82,7 +82,7 @@ struct ChildCounterByKey {
 @Reducer
 struct ParentWithChildByKey {
     struct State {
-        @ReducerInjectedByKey(auditLoggerKey) var logger: AuditLoggerProtocol
+        @ReducerInjected(auditLoggerKey) var logger: AuditLoggerProtocol
         @SubState var child: ChildCounterByKey.State?
     }
 
@@ -110,7 +110,7 @@ struct ParentWithChildByKey {
 struct AuditedCounterViaProvider {
     struct State {
         var count: Int = 0
-        @ReducerInjectedByKey(SilentAuditLogger.self) var logger: AuditLoggerProtocol
+        @ReducerInjected(SilentAuditLogger.self) var logger: AuditLoggerProtocol
     }
 
     enum When {
@@ -131,7 +131,7 @@ struct AuditedCounterViaProvider {
     }
 }
 
-final class ReducerInjectedByKeyTests: XCTestCase {
+final class ReducerInjectedProtocolTests: XCTestCase {
 
     func testDefaultValueUsedWhenNoInjection() throws {
         // SilentAuditLogger (the key's default) is used — no crash, no visible side effect.

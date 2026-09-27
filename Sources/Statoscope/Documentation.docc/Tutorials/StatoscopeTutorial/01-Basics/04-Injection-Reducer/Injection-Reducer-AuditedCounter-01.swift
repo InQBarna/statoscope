@@ -6,7 +6,7 @@ struct AuditedCounter {
 
         /// Dependency declared once on State.
         /// The @Reducer macro generates injection in the Store's state getter.
-        @ReducerInjected var logger: AuditLogger
+        @ReducerInjected(AuditLogger.self) var logger: AuditLogger
     }
 
     enum When {

@@ -440,19 +440,19 @@ final class StatoscopeMacrosTests: XCTestCase {
             #"""
             enum SomeNamespace {
                 @EffectStruct
-                public static func signIn(@InjectedParam google: Google) async throws -> Profile {
+                public static func signIn(@InjectedParam(Google.self) google: Google) async throws -> Profile {
                     try await google.login()
                 }
             }
             """#,
             expandedSource: #"""
             enum SomeNamespace {
-                public static func signIn(@InjectedParam google: Google) async throws -> Profile {
+                public static func signIn(@InjectedParam(Google.self) google: Google) async throws -> Profile {
                     try await google.login()
                 }
 
                 public struct SignInEffect: Effect {
-                    @InjectedForEffect var google: Google
+                    @InjectedForEffect(Google.self) var google: Google
                     public func runEffect() async throws -> Profile {
                         try await signIn(google: google)
                     }

@@ -1,11 +1,11 @@
 //
-//  EffectStructInjectedParamByKeyTests.swift
+//  EffectStructInjectedParamProtocolTests.swift
 //  Statoscope
 //
-//  @InjectedParamByKey — the protocol-typed sibling of @InjectedParam, for @EffectStruct
-//  parameters. Runtime end-to-end coverage (real effect execution, real injection tree) —
-//  Tests/StatoscopeMacrosTests/EffectStructTests.swift only asserts macro EXPANSION, never runs
-//  the generated code.
+//  @InjectedParam with a genuine Swift protocol (not just an Injectable value type), for
+//  @EffectStruct parameters. Runtime end-to-end coverage (real effect execution, real injection
+//  tree) — Tests/StatoscopeMacrosTests/EffectStructTests.swift only asserts macro EXPANSION,
+//  never runs the generated code.
 //
 
 import Foundation
@@ -31,7 +31,7 @@ enum GreetingEffectNamespace {
     @EffectStruct
     static func buildGreeting(
         name: String,
-        @InjectedParamByKey(greetingServiceKey) service: GreetingServiceProtocol
+        @InjectedParam(greetingServiceKey) service: GreetingServiceProtocol
     ) async throws -> String {
         service.greet(name: name)
     }
@@ -41,7 +41,7 @@ enum GreetingEffectNamespace {
     @EffectStruct
     static func buildGreetingViaProvider(
         name: String,
-        @InjectedParamByKey(RealGreetingService.self) service: GreetingServiceProtocol
+        @InjectedParam(RealGreetingService.self) service: GreetingServiceProtocol
     ) async throws -> String {
         service.greet(name: name)
     }
@@ -89,7 +89,7 @@ final class GreeterViaProviderScope: Statostore, ObservableObject {
     }
 }
 
-final class EffectStructInjectedParamByKeyTests: XCTestCase {
+final class EffectStructInjectedParamProtocolTests: XCTestCase {
 
     override func setUp() {
         super.setUp()

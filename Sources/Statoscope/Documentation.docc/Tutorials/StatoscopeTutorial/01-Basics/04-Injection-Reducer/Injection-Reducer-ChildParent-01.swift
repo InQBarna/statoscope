@@ -3,7 +3,7 @@ struct ChildCounter {
     struct State {
         var value: Int = 0
         // Child also declares the same dependency — resolved from parent's tree
-        @ReducerInjected var logger: AuditLogger
+        @ReducerInjected(AuditLogger.self) var logger: AuditLogger
     }
 
     enum When {
@@ -28,7 +28,7 @@ struct ChildCounter {
 struct ParentWithChild {
     struct State {
         var label: String = ""
-        @ReducerInjected var logger: AuditLogger
+        @ReducerInjected(AuditLogger.self) var logger: AuditLogger
         @SubState var child: ChildCounter.State?
     }
 

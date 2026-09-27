@@ -59,7 +59,7 @@ Documentation is built using Swift-DocC. The library includes comprehensive docu
 
 **@Subscope**: Property wrapper for managing child Statostores within a parent scope.
 
-**Injectable & @Injected**: Protocol and property wrapper for multi-level dependency injection throughout the scope hierarchy (works for both Statostore and Reducer).
+**Injectable & @Injected**: Protocol and property wrapper for multi-level dependency injection throughout the scope hierarchy (works for both Statostore and Reducer). `@Injected` always takes an argument — either an `Injectable`-conforming type (`@Injected(DateProvider.self) var dates: DateProvider`) or a real Swift protocol whose default implementation conforms to `InjectionKeyProviding` (`@Injected(RealLogger.self) var logger: Logger`) — both resolve through the same mechanism, an `Injectable` type just gets its key for free.
 
 **@SubState / @SuperState**: The Reducer-pattern equivalents of `@Subscope`/`@Superscope`, declared directly on a Reducer's `State` struct rather than on the class. See State Management Patterns below.
 
@@ -259,7 +259,7 @@ static func update(
 }
 ```
 
-For ambient access across the whole `State` struct rather than just inside `update()`, use `@ReducerInjected` directly on a state property — resolved from the injection tree the same way `@Injected` resolves for classic Statostore.
+For ambient access across the whole `State` struct rather than just inside `update()`, use `@ReducerInjected(Logger.self)` directly on a state property — resolved from the injection tree the same way `@Injected` resolves for classic Statostore. Takes the same argument shape as `@Injected`: an `Injectable` type, or a real protocol whose default implementation conforms to `InjectionKeyProviding`.
 
 #### Effects
 

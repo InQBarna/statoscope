@@ -74,9 +74,9 @@ enum Tutorial04 {
             case favorite(id: String)
         }
 
-        @Injected var date: DateProvider
-        @Injected var persistence: PersistenceProvider
-        @Injected var network: NetworkProvider
+        @Injected(DateProvider.self) var date: DateProvider
+        @Injected(PersistenceProvider.self) var persistence: PersistenceProvider
+        @Injected(NetworkProvider.self) var network: NetworkProvider
 
         func update(_ when: When) throws {
             switch when {

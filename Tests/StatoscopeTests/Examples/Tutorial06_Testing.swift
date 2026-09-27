@@ -87,8 +87,8 @@ enum Tutorial06 {
             case favorite(id: String)
         }
 
-        @Injected var date: DateProvider
-        @Injected var persistence: PersistenceProvider
+        @Injected(DateProvider.self) var date: DateProvider
+        @Injected(PersistenceProvider.self) var persistence: PersistenceProvider
 
         func update(_ when: When) throws {
             switch when {

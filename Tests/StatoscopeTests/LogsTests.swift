@@ -67,7 +67,7 @@ final class LogsTests: XCTestCase {
                 case checkLogArray([Parent.When.DTO])
                 case checkLogDict([String: Parent.When.DTO])
             }
-            @Injected var missing: MissingInjectable
+            @Injected(MissingInjectable.self) var missing: MissingInjectable
             func update(_ when: When) throws {
                 switch when {
                 case .didAppear:
@@ -328,7 +328,7 @@ final class LogsTests: XCTestCase {
                 case checkLogArray([DTO])
                 case checkLogDict([String: DTO])
             }
-            @Injected var missing: MissingInjectable
+            @Injected(MissingInjectable.self) var missing: MissingInjectable
             func update(_ when: When) throws {
                 switch when {
                 case .checkLogArray(let newArray):
@@ -473,7 +473,7 @@ final class LogsTests: XCTestCase {
                 case associatedValue(DTO)
                 case associatedValues(DTO, String, label: Int, String?)
             }
-            @Injected var missing: MissingInjectable
+            @Injected(MissingInjectable.self) var missing: MissingInjectable
             func update(_ when: When) throws {
                 switch when {
                 case .noAssociated:
