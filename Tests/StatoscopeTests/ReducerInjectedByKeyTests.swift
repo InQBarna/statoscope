@@ -22,8 +22,9 @@ final class CapturingAuditLogger: AuditLoggerProtocol {
     func log(_ message: String) { messages.append(message) }
 }
 
-final class SilentAuditLogger: AuditLoggerProtocol {
+final class SilentAuditLogger: AuditLoggerProtocol, InjectionKeyProviding {
     func log(_ message: String) { }
+    static var injectionKey: InjectionKey<AuditLoggerProtocol> { .init(defaultValue: SilentAuditLogger()) }
 }
 
 let auditLoggerKey = InjectionKey<AuditLoggerProtocol>(defaultValue: SilentAuditLogger())
@@ -103,6 +104,33 @@ struct ParentWithChildByKey {
     }
 }
 
+// `InjectionKeyProviding` — the key reached through SilentAuditLogger.self instead of a
+// separately-named global. See InjectionKeyProviding.swift's own doc.
+@Reducer
+struct AuditedCounterViaProvider {
+    struct State {
+        var count: Int = 0
+        @ReducerInjectedByKey(SilentAuditLogger.self) var logger: AuditLoggerProtocol
+    }
+
+    enum When {
+        case increment
+    }
+
+    static func update(
+        _ when: When,
+        state: inout State,
+        effectsState: inout EffectsState<When>,
+        dependencies: ReducerDependencies
+    ) throws {
+        switch when {
+        case .increment:
+            state.logger.log("increment: \(state.count) → \(state.count + 1)")
+            state.count += 1
+        }
+    }
+}
+
 final class ReducerInjectedByKeyTests: XCTestCase {
 
     func testDefaultValueUsedWhenNoInjection() throws {
@@ -146,5 +174,19 @@ final class ReducerInjectedByKeyTests: XCTestCase {
 
         XCTAssertEqual(childStore.state.value, 5)
         XCTAssertEqual(logger.messages, ["opening child", "child add 5"])
+    }
+
+    func testInjectedProtocolConformanceViaInjectionKeyProviding() throws {
+        let logger = CapturingAuditLogger()
+
+        try AuditedCounterViaProvider.Store.GIVEN {
+            AuditedCounterViaProvider.Store(initialState: .init())
+                .injectObject(logger, for: SilentAuditLogger.injectionKey)
+        }
+        .WHEN(.increment)
+        .THEN(\.state.count, equals: 1)
+        .runTest()
+
+        XCTAssertEqual(logger.messages, ["increment: 0 → 1"])
     }
 }

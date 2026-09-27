@@ -16,8 +16,9 @@ protocol GreetingServiceProtocol {
     func greet(name: String) -> String
 }
 
-struct RealGreetingService: GreetingServiceProtocol {
+struct RealGreetingService: GreetingServiceProtocol, InjectionKeyProviding {
     func greet(name: String) -> String { "Hello, \(name)!" }
+    static var injectionKey: InjectionKey<GreetingServiceProtocol> { .init(defaultValue: RealGreetingService()) }
 }
 
 struct MockGreetingService: GreetingServiceProtocol {
@@ -31,6 +32,16 @@ enum GreetingEffectNamespace {
     static func buildGreeting(
         name: String,
         @InjectedParamByKey(greetingServiceKey) service: GreetingServiceProtocol
+    ) async throws -> String {
+        service.greet(name: name)
+    }
+
+    // `InjectionKeyProviding` — the key reached through RealGreetingService.self instead of a
+    // separately-named global. See InjectionKeyProviding.swift's own doc.
+    @EffectStruct
+    static func buildGreetingViaProvider(
+        name: String,
+        @InjectedParamByKey(RealGreetingService.self) service: GreetingServiceProtocol
     ) async throws -> String {
         service.greet(name: name)
     }
@@ -49,6 +60,27 @@ final class GreeterScope: Statostore, ObservableObject {
         case .load(let name):
             effectsState.enqueue(
                 GreetingEffectNamespace.BuildGreetingEffect(name: name)
+                    .map(When.loaded)
+            )
+        case .loaded(let text):
+            greeting = text
+        }
+    }
+}
+
+final class GreeterViaProviderScope: Statostore, ObservableObject {
+    enum When {
+        case load(String)
+        case loaded(String)
+    }
+
+    @Published var greeting: String?
+
+    func update(_ when: When) throws {
+        switch when {
+        case .load(let name):
+            effectsState.enqueue(
+                GreetingEffectNamespace.BuildGreetingViaProviderEffect(name: name)
                     .map(When.loaded)
             )
         case .loaded(let text):
@@ -81,6 +113,26 @@ final class EffectStructInjectedParamByKeyTests: XCTestCase {
     func testInjectedServiceIsUsedWhenPresentInTheTree() async throws {
         let scope = GreeterScope()
             .injectObject(MockGreetingService(), for: greetingServiceKey)
+
+        scope.send(.load("World"))
+
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        XCTAssertEqual(scope.greeting, "Mocked greeting for World")
+    }
+
+    func testProviderKeyDefaultServiceIsUsedWhenNothingInjected() async throws {
+        let scope = GreeterViaProviderScope()
+        scope.send(.load("World"))
+
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        XCTAssertEqual(scope.greeting, "Hello, World!")
+    }
+
+    func testProviderKeyInjectedServiceIsUsedWhenPresentInTheTree() async throws {
+        let scope = GreeterViaProviderScope()
+            .injectObject(MockGreetingService(), for: RealGreetingService.injectionKey)
 
         scope.send(.load("World"))
 

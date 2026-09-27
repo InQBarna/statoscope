@@ -35,6 +35,12 @@ public struct ReducerInjectedByKey<Value> {
         _value = key.defaultValue
     }
 
+    /// Reaches for the key through its `InjectionKeyProviding` conforming type instead of a
+    /// separately-named global — see that protocol's own doc.
+    public init<P: InjectionKeyProviding>(_ providerType: P.Type) where P.InjectedValue == Value {
+        _value = providerType.injectionKey.defaultValue
+    }
+
     /// Framework injection initializer — called by the generated Store state getter.
     public init(injectedValue: Value) {
         _value = injectedValue
@@ -73,5 +79,12 @@ extension InjectionTreeNode {
     /// Returns `key.defaultValue` if the dependency cannot be found in the tree.
     public func resolveForBinding<T>(_ key: InjectionKey<T>) -> T {
         _resolve(key)
+    }
+
+    /// `resolveForBinding(_:)`'s `InjectionKeyProviding` counterpart — the `@Reducer` macro emits
+    /// whichever overload matches the raw expression inside `@ReducerInjectedByKey(...)`, so this
+    /// needs no macro-side change: `SilentLogger.self` resolves here, a plain key value above.
+    public func resolveForBinding<P: InjectionKeyProviding>(_ providerType: P.Type) -> P.InjectedValue {
+        _resolve(providerType.injectionKey)
     }
 }

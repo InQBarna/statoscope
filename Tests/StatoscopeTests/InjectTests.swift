@@ -245,8 +245,9 @@ class InjectObjectTests: XCTestCase {
     struct RealGreeter: GreeterProtocol {
         let greeting = "real"
     }
-    struct DefaultGreeter: GreeterProtocol {
+    struct DefaultGreeter: GreeterProtocol, InjectionKeyProviding {
         let greeting = "default"
+        static var injectionKey: InjectionKey<GreeterProtocol> { .init(defaultValue: DefaultGreeter()) }
     }
     static let greeterKey = InjectionKey<GreeterProtocol>(defaultValue: DefaultGreeter())
 
@@ -278,6 +279,25 @@ class InjectObjectTests: XCTestCase {
         // under "RealGreeter" instead, and the assertion below would see "default", not "real".
         sut.injectObject(RealGreeter(), for: InjectObjectTests.greeterKey)
 
+        XCTAssertEqual(sut.greeter.greeting, "real")
+    }
+
+    // `InjectionKeyProviding` — the key reached through DefaultGreeter.self instead of a
+    // separately-named global. See InjectionKeyProviding.swift's own doc.
+    final class ScopeWithProviderInjectable: Statostore, ObservableObject {
+        typealias When = Void
+        @InjectedByKey(DefaultGreeter.self) var greeter: GreeterProtocol
+        func update(_ when: Void) throws { }
+    }
+
+    func testInjectProtocolViaInjectionKeyProviding() {
+        let sut = ScopeWithProviderInjectable()
+
+        XCTAssertEqual(sut.greeter.greeting, "default")
+
+        // The key is reached via DefaultGreeter.injectionKey, discoverable through that type
+        // rather than a bespoke global constant.
+        sut.injectObject(RealGreeter(), for: DefaultGreeter.injectionKey)
         XCTAssertEqual(sut.greeter.greeting, "real")
     }
 

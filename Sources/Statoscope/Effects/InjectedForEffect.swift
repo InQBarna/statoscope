@@ -47,6 +47,12 @@ public struct InjectedForEffectByKey<Value>: CustomDebugStringConvertible {
         self.key = key
     }
 
+    /// Reaches for the key through its `InjectionKeyProviding` conforming type instead of a
+    /// separately-named global — see that protocol's own doc.
+    public init<P: InjectionKeyProviding>(_ providerType: P.Type) where P.InjectedValue == Value {
+        self.key = providerType.injectionKey
+    }
+
     public var wrappedValue: Value {
         box.node?._resolve(key) ?? key.defaultValue
     }
@@ -102,6 +108,12 @@ public struct InjectedParam<T> {
 public struct InjectedParamByKey<T> {
     public var wrappedValue: T
     public init(wrappedValue: T, _ key: InjectionKey<T>) {
+        self.wrappedValue = wrappedValue
+    }
+
+    /// Reaches for the key through its `InjectionKeyProviding` conforming type instead of a
+    /// separately-named global — see that protocol's own doc.
+    public init<P: InjectionKeyProviding>(wrappedValue: T, _ providerType: P.Type) where P.InjectedValue == T {
         self.wrappedValue = wrappedValue
     }
 }

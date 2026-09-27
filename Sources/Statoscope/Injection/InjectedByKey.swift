@@ -28,6 +28,12 @@ public struct InjectedByKey<Value> {
         self.key = key
     }
 
+    /// Reaches for the key through its `InjectionKeyProviding` conforming type instead of a
+    /// separately-named global — see that protocol's own doc.
+    public init<P: InjectionKeyProviding>(_ providerType: P.Type) where P.InjectedValue == Value {
+        self.key = providerType.injectionKey
+    }
+
     public static subscript<T: InjectionTreeNode>(
         _enclosingInstance enclosingInstance: T,
         wrapped wrappedKeyPath: ReferenceWritableKeyPath<T, Value>,
