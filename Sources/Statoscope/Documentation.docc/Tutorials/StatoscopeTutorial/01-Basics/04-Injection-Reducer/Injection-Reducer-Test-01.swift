@@ -1,4 +1,12 @@
 func testDependencyInjection() throws {
+    // A fake conformance, not a reconfigured RealNetworkProvider — protocol-typed
+    // dependencies get swapped by providing a different conforming type, unlike
+    // DateProvider/PersistenceProvider above (same concrete struct, different closures).
+    struct FakeNetworkProvider: NetworkProvider {
+        let articles: [ArticleDTO]
+        func fetchArticles() async throws -> [ArticleDTO] { articles }
+    }
+
     let fixedDate = Date(timeIntervalSince1970: 1000)
     var savedFavorites: [Favorite] = []
 
@@ -12,14 +20,13 @@ func testDependencyInjection() throws {
                 )
             )
             .injectObject(
-                NetworkProvider(
-                    fetchArticles: {
-                        [
-                            ArticleDTO(id: "1", title: "Article 1", content: "Content 1"),
-                            ArticleDTO(id: "2", title: "Article 2", content: "Content 2")
-                        ]
-                    }
-                )
+                // The "for:" overload pins T to NetworkProvider via the key's own type —
+                // no explicit upcast needed, and no way to get it wrong.
+                FakeNetworkProvider(articles: [
+                    ArticleDTO(id: "1", title: "Article 1", content: "Content 1"),
+                    ArticleDTO(id: "2", title: "Article 2", content: "Content 2")
+                ]),
+                for: RealNetworkProvider.self
             )
     }
     .WHEN(.systemLoadedScope)

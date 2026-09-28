@@ -7,31 +7,24 @@
 
 import Foundation
 
-/// Declares an ambient dependency, resolved from the injection tree. `Value` can be any
-/// `Injectable`-conforming type (gets its key for free, see `Injectable`'s own doc) or any real
-/// Swift protocol whose default implementation conforms to `InjectionKeyProviding`:
+/// Declares an ambient dependency, resolved from the injection tree, using whatever default an
+/// `Injectable`-conforming type declares (see that protocol's own doc for the two shapes it
+/// supports — a concrete type's own default, or a protocol's via a named real implementation):
 /// ```swift
 /// final class MyScope: Statostore {
 ///     @Injected(DateProvider.self) var dates: DateProvider          // Injectable value type
 ///     @Injected(RealLogger.self) var logger: Logger                 // protocol type
-///     @Injected(someExplicitKey) var other: OtherType                // one-off InjectionKey value
 /// }
 /// ```
 @propertyWrapper
 public struct Injected<Value> {
 
-    private let key: InjectionKey<Value>
+    private let defaultValue: Value
     private var overwrittingValue: Value?
 
-    public init(_ key: InjectionKey<Value>) {
-        self.key = key
-    }
-
-    /// Reaches for the key through its `InjectionKeyProviding` conforming type instead of a
-    /// separately-named global — see that protocol's own doc. Also covers any `Injectable` type,
-    /// which conforms to `InjectionKeyProviding` automatically.
-    public init<P: InjectionKeyProviding>(_ providerType: P.Type) where P.InjectedValue == Value {
-        self.key = providerType.injectionKey
+    /// Reaches for the type's own declared default — see `Injectable`'s own doc.
+    public init<P: Injectable>(_ providerType: P.Type) where P.InjectedValue == Value {
+        self.defaultValue = providerType.defaultValue
     }
 
     public static subscript<T: InjectionTreeNode>(
@@ -44,7 +37,7 @@ public struct Injected<Value> {
             if let overwrite = storage.overwrittingValue {
                 return overwrite
             }
-            return enclosingInstance._resolve(storage.key, appendingLog: String(describing: storageKeyPath))
+            return enclosingInstance._resolve(storage.defaultValue, appendingLog: String(describing: storageKeyPath))
         }
         set {
             if nil != NSClassFromString("XCTest") ||

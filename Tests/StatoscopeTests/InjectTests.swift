@@ -237,67 +237,37 @@ class InjectObjectTests: XCTestCase {
     }
 
     // Was: "TODO: Protocols can't be injected, solution for now is to create protocolwitness".
-    // Fixed via InjectionKey/@InjectedByKey — see InjectionKey.swift's own doc for why Injectable
-    // alone can never let a real protocol be the injected type.
+    // Fixed via Injectable — a concrete type's defaultValue can return a protocol type, not just
+    // Self, so a real protocol can be the injected type without any separate mechanism.
     protocol GreeterProtocol {
         var greeting: String { get }
     }
     struct RealGreeter: GreeterProtocol {
         let greeting = "real"
     }
-    struct DefaultGreeter: GreeterProtocol, InjectionKeyProviding {
+    struct DefaultGreeter: GreeterProtocol, Injectable {
         let greeting = "default"
-        static var injectionKey: InjectionKey<GreeterProtocol> { .init(defaultValue: DefaultGreeter()) }
+        static var defaultValue: GreeterProtocol { DefaultGreeter() }
     }
-    static let greeterKey = InjectionKey<GreeterProtocol>(defaultValue: DefaultGreeter())
 
     final class ScopeWithProtocolInjectable: Statostore, ObservableObject {
         typealias When = Void
-        @Injected(InjectObjectTests.greeterKey) var greeter: GreeterProtocol
+        @Injected(DefaultGreeter.self) var greeter: GreeterProtocol
         func update(_ when: Void) throws { }
     }
 
     func testInjectProtocol() {
         let sut = ScopeWithProtocolInjectable()
 
-        // Returns the key's default value before injection — same shape as testInjectClass/
-        // testInjectStruct above, just via the key instead of Injectable.defaultValue.
+        // Returns the type's own declared default before injection — same shape as
+        // testInjectClass/testInjectStruct above, just with a protocol-typed default.
         XCTAssertEqual(sut.greeter.greeting, "default")
 
-        // The `for key:` overload — T is pinned by the key's own type, no explicit upcast needed
-        // (see testInjectObjectByKeyNeedsNoUpcast below for that mechanism in isolation).
-        sut.injectObject(RealGreeter(), for: InjectObjectTests.greeterKey)
-        XCTAssertEqual(sut.greeter.greeting, "real")
-    }
-
-    func testInjectObjectByKeyNeedsNoUpcast() {
-        let sut = ScopeWithProtocolInjectable()
-
-        // No "as GreeterProtocol" anywhere — the key parameter alone pins T to GreeterProtocol,
-        // even though RealGreeter's own static type here is RealGreeter. Without the `for key:`
-        // overload, this exact call (bare injectObject(RealGreeter())) would silently register
-        // under "RealGreeter" instead, and the assertion below would see "default", not "real".
-        sut.injectObject(RealGreeter(), for: InjectObjectTests.greeterKey)
-
-        XCTAssertEqual(sut.greeter.greeting, "real")
-    }
-
-    // `InjectionKeyProviding` — the key reached through DefaultGreeter.self instead of a
-    // separately-named global. See InjectionKeyProviding.swift's own doc.
-    final class ScopeWithProviderInjectable: Statostore, ObservableObject {
-        typealias When = Void
-        @Injected(DefaultGreeter.self) var greeter: GreeterProtocol
-        func update(_ when: Void) throws { }
-    }
-
-    func testInjectProtocolViaInjectionKeyProviding() {
-        let sut = ScopeWithProviderInjectable()
-
-        XCTAssertEqual(sut.greeter.greeting, "default")
-
-        // The key is reached via DefaultGreeter.injectionKey, discoverable through that type
-        // rather than a bespoke global constant.
-        sut.injectObject(RealGreeter(), for: DefaultGreeter.injectionKey)
+        // The `for:` overload — T is pinned by DefaultGreeter's own InjectedValue, no explicit
+        // upcast needed even though RealGreeter's own static type here is RealGreeter. Without
+        // it, a bare injectObject(RealGreeter()) would silently register under "RealGreeter"
+        // instead, and the assertion below would see "default", not "real".
+        sut.injectObject(RealGreeter(), for: DefaultGreeter.self)
         XCTAssertEqual(sut.greeter.greeting, "real")
     }
 

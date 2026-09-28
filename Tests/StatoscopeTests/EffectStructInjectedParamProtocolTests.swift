@@ -16,30 +16,20 @@ protocol GreetingServiceProtocol {
     func greet(name: String) -> String
 }
 
-struct RealGreetingService: GreetingServiceProtocol, InjectionKeyProviding {
+// RealGreetingService conforms to Injectable itself — declares its default with a protocol return
+// type instead of Self, discoverable through the type's own name.
+struct RealGreetingService: GreetingServiceProtocol, Injectable {
     func greet(name: String) -> String { "Hello, \(name)!" }
-    static var injectionKey: InjectionKey<GreetingServiceProtocol> { .init(defaultValue: RealGreetingService()) }
+    static var defaultValue: GreetingServiceProtocol { RealGreetingService() }
 }
 
 struct MockGreetingService: GreetingServiceProtocol {
     func greet(name: String) -> String { "Mocked greeting for \(name)" }
 }
 
-let greetingServiceKey = InjectionKey<GreetingServiceProtocol>(defaultValue: RealGreetingService())
-
 enum GreetingEffectNamespace {
     @EffectStruct
     static func buildGreeting(
-        name: String,
-        @InjectedParam(greetingServiceKey) service: GreetingServiceProtocol
-    ) async throws -> String {
-        service.greet(name: name)
-    }
-
-    // `InjectionKeyProviding` — the key reached through RealGreetingService.self instead of a
-    // separately-named global. See InjectionKeyProviding.swift's own doc.
-    @EffectStruct
-    static func buildGreetingViaProvider(
         name: String,
         @InjectedParam(RealGreetingService.self) service: GreetingServiceProtocol
     ) async throws -> String {
@@ -60,27 +50,6 @@ final class GreeterScope: Statostore, ObservableObject {
         case .load(let name):
             effectsState.enqueue(
                 GreetingEffectNamespace.BuildGreetingEffect(name: name)
-                    .map(When.loaded)
-            )
-        case .loaded(let text):
-            greeting = text
-        }
-    }
-}
-
-final class GreeterViaProviderScope: Statostore, ObservableObject {
-    enum When {
-        case load(String)
-        case loaded(String)
-    }
-
-    @Published var greeting: String?
-
-    func update(_ when: When) throws {
-        switch when {
-        case .load(let name):
-            effectsState.enqueue(
-                GreetingEffectNamespace.BuildGreetingViaProviderEffect(name: name)
                     .map(When.loaded)
             )
         case .loaded(let text):
@@ -112,27 +81,7 @@ final class EffectStructInjectedParamProtocolTests: XCTestCase {
 
     func testInjectedServiceIsUsedWhenPresentInTheTree() async throws {
         let scope = GreeterScope()
-            .injectObject(MockGreetingService(), for: greetingServiceKey)
-
-        scope.send(.load("World"))
-
-        try await Task.sleep(nanoseconds: 100_000_000)
-
-        XCTAssertEqual(scope.greeting, "Mocked greeting for World")
-    }
-
-    func testProviderKeyDefaultServiceIsUsedWhenNothingInjected() async throws {
-        let scope = GreeterViaProviderScope()
-        scope.send(.load("World"))
-
-        try await Task.sleep(nanoseconds: 100_000_000)
-
-        XCTAssertEqual(scope.greeting, "Hello, World!")
-    }
-
-    func testProviderKeyInjectedServiceIsUsedWhenPresentInTheTree() async throws {
-        let scope = GreeterViaProviderScope()
-            .injectObject(MockGreetingService(), for: RealGreetingService.injectionKey)
+            .injectObject(MockGreetingService(), for: RealGreetingService.self)
 
         scope.send(.load("World"))
 

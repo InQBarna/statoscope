@@ -1,15 +1,11 @@
-func testDefaultValueUsedWhenNoInjection() throws {
-    // The defaultValue logger is silent; no crash, no side effect
-    try AuditedCounter.Store.GIVEN {
-        AuditedCounter.Store(initialState: .init())
-        // No .injectObject() — uses AuditLogger.defaultValue
-    }
-    .THEN(\.state.count, equals: 0)
-    .WHEN(.increment)
-    .THEN(\.state.count, equals: 1)
-    .WHEN(.increment)
-    .THEN(\.state.count, equals: 2)
-    .WHEN(.reset)
-    .THEN(\.state.count, equals: 0)
-    .runTest()
+func testDefaultValuesUsedWhenNoInjection() throws {
+    // No .injectObject() at all — DateProvider.defaultValue and
+    // RealNetworkProvider.defaultValue are used automatically. Neither throws, unlike
+    // dependencies.resolve() in NewsFeedListReducer.
+    let store = NewsFeedStatusReducer.Store(initialState: .init())
+
+    XCTAssertTrue(store.state.network is RealNetworkProvider)
+
+    store.send(.checkNow)
+    XCTAssertNotNil(store.state.lastCheckedAt)
 }

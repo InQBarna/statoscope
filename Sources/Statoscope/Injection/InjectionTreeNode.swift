@@ -109,7 +109,7 @@ public extension InjectionTreeNode {
     ///
     /// Method will search first in ad-hoc injected objects and later up in the injection tree.
     /// * Returns The found injected value or default value if not found
-    func _resolve<T: Injectable>(appendingLog: String = "") -> T {
+    func _resolve<T: Injectable>(appendingLog: String = "") -> T where T.InjectedValue == T {
         do {
             return try _resolveUnsafe(appendingLog: appendingLog)
         } catch {
@@ -117,14 +117,15 @@ public extension InjectionTreeNode {
         }
     }
 
-    /// Same as `_resolve<T: Injectable>` above, but the default comes from `key` instead of
-    /// `T.defaultValue` — lets `T` be a real protocol, not just an `Injectable`-conforming type.
-    /// Backs `@Injected`.
-    func _resolve<T>(_ key: InjectionKey<T>, appendingLog: String = "") -> T {
+    /// Same as `_resolve<T: Injectable>` above, but takes the default directly rather than
+    /// requiring `T` itself to be `Injectable` — lets `T` be a real protocol. Backs `@Injected`,
+    /// `@ReducerInjected`, `@InjectedForEffect`, all of which already resolved the concrete
+    /// `Injectable`-conforming type's `defaultValue` before calling this.
+    func _resolve<T>(_ defaultValue: T, appendingLog: String = "") -> T {
         do {
             return try _resolveUnsafe(appendingLog: appendingLog)
         } catch {
-            return key.defaultValue
+            return defaultValue
         }
     }
 
@@ -195,7 +196,7 @@ public extension InjectionTreeNode {
     /// Injecting the bare concrete value (`injectObject(RealNetworkService())`) registers it under
     /// `RealNetworkService`, not `NetworkService` — a later `resolve()`/`@Injected` asking for
     /// `NetworkService` won't find it, and falls through to its default (or throws) silently, not
-    /// with a compile error. **Prefer the `for key:` overload below when injecting by protocol** —
+    /// with a compile error. **Prefer the `for:` overload below when injecting by protocol** —
     /// it closes this gotcha structurally instead of relying on the caller to remember the upcast.
     @discardableResult
     func injectObject<T>(_ obj: T) -> Self {
@@ -204,16 +205,17 @@ public extension InjectionTreeNode {
         return self
     }
 
-    /// Same as `injectObject(_:)` above, but `T` is pinned by `key`'s own type instead of
-    /// inferred from `obj` — no explicit upcast needed, and no way to get it wrong:
+    /// Same as `injectObject(_:)` above, but the registration type is pinned by `providerType`'s
+    /// own `InjectedValue` instead of inferred from `obj` — no explicit upcast needed, and no way
+    /// to get it wrong:
     /// ```swift
-    /// scope.injectObject(RealNetworkService(), for: networkServiceKey)   // T == NetworkService,
-    /// ```                                                                // forced by the key alone
-    /// `key.defaultValue` itself is unused here — only relevant at resolution time
+    /// scope.injectObject(RealNetworkService(), for: RealNetworkService.self)   // T == NetworkService,
+    /// ```                                                                       // forced by InjectedValue
+    /// `providerType.defaultValue` itself is unused here — only relevant at resolution time
     /// (`@Injected`) — this overload exists purely to make the call site's generic inference
     /// unambiguous.
     @discardableResult
-    func injectObject<T>(_ obj: T, for key: InjectionKey<T>) -> Self {
+    func injectObject<P: Injectable>(_ obj: P.InjectedValue, for providerType: P.Type) -> Self {
         injectionStore.registerValue(obj)
         logInjectionTree()
         return self
@@ -418,7 +420,7 @@ extension InjectionTreeNodeProtocol {
 ///   - type: The `AnyObject`-constrained type to search for.
 ///   - node: The starting node (typically the child store passed as `AnyObject`).
 /// - Returns: The first ancestor of type `T`, or `nil` if not found.
-public func resolveAncestor<T: Injectable>(_ type: T.Type, from node: AnyObject) -> T? {
+public func resolveAncestor<T: Injectable>(_ type: T.Type, from node: AnyObject) -> T? where T.InjectedValue == T {
     guard let treeNode = node as? (any InjectionTreeNode) else {
         return nil
     }

@@ -37,7 +37,7 @@
 /// `Value` must conform to `Injectable` so the framework can produce a default when
 /// the child store is not yet wired to a parent.
 @propertyWrapper
-public struct SuperState<Value: Injectable> {
+public struct SuperState<Value: Injectable> where Value.InjectedValue == Value {
 
     // Closure breaks the recursive value-type cycle (Parent → Child → Parent).
     // Captures the parent state snapshot BY VALUE at injection time — no live reference retained.

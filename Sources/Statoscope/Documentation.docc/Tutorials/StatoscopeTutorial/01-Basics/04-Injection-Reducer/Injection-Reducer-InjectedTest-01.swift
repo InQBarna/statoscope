@@ -1,14 +1,15 @@
-func testInjectedLoggerIsCalledOnIncrement() throws {
-    var capturedMessages: [String] = []
-
-    try AuditedCounter.Store.GIVEN {
-        AuditedCounter.Store(initialState: .init())
-            .injectObject(AuditLogger { capturedMessages.append($0) })
+func testInjectedValuesAreUsedWhenPresent() throws {
+    struct FakeNetworkProvider: NetworkProvider {
+        func fetchArticles() async throws -> [ArticleDTO] { [] }
     }
-    .WHEN(.increment)
-    .THEN(\.state.count, equals: 1)
-    .THEN(\.state.lastMessage, equals: "increment: 0 → 1")
-    .runTest()
+    let fixedDate = Date(timeIntervalSince1970: 1000)
 
-    XCTAssertEqual(capturedMessages, ["increment: 0 → 1"])
+    let store = NewsFeedStatusReducer.Store(initialState: .init())
+        .injectObject(DateProvider { fixedDate })
+        .injectObject(FakeNetworkProvider(), for: RealNetworkProvider.self)
+
+    store.send(.checkNow)
+
+    XCTAssertEqual(store.state.lastCheckedAt, fixedDate)
+    XCTAssertTrue(store.state.network is FakeNetworkProvider)
 }

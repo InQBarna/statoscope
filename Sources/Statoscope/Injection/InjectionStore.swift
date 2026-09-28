@@ -23,8 +23,8 @@ class InjectionStore {
     // `resolve() as Animal` looked up "Animal" — mismatch, silently unresolvable.
     // (Protocol-typed injection turns out NOT to need this fix — inside a generic function body,
     // T.self and type(of: dependency) already agree for an existential-typed T; that path's real
-    // blocker was Injectable's `Self`-returning defaultValue requirement, fixed separately via
-    // InjectionKey/@Injected, not here.)
+    // blocker was Injectable's `Self`-returning defaultValue requirement, fixed separately by
+    // letting `defaultValue` return a protocol type instead (see Injectable's own doc), not here.)
     // No behavior change when no subclassing is involved — T.self == type(of: dependency) then.
     func register<T: AnyObject>(_ dependency: T) {
         let key = String(describing: T.self).removeOptionalDescription

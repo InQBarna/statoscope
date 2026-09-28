@@ -4,9 +4,9 @@
 //
 
 /// Declares an ambient dependency on a Reducer's State struct, resolved from the injection tree.
-/// `Value` can be any `Injectable`-conforming type (gets its key for free, see `Injectable`'s own
-/// doc) or any real Swift protocol whose default implementation conforms to
-/// `InjectionKeyProviding`.
+/// `Value` can be any `Injectable`-conforming type — see that protocol's own doc for the two
+/// shapes it supports, a concrete type's own default or a protocol's via a named real
+/// implementation.
 ///
 /// The value is injected **by snapshot** in the Store's state getter — once per `state`
 /// access, not once per property access. This makes it useful for:
@@ -35,16 +35,10 @@ public struct ReducerInjected<Value> {
 
     private var _value: Value
 
-    /// Default initializer — uses `key.defaultValue` until the framework injects the real value.
-    public init(_ key: InjectionKey<Value>) {
-        _value = key.defaultValue
-    }
-
-    /// Reaches for the key through its `InjectionKeyProviding` conforming type instead of a
-    /// separately-named global — see that protocol's own doc. Also covers any `Injectable` type,
-    /// which conforms to `InjectionKeyProviding` automatically.
-    public init<P: InjectionKeyProviding>(_ providerType: P.Type) where P.InjectedValue == Value {
-        _value = providerType.injectionKey.defaultValue
+    /// Default initializer — uses the type's own declared default until the framework injects
+    /// the real value. See `Injectable`'s own doc.
+    public init<P: Injectable>(_ providerType: P.Type) where P.InjectedValue == Value {
+        _value = providerType.defaultValue
     }
 
     /// Framework injection initializer — called by the generated Store state getter.
@@ -83,14 +77,7 @@ extension InjectionTreeNode {
     /// Resolves a dependency for use in `@ReducerInjected` injection.
     ///
     /// Returns `key.defaultValue` if the dependency cannot be found in the tree.
-    public func resolveForBinding<T>(_ key: InjectionKey<T>) -> T {
-        _resolve(key)
-    }
-
-    /// `resolveForBinding(_:)`'s `InjectionKeyProviding` counterpart — the `@Reducer` macro emits
-    /// whichever overload matches the raw expression inside `@ReducerInjected(...)`, so this
-    /// needs no macro-side branching: `SomeType.self` resolves here, a plain key value above.
-    public func resolveForBinding<P: InjectionKeyProviding>(_ providerType: P.Type) -> P.InjectedValue {
-        _resolve(providerType.injectionKey)
+    public func resolveForBinding<P: Injectable>(_ providerType: P.Type) -> P.InjectedValue {
+        _resolve(providerType.defaultValue)
     }
 }

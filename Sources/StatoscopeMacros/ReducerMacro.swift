@@ -227,10 +227,9 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
         return properties
     }
 
-    /// `@ReducerInjected(KeyExpr)` always takes a positional argument: an `InjectionKey<Value>`
-    /// reference, or any `InjectionKeyProviding` type (`SomeType.self`) to resolve by. Extracted
-    /// as raw source text (`keyExpr`) so the generated `AnySuperSlot` can splice it back in
-    /// verbatim — the macro never evaluates it, just relays it.
+    /// `@ReducerInjected(KeyExpr)` always takes a positional argument: an `Injectable` type
+    /// (`SomeType.self`) to resolve by. Extracted as raw source text (`keyExpr`) so the generated
+    /// `AnySuperSlot` can splice it back in verbatim — the macro never evaluates it, just relays it.
     private static func findReducerInjectedProperties(
         in stateStruct: StructDeclSyntax
     ) -> [(name: String, type: String, keyExpr: String)] {

@@ -10,7 +10,7 @@ import Combine
 
 // TODO: Decouple from ObservableObject
 @propertyWrapper
-public struct Superscope<Value: Injectable & ObservableObject>: CustomStringConvertible {
+public struct Superscope<Value: Injectable & ObservableObject>: CustomStringConvertible where Value.InjectedValue == Value {
 
     private var observed: Bool = false
     private var cancellable: AnyCancellable?

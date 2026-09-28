@@ -5,7 +5,12 @@
 
     @Section(title: "Designing dependencies") {
         @ContentAndMedia {
-            Dependencies are declared exactly the same way as in the classic pattern — a struct conforming to `Injectable` with a `defaultValue` — the difference starts at the point they're *used*, inside a Reducer's `update()`.
+            Dependencies come in two shapes. Most of the time a dependency has exactly one real
+            behavior, so a struct conforming to `Injectable` with a `defaultValue` is enough — that's
+            `DateProvider` and `PersistenceProvider` below. When a dependency genuinely has more than
+            one plausible implementation (a real network call vs. a canned response in tests), reach
+            for a real Swift protocol instead — that's `NetworkProvider`. Either way, the difference
+            starts and ends at declaration: they're *used* identically, inside a Reducer's `update()`.
         }
         @Steps {
             @Step {
@@ -19,7 +24,7 @@
                 @Code(name: "Dependencies.swift", file: Injection-Reducer-PersistenceProvider-01.swift)
             }
             @Step {
-                Finally, a network provider for fetching articles, plus the `ArticleDTO` it returns.
+                Finally, a network provider for fetching articles. Unlike the two dependencies above, this one is declared as a genuine `protocol` with a `RealNetworkProvider` conformance, not an `Injectable` struct-of-closures — the next two sections show why that choice doesn't cost anything at the call site. `RealNetworkProvider` also conforms to `Injectable` itself, declaring its default with a protocol return type (`static var defaultValue: NetworkProvider`) instead of `Self` — needed later, once `@ReducerInjected` wants to read `NetworkProvider` declaratively (see "Reducer-only: @ReducerInjected" below): a protocol can't supply its own `Self`-typed default the way a concrete type can, so a named concrete type has to.
 
                 @Code(name: "Dependencies.swift", file: Injection-Reducer-NetworkProvider-01.swift)
             }
@@ -28,7 +33,7 @@
 
     @Section(title: "Resolving dependencies in update()") {
         @ContentAndMedia {
-            A Reducer's `update()` receives a `dependencies: ReducerDependencies` parameter. Call `try dependencies.resolve()` wherever you need a dependency — there's no property wrapper required for this style, resolution happens imperatively, right where it's used.
+            A Reducer's `update()` receives a `dependencies: ReducerDependencies` parameter. Call `try dependencies.resolve()` wherever you need a dependency — there's no property wrapper required for this style, resolution happens imperatively, right where it's used. Nothing about this call site changes whether the resolved type is an `Injectable` struct or a protocol — `let network: NetworkProvider = try dependencies.resolve()` reads identically either way.
         }
         @Steps {
             @Step {
@@ -39,13 +44,28 @@
         }
     }
 
-    @Section(title: "Testing with injected fakes") {
+    @Section(title: "Wiring up the real dependencies") {
         @ContentAndMedia {
-            Tests inject fakes the same way as classic Statostore — `.injectObject(...)` on the store before running the test plan — the fixtures just get resolved differently on the other end (`dependencies.resolve()` instead of `@Injected`).
+            Before looking at tests, it's worth seeing where injection happens for the *real* app — it's easy to come away thinking `.injectObject(...)` is only a testing device. Unlike `@Injected`/`@ReducerInjected`, `dependencies.resolve()` never falls back to a declared default on a miss — it just throws, regardless of whether the type is a concrete struct or a protocol. So all three dependencies need a real value injected once here, even though `@ReducerInjected` (further below) would happily use their declared defaults automatically.
         }
         @Steps {
             @Step {
-                Inject a fixed `DateProvider`, an in-memory `PersistenceProvider`, and a canned `NetworkProvider`, then drive the flow with `GIVEN`/`WHEN`/`THEN` — including completing the network effect with `WHEN_OlderEffectCompletes`.
+                Wherever your app creates this Store for real use — a SwiftUI `@StateObject`, your composition root, wherever that is for your app — inject all three dependencies once. `DateProvider.defaultValue`, `PersistenceProvider.defaultValue`, and `RealNetworkProvider.defaultValue` all come from the same `Injectable` conformance — the only difference is which type `defaultValue` returns.
+
+                @Code(name: "AppSetup.swift", file: Injection-Reducer-RealSetup-01.swift)
+            }
+
+            From here on, this Store behaves exactly like the one in every earlier section — `update()` doesn't know or care whether a dependency was injected for real use or for a test.
+        }
+    }
+
+    @Section(title: "Testing with injected fakes") {
+        @ContentAndMedia {
+            Tests inject fakes the same way as classic Statostore — `.injectObject(...)` on the store before running the test plan — the fixtures just get resolved differently on the other end (`dependencies.resolve()` instead of `@Injected`). Swapping a value-type dependency (`DateProvider`, `PersistenceProvider`) means reconstructing the *same* struct with different closures; swapping a protocol-typed one (`NetworkProvider`) means providing a *different* conforming type — here, `FakeNetworkProvider`.
+        }
+        @Steps {
+            @Step {
+                Inject a fixed `DateProvider`, an in-memory `PersistenceProvider`, and a `FakeNetworkProvider` returning canned articles, then drive the flow with `GIVEN`/`WHEN`/`THEN` — including completing the network effect with `WHEN_OlderEffectCompletes`. `FakeNetworkProvider` is injected via `injectObject(_:for: RealNetworkProvider.self)` rather than a bare `injectObject(_:)` — pinning the registration to `NetworkProvider` (`RealNetworkProvider`'s own `InjectedValue`), so there's no upcast to remember and no way to get it wrong.
 
                 @Code(name: "InjectionTests.swift", file: Injection-Reducer-Test-01.swift)
             }
@@ -56,41 +76,26 @@
 
     @Section(title: "Reducer-only: @ReducerInjected") {
         @ContentAndMedia {
-            The Reducer pattern also offers a **declarative** injection style with no classic-Statostore equivalent: `@ReducerInjected`, a property wrapper placed directly on a `State` struct field. Instead of calling `dependencies.resolve()` inside every handler that needs a dependency, declare it once and read it anywhere in `State` — including from outside `update()`, since it resolves into the Store's computed `state` getter.
+            The Reducer pattern also offers a **declarative** injection style with no classic-Statostore equivalent: `@ReducerInjected`, a property wrapper placed directly on a `State` struct field. Instead of calling `dependencies.resolve()` inside every handler that needs a dependency, declare it once and read it anywhere in `State` — including from outside `update()`, since it resolves into the Store's computed `state` getter. It reuses the exact same `DateProvider`/`NetworkProvider` from earlier — `@ReducerInjected` works identically for both, since both are just `Injectable` conformances that happen to return a different type from `defaultValue`.
         }
         @Steps {
             @Step {
-                A simple audit-log dependency, silent by default so reducers work in tests that don't care about logging.
+                `NewsFeedStatusReducer` declares both dependencies once on `State` — `@ReducerInjected(DateProvider.self)` and `@ReducerInjected(RealNetworkProvider.self)` — then reads `state.date`/`state.network` directly inside `update()`. Compare with the `dependencies.resolve()` call sites in `NewsFeedListReducer` above: the declaration only happens once here, and `state.network`'s type annotation is `NetworkProvider` (the protocol) even though the wrapper is handed `RealNetworkProvider.self` (the concrete type that owns the default) — exactly the same shape as `@Injected` on a classic `Statostore`.
 
-                @Code(name: "AuditLogger.swift", file: Injection-Reducer-AuditLogger-01.swift)
+                @Code(name: "NewsFeedStatusReducer.swift", file: Injection-Reducer-ReducerInjected-01.swift)
             }
             @Step {
-                `AuditedCounter` declares `@ReducerInjected var logger: AuditLogger` once on `State`, then reads `state.logger` directly inside `update()` — compare with the `dependencies.resolve()` call sites above.
+                With nothing injected, `DateProvider.defaultValue` and `RealNetworkProvider.defaultValue` are used automatically — no crash, no special-casing needed in tests that don't care about these dependencies. Unlike `dependencies.resolve()`, `@ReducerInjected` never throws, for either dependency shape.
 
-                @Code(name: "AuditedCounter.swift", file: Injection-Reducer-AuditedCounter-01.swift)
+                @Code(name: "NewsFeedStatusReducerTests.swift", file: Injection-Reducer-DefaultTest-01.swift)
             }
             @Step {
-                With nothing injected, `AuditLogger.defaultValue` (silent) is used automatically — no crash, no special-casing needed in tests that don't care about the logger.
+                Injecting real values for both — a fixed `DateProvider` and a `FakeNetworkProvider` via `injectObject(_:for:)` — swaps what `state.date`/`state.network` resolve to, exactly like the imperative style above.
 
-                @Code(name: "AuditedCounterTests.swift", file: Injection-Reducer-DefaultTest-01.swift)
-            }
-            @Step {
-                Injecting a real fake captures every call — `state.logger` resolves to whatever was injected via `.injectObject(...)`, exactly like the imperative style.
-
-                @Code(name: "AuditedCounterTests.swift", file: Injection-Reducer-InjectedTest-01.swift)
-            }
-            @Step {
-                `@ReducerInjected` also flows down the scope tree: both `ParentWithChild` and its `ChildCounter` declare the same `AuditLogger` dependency, and a child created after the parent's logger was injected resolves the *same* instance — no re-injection needed at each level.
-
-                @Code(name: "ParentChild.swift", file: Injection-Reducer-ChildParent-01.swift)
-            }
-            @Step {
-                One logger, injected once on the parent, captures messages from both the parent and a child created afterward.
-
-                @Code(name: "ParentChildTests.swift", file: Injection-Reducer-ChildInheritTest-01.swift)
+                @Code(name: "NewsFeedStatusReducerTests.swift", file: Injection-Reducer-InjectedTest-01.swift)
             }
 
-            Reach for `@ReducerInjected` when a dependency is used in several places across a reducer (or needs to be read outside `update()`); reach for `dependencies.resolve()` when it's needed in exactly one handler and you'd rather see it resolved right at the call site.
+            Reach for `@ReducerInjected` when a dependency is used in several places across a reducer (or needs to be read outside `update()`); reach for `dependencies.resolve()` when it's needed in exactly one handler and you'd rather see it resolved right at the call site. The choice is about *where* you want to read a dependency, not what kind of dependency it is — both `Injectable` and protocol-typed dependencies work identically either way.
         }
     }
 }

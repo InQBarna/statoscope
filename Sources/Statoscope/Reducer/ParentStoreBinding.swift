@@ -45,7 +45,7 @@ import Combine
 /// }
 /// ```
 @dynamicMemberLookup
-public struct ParentStoreBinding<Store: Injectable & ObservableObject> {
+public struct ParentStoreBinding<Store: Injectable & ObservableObject> where Store.InjectedValue == Store {
     private let getter: () -> Store
 
     /// Creates a binding with a getter closure

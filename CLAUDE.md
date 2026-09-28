@@ -59,7 +59,7 @@ Documentation is built using Swift-DocC. The library includes comprehensive docu
 
 **@Subscope**: Property wrapper for managing child Statostores within a parent scope.
 
-**Injectable & @Injected**: Protocol and property wrapper for multi-level dependency injection throughout the scope hierarchy (works for both Statostore and Reducer). `@Injected` always takes an argument — either an `Injectable`-conforming type (`@Injected(DateProvider.self) var dates: DateProvider`) or a real Swift protocol whose default implementation conforms to `InjectionKeyProviding` (`@Injected(RealLogger.self) var logger: Logger`) — both resolve through the same mechanism, an `Injectable` type just gets its key for free.
+**Injectable & @Injected**: Protocol and property wrapper for multi-level dependency injection throughout the scope hierarchy (works for both Statostore and Reducer). `Injectable` declares a `defaultValue` whose type defaults to `Self` (`static var defaultValue: DateProvider`), covering the common case of a concrete type with exactly one real shape. A type with more than one plausible conformance (a real implementation, a fake for tests) can instead declare its default with a protocol return type — `static var defaultValue: Logger { RealLogger() }` — no separate mechanism needed. `@Injected` always takes an argument naming the type that owns the default: `@Injected(DateProvider.self) var dates: DateProvider` or `@Injected(RealLogger.self) var logger: Logger` — both resolve identically.
 
 **@SubState / @SuperState**: The Reducer-pattern equivalents of `@Subscope`/`@Superscope`, declared directly on a Reducer's `State` struct rather than on the class. See State Management Patterns below.
 
@@ -259,7 +259,7 @@ static func update(
 }
 ```
 
-For ambient access across the whole `State` struct rather than just inside `update()`, use `@ReducerInjected(Logger.self)` directly on a state property — resolved from the injection tree the same way `@Injected` resolves for classic Statostore. Takes the same argument shape as `@Injected`: an `Injectable` type, or a real protocol whose default implementation conforms to `InjectionKeyProviding`.
+For ambient access across the whole `State` struct rather than just inside `update()`, use `@ReducerInjected(RealLogger.self)` directly on a state property — resolved from the injection tree the same way `@Injected` resolves for classic Statostore. Takes the same argument shape as `@Injected`: the `Injectable`-conforming type that owns the default, whether its `defaultValue` returns itself or a protocol it conforms to.
 
 #### Effects
 

@@ -22,92 +22,15 @@ final class CapturingAuditLogger: AuditLoggerProtocol {
     func log(_ message: String) { messages.append(message) }
 }
 
-final class SilentAuditLogger: AuditLoggerProtocol, InjectionKeyProviding {
+// SilentAuditLogger conforms to Injectable itself — declares its default with a protocol return
+// type instead of Self, discoverable through the type's own name, not a separately-named global.
+final class SilentAuditLogger: AuditLoggerProtocol, Injectable {
     func log(_ message: String) { }
-    static var injectionKey: InjectionKey<AuditLoggerProtocol> { .init(defaultValue: SilentAuditLogger()) }
-}
-
-let auditLoggerKey = InjectionKey<AuditLoggerProtocol>(defaultValue: SilentAuditLogger())
-
-@Reducer
-struct AuditedCounterByKey {
-    struct State {
-        var count: Int = 0
-        @ReducerInjected(auditLoggerKey) var logger: AuditLoggerProtocol
-    }
-
-    enum When {
-        case increment
-    }
-
-    static func update(
-        _ when: When,
-        state: inout State,
-        effectsState: inout EffectsState<When>,
-        dependencies: ReducerDependencies
-    ) throws {
-        switch when {
-        case .increment:
-            state.logger.log("increment: \(state.count) → \(state.count + 1)")
-            state.count += 1
-        }
-    }
+    static var defaultValue: AuditLoggerProtocol { SilentAuditLogger() }
 }
 
 @Reducer
-struct ChildCounterByKey {
-    struct State {
-        var value: Int = 0
-        @ReducerInjected(auditLoggerKey) var logger: AuditLoggerProtocol
-    }
-
-    enum When {
-        case add(Int)
-    }
-
-    static func update(
-        _ when: When,
-        state: inout State,
-        effectsState: inout EffectsState<When>,
-        dependencies: ReducerDependencies
-    ) throws {
-        switch when {
-        case .add(let n):
-            state.logger.log("child add \(n)")
-            state.value += n
-        }
-    }
-}
-
-@Reducer
-struct ParentWithChildByKey {
-    struct State {
-        @ReducerInjected(auditLoggerKey) var logger: AuditLoggerProtocol
-        @SubState var child: ChildCounterByKey.State?
-    }
-
-    enum When {
-        case openChild
-    }
-
-    static func update(
-        _ when: When,
-        state: inout State,
-        effectsState: inout EffectsState<When>,
-        dependencies: ReducerDependencies
-    ) throws {
-        switch when {
-        case .openChild:
-            state.logger.log("opening child")
-            state.child = ChildCounterByKey.State()
-        }
-    }
-}
-
-// `InjectionKeyProviding` — the key reached through SilentAuditLogger.self instead of a
-// separately-named global. See InjectionKeyProviding.swift's own doc.
-@Reducer
-struct AuditedCounterViaProvider {
+struct AuditedCounter {
     struct State {
         var count: Int = 0
         @ReducerInjected(SilentAuditLogger.self) var logger: AuditLoggerProtocol
@@ -131,12 +54,62 @@ struct AuditedCounterViaProvider {
     }
 }
 
+@Reducer
+struct ChildCounter {
+    struct State {
+        var value: Int = 0
+        @ReducerInjected(SilentAuditLogger.self) var logger: AuditLoggerProtocol
+    }
+
+    enum When {
+        case add(Int)
+    }
+
+    static func update(
+        _ when: When,
+        state: inout State,
+        effectsState: inout EffectsState<When>,
+        dependencies: ReducerDependencies
+    ) throws {
+        switch when {
+        case .add(let n):
+            state.logger.log("child add \(n)")
+            state.value += n
+        }
+    }
+}
+
+@Reducer
+struct ParentWithChild {
+    struct State {
+        @ReducerInjected(SilentAuditLogger.self) var logger: AuditLoggerProtocol
+        @SubState var child: ChildCounter.State?
+    }
+
+    enum When {
+        case openChild
+    }
+
+    static func update(
+        _ when: When,
+        state: inout State,
+        effectsState: inout EffectsState<When>,
+        dependencies: ReducerDependencies
+    ) throws {
+        switch when {
+        case .openChild:
+            state.logger.log("opening child")
+            state.child = ChildCounter.State()
+        }
+    }
+}
+
 final class ReducerInjectedProtocolTests: XCTestCase {
 
     func testDefaultValueUsedWhenNoInjection() throws {
-        // SilentAuditLogger (the key's default) is used — no crash, no visible side effect.
-        try AuditedCounterByKey.Store.GIVEN {
-            AuditedCounterByKey.Store(initialState: .init())
+        // SilentAuditLogger's own default is used — no crash, no visible side effect.
+        try AuditedCounter.Store.GIVEN {
+            AuditedCounter.Store(initialState: .init())
         }
         .THEN(\.state.count, equals: 0)
         .WHEN(.increment)
@@ -147,9 +120,9 @@ final class ReducerInjectedProtocolTests: XCTestCase {
     func testInjectedProtocolConformanceIsUsedDuringUpdate() throws {
         let logger = CapturingAuditLogger()
 
-        try AuditedCounterByKey.Store.GIVEN {
-            AuditedCounterByKey.Store(initialState: .init())
-                .injectObject(logger, for: auditLoggerKey)
+        try AuditedCounter.Store.GIVEN {
+            AuditedCounter.Store(initialState: .init())
+                .injectObject(logger, for: SilentAuditLogger.self)
         }
         .WHEN(.increment)
         .THEN(\.state.count, equals: 1)
@@ -161,8 +134,8 @@ final class ReducerInjectedProtocolTests: XCTestCase {
     func testChildInheritsInjectedLoggerFromParent() throws {
         let logger = CapturingAuditLogger()
 
-        let parentStore = ParentWithChildByKey.Store(initialState: .init())
-            .injectObject(logger, for: auditLoggerKey)
+        let parentStore = ParentWithChild.Store(initialState: .init())
+            .injectObject(logger, for: SilentAuditLogger.self)
 
         parentStore.send(.openChild)
 
@@ -174,19 +147,5 @@ final class ReducerInjectedProtocolTests: XCTestCase {
 
         XCTAssertEqual(childStore.state.value, 5)
         XCTAssertEqual(logger.messages, ["opening child", "child add 5"])
-    }
-
-    func testInjectedProtocolConformanceViaInjectionKeyProviding() throws {
-        let logger = CapturingAuditLogger()
-
-        try AuditedCounterViaProvider.Store.GIVEN {
-            AuditedCounterViaProvider.Store(initialState: .init())
-                .injectObject(logger, for: SilentAuditLogger.injectionKey)
-        }
-        .WHEN(.increment)
-        .THEN(\.state.count, equals: 1)
-        .runTest()
-
-        XCTAssertEqual(logger.messages, ["increment: 0 → 1"])
     }
 }

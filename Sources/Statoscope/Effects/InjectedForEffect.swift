@@ -14,21 +14,15 @@
 @propertyWrapper
 public struct InjectedForEffect<Value>: CustomDebugStringConvertible {
     private let box = InjectionBox()
-    private let key: InjectionKey<Value>
+    private let defaultValue: Value
 
-    public init(_ key: InjectionKey<Value>) {
-        self.key = key
-    }
-
-    /// Reaches for the key through its `InjectionKeyProviding` conforming type instead of a
-    /// separately-named global — see that protocol's own doc. Also covers any `Injectable` type,
-    /// which conforms to `InjectionKeyProviding` automatically.
-    public init<P: InjectionKeyProviding>(_ providerType: P.Type) where P.InjectedValue == Value {
-        self.key = providerType.injectionKey
+    /// Reaches for the type's own declared default — see `Injectable`'s own doc.
+    public init<P: Injectable>(_ providerType: P.Type) where P.InjectedValue == Value {
+        self.defaultValue = providerType.defaultValue
     }
 
     public var wrappedValue: Value {
-        box.node?._resolve(key) ?? key.defaultValue
+        box.node?._resolve(defaultValue) ?? defaultValue
     }
 
     final class InjectionBox {
@@ -61,22 +55,16 @@ extension InjectedForEffect: Equatable {
 /// Marks an `@EffectStruct` function parameter as resolved from the injection tree (via
 /// `@InjectedForEffect` on the generated struct) rather than stored/compared as an ordinary
 /// parameter. Purely a marker at the call site — `wrappedValue` is never read for anything but
-/// passthrough. Always takes a key (an `InjectionKey<T>` value, or any `InjectionKeyProviding`
-/// type via `SomeType.self`) — the macro reads it from the attribute's own source text to
-/// generate the struct's property, never from this wrapper's runtime state, so the argument here
-/// only needs to make `@InjectedParam(key) name: T` valid Swift at the function declaration
-/// (SE-0293 property wrappers on parameters support this).
+/// passthrough. Always takes an `Injectable` type (`SomeType.self`) — the macro reads it from the
+/// attribute's own source text to generate the struct's property, never from this wrapper's
+/// runtime state, so the argument here only needs to make `@InjectedParam(SomeType.self) name: T`
+/// valid Swift at the function declaration (SE-0293 property wrappers on parameters support this).
 @propertyWrapper
 public struct InjectedParam<T> {
     public var wrappedValue: T
-    public init(wrappedValue: T, _ key: InjectionKey<T>) {
-        self.wrappedValue = wrappedValue
-    }
 
-    /// Reaches for the key through its `InjectionKeyProviding` conforming type instead of a
-    /// separately-named global — see that protocol's own doc. Also covers any `Injectable` type,
-    /// which conforms to `InjectionKeyProviding` automatically.
-    public init<P: InjectionKeyProviding>(wrappedValue: T, _ providerType: P.Type) where P.InjectedValue == T {
+    /// Reaches for the type's own declared default — see `Injectable`'s own doc.
+    public init<P: Injectable>(wrappedValue: T, _ providerType: P.Type) where P.InjectedValue == T {
         self.wrappedValue = wrappedValue
     }
 }
