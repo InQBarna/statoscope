@@ -177,29 +177,40 @@ public struct SubscopeEvent<Child: ScopeImplementation> {
     /// The event from the child scope
     public let when: Child.When
 
-    /// Internal forwarding closure (continues the middleware chain)
+    /// Internal forwarding closure (continues the middleware chain), parameterized over the
+    /// event actually being forwarded — bare `forward()` passes `when` unchanged; the caller can
+    /// substitute a different value of the same type via `forward(transformedWhen:)`.
     @usableFromInline
-    internal let forwardClosure: () throws -> Void
+    internal let forwardClosure: (Child.When) throws -> Void
 
     @inline(__always)
     @_spi(Internal)
     public init(
         child: Child,
         when: Child.When,
-        forwardClosure: @escaping () throws -> Void
+        forwardClosure: @escaping (Child.When) throws -> Void
     ) {
         self.child = child
         self.when = when
         self.forwardClosure = forwardClosure
     }
 
-    /// Forward the event to the next level in the middleware chain
+    /// Forward the event, unchanged, to the next level in the middleware chain
     ///
     /// This must be called to continue processing the event. If not called,
     /// the event is blocked and will not reach the child's update() method.
     @inline(__always)
     public func forward() throws {
-        try forwardClosure()
+        try forwardClosure(when)
+    }
+
+    /// Forward a **transformed** event instead of the original — the child's own `update()`
+    /// (and any nearer-ancestor middleware still in the chain) sees `transformedWhen`, never the
+    /// original `when`. `event.when` above still reports the original for logging/inspection —
+    /// only what's actually delivered changes.
+    @inline(__always)
+    public func forward(transformedWhen: Child.When) throws {
+        try forwardClosure(transformedWhen)
     }
 }
 
@@ -217,7 +228,8 @@ public protocol HierarchialScopeMiddleWare {
     ///     // BEFORE: Inspect, log, or react to event
     ///     print("Child event: \(event.when)")
     ///
-    ///     // FORWARD: Continue the chain (or omit to block)
+    ///     // FORWARD: Continue the chain (or omit to block), optionally with a
+    ///     // transformed event via forward(transformedWhen:) instead of bare forward()
     ///     try event.forward()
     ///
     ///     // AFTER: React after child processed event
@@ -225,7 +237,7 @@ public protocol HierarchialScopeMiddleWare {
     /// }
     /// ```
     ///
-    /// * Parameter event: The subscope event containing child, when, and forward()
+    /// * Parameter event: The subscope event containing child, when, and forward()/forward(transformedWhen:)
     func updateSubscope<Child: ScopeImplementation>(
         _ event: SubscopeEvent<Child>
     ) throws
@@ -261,9 +273,11 @@ private extension ScopeImplementation {
 
         // Innermost continuation must go through _unsafeSendImplementation, not update()
         // directly — otherwise effects are never triggered, _updating is never set,
-        // and the child's own middleware chain is skipped.
-        var continuation: () throws -> Void = { [weak self] in
-            try self?._unsafeSendImplementation(when)
+        // and the child's own middleware chain is skipped. Parameterized over the event so a
+        // transforming ancestor's substituted value actually reaches update(), not just the
+        // originally-sent `when`.
+        var continuation: (When) throws -> Void = { [weak self] finalWhen in
+            try self?._unsafeSendImplementation(finalWhen)
         }
 
         // Build chain from immediate parent outward to root.
@@ -275,18 +289,18 @@ private extension ScopeImplementation {
             let previousContinuation = continuation
             let parentRef = parent
 
-            continuation = { [weak self] in
+            continuation = { [weak self] currentWhen in
                 guard let self = self else { return }
                 let event = SubscopeEvent(
                     child: self,
-                    when: when,
+                    when: currentWhen,
                     forwardClosure: previousContinuation
                 )
                 try parentRef.updateSubscope(event)
             }
         }
 
-        try continuation()
+        try continuation(when)
     }
 }
 

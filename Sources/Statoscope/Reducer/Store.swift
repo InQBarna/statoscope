@@ -214,6 +214,7 @@ extension Store: ReducerDispatchable {
             dependencies: dependencies
         )
     }
+
 }
 
 // MARK: - ReducerStoreProtocol
@@ -233,6 +234,10 @@ extension Store: HierarchialScopeMiddleWare where R: MiddlewareReducer {
         // Forward first: the child's own update() always runs before any ancestor reacts, so a
         // reaction that goes on to destroy or replace this child subtree can never race with a
         // stale event still being delivered into it — that race is why this order was chosen.
+        // If the child's own update() throws, this propagates straight out — updateSubstate is
+        // never called for that event (there's no post-update child state to offer it). A global
+        // error boundary, if wanted, belongs on a classic Statostore at the root of the tree,
+        // which can wrap event.forward() in do/catch itself — see HierarchicalMiddlewareErrorTests.
         try event.forward()
 
         guard let dispatchable = event.child as? any ReducerDispatchable,
