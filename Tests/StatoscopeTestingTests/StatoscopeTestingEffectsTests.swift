@@ -393,6 +393,16 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         .runTest()
     }
 
+    func testThenEnqueuedParameterFailsIfWrongValue() throws {
+        XCTExpectFailure("THEN_EnquedEffect parameter should fail if the enqueued effect has a different value")
+        try MyScope.GIVEN {
+            MyScope()
+        }
+        .WHEN(.systemLoadsSampleScope)
+        .THEN_EnquedEffect(parameter: \MyEffect<String>.milliseconds, equals: UInt64(9999))
+        .runTest()
+    }
+
     func testEffectCompletes() throws {
         try MyScope.GIVEN {
             MyScope()
@@ -452,5 +462,79 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
         }
         .WHEN_EffectFails(MyEffect<String>.self, with: MyError.noConnection)
         .runTest()
+    }
+
+    // MARK: - FORK_Effect*
+
+    func testForkEffectCompletes() throws {
+        let forkCalled = expectation(description: "forkCalled")
+        let mainCalled = expectation(description: "mainCalled")
+
+        try MyScope.GIVEN {
+            MyScope()
+        }
+        .WHEN(.systemLoadsSampleScope)
+        .FORK_EffectCompletes(MyEffect<String>.self, with: "forkedResult") {
+            try $0.THEN(\.viewShowsContent, equals: .success("forkedResult"))
+                .THEN { _ in
+                    forkCalled.fulfill()
+                }
+        }
+        .WHEN_EffectCompletes(MyEffect<String>.self, with: "mainResult")
+        .THEN(\.viewShowsContent, equals: .success("mainResult"))
+        .THEN { _ in
+            mainCalled.fulfill()
+        }
+        .runTest()
+
+        wait(for: [mainCalled, forkCalled], timeout: 1)
+    }
+
+    func testForkEffectFails() throws {
+        let forkCalled = expectation(description: "forkCalled")
+        let mainCalled = expectation(description: "mainCalled")
+
+        try MyScope.GIVEN {
+            MyScope()
+        }
+        .WHEN(.systemLoadsSampleScope)
+        .FORK_EffectFails(MyEffect<String>.self, with: MyError.noConnection) {
+            try $0.THEN(\.viewShowsContent, equals: .failure(MyError.noConnection))
+                .THEN { _ in
+                    forkCalled.fulfill()
+                }
+        }
+        .WHEN_EffectCompletes(MyEffect<String>.self, with: "mainResult")
+        .THEN(\.viewShowsContent, equals: .success("mainResult"))
+        .THEN { _ in
+            mainCalled.fulfill()
+        }
+        .runTest()
+
+        wait(for: [mainCalled, forkCalled], timeout: 1)
+    }
+
+    func testForkOlderEffectCompletes() throws {
+        let forkCalled = expectation(description: "forkCalled")
+        let mainCalled = expectation(description: "mainCalled")
+
+        try MyScope.GIVEN {
+            MyScope()
+        }
+        .WHEN(.systemLoadsSampleScope)
+        .FORK_OlderEffectCompletes(with: .networkRespondsWithContent(.success("forkedResult"))) {
+            try $0.THEN(\.viewShowsContent, equals: .success("forkedResult"))
+                .THEN { _ in
+                    forkCalled.fulfill()
+                }
+        }
+        .WHEN_EffectCompletes(MyEffect<String>.self, with: "mainResult")
+        .THEN(\.viewShowsContent, equals: .success("mainResult"))
+        .THEN { _ in
+            mainCalled.fulfill()
+        }
+        .runTest()
+
+        wait(for: [mainCalled, forkCalled], timeout: 1)
     }
 }

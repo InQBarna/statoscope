@@ -185,4 +185,90 @@ final class StatoscopeTestingThenTests: XCTestCase {
         .AND(\.child, .toggle)
         .runTest()
     }
+
+    // MARK: - THEN<S>(keyPath, checker:) generic variants
+
+    func testThenGenericKeyPathChecker() throws {
+        try MyScope.GIVEN {
+            MyScope()
+        }
+        .THEN(\.nonOptionalChild) { child in
+            XCTAssertEqual(child.viewShowsDetail, "Non optional")
+        }
+        .runTest()
+    }
+
+    func testThenOptionalKeyPathCheckerSuccess() throws {
+        try MyScope.GIVEN {
+            MyScope()
+        }
+        .configure(clearEffectsOnEveryWhenOrEnd: .all)
+        .WHEN(.systemLoadsSampleScope)
+        .AND(.networkRespondsWithContent(.success("Result")))
+        .AND(.navigateToDetail)
+        .THEN(\.child) { child in
+            XCTAssertEqual(child.viewShowsDetail, "Result")
+        }
+        .runTest()
+    }
+
+    func testThenOptionalKeyPathCheckerFailsIfNil() throws {
+        XCTExpectFailure("THEN with an optional keyPath and checker should fail if the child is nil")
+        try MyScope.GIVEN {
+            MyScope()
+        }
+        .THEN(\.child) { _ in
+            XCTFail("Checker should not run: child is nil")
+        }
+        .runTest()
+    }
+
+    // MARK: - THEN_Nil
+
+    func testThenNilOnOptionalChild() throws {
+        try MyScope.GIVEN {
+            MyScope()
+        }
+        .THEN_Nil(\.child)
+        .runTest()
+    }
+
+    // MARK: - THEN(equals:) mismatch
+
+    func testThenEqualsFailsIfMismatch() throws {
+        XCTExpectFailure("THEN(equals:) should fail when the actual value differs from the expected one")
+        try MyScope.GIVEN {
+            MyScope()
+        }
+        .THEN(\.viewShowsLoadingMessage, equals: "Not matching")
+        .runTest()
+    }
+
+    // MARK: - XCTAssertEffectsInclude
+
+    func testXCTAssertEffectsIncludeFailsIfNotFound() throws {
+        XCTExpectFailure("XCTAssertEffectsInclude should fail if no matching effect is enqueued")
+        try MyScope.GIVEN {
+            MyScope()
+        }
+        .THEN { sut in
+            XCTAssertEffectsInclude(sut, MyEffect(milliseconds: 1000, result: "Result"))
+        }
+        .runTest()
+    }
+
+    func testXCTAssertEffectsIncludeFailsIfThrows() throws {
+        struct DummyError: Error {}
+        XCTExpectFailure("XCTAssertEffectsInclude should fail if evaluating the scope expression throws")
+        try MyScope.GIVEN {
+            MyScope()
+        }
+        .THEN { _ in
+            func throwingSut() throws -> MyScope? {
+                throw DummyError()
+            }
+            XCTAssertEffectsInclude(try throwingSut(), MyEffect(milliseconds: 1000, result: "Result"))
+        }
+        .runTest()
+    }
 }

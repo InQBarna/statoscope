@@ -67,5 +67,28 @@ class ScopeTreeRetrievalTests: XCTestCase {
         XCTAssert(allChildScopes.last === parent.child?.grandson)
     }
 
+    // A scope held as a plain stored property (no @Subscope wrapper) is still discovered:
+    // ifChildScope's `mirrorChild.value as? any ScopeImplementation` direct-cast branch,
+    // as opposed to the @Subscope-mediated `IsSubscopeToMirror` branch exercised above.
+    enum PlainStoredChild {
+        final class Parent: Statostore, ObservableObject {
+            typealias When = Void
+            let plainChild = Child()
+            func update(_ when: Void) throws { }
+        }
+        final class Child: Statostore, ObservableObject {
+            typealias When = Void
+            func update(_ when: Void) throws { }
+        }
+    }
+
+    func testPlainStoredChildScopeIsDetectedAsChild() {
+        let parent = PlainStoredChild.Parent()
+        let allChildScopes = parent._allChildScopes()
+        XCTAssertEqual(allChildScopes.count, 2)
+        XCTAssert(allChildScopes.first === parent)
+        XCTAssert(allChildScopes.last === parent.plainChild)
+    }
+
 }
 // swiftlint:enable nesting
