@@ -19,17 +19,33 @@ xcodebuild -skipPackagePluginValidation -scheme Statoscope -sdk iphonesimulator 
 ```
 
 ### Testing
+
+`swift test` (the CLI subcommand) is unreliable in this sandbox — it has been observed to
+silently rerun a stale cached test bundle instead of a freshly built one. Always build the test
+bundle explicitly and invoke it directly instead:
+
 ```bash
-# Run all tests
-swift test
+swift build --build-tests
+xcrun xctest .build/arm64-apple-macosx/debug/StatoscopePackageTests.xctest
+```
 
-# Run specific test target
-swift test --filter StatoscopeTests
-swift test --filter StatoscopeTestingTests
-swift test --filter StatoscopeMacrosTests
+**Always pipe build/test output through `xcsift`** (installed at `/opt/homebrew/bin/xcsift`),
+never through `tail`. `xcsift` parses `xcodebuild`/`swift build`/`swift test`/`xcrun xctest`
+output into a structured summary (pass/fail counts, exact failure messages, warnings); `tail` has
+repeatedly been shown to truncate or delay output in ways that lose the actual failure cause.
 
-# Run tests using Xcode test plan
-xcodebuild test -scheme Statoscope -testPlan Statoscope-Package
+```bash
+swift build 2>&1 | xcsift
+swift build --build-tests 2>&1 | xcsift
+xcrun xctest .build/arm64-apple-macosx/debug/StatoscopePackageTests.xctest 2>&1 | xcsift
+xcsift -w                 # show full warning detail
+xcsift -E                 # exit non-zero on failure
+xcsift --coverage         # process code coverage output
+```
+
+For Xcode-based test runs:
+```bash
+xcodebuild test -scheme Statoscope -testPlan Statoscope-Package 2>&1 | xcsift
 ```
 
 ### Documentation
