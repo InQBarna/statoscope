@@ -148,4 +148,37 @@ final class ReducerInjectedProtocolTests: XCTestCase {
         XCTAssertEqual(childStore.state.value, 5)
         XCTAssertEqual(logger.messages, ["opening child", "child add 5"])
     }
+
+    // MARK: - EmptyChildStores
+
+    func testChildlessReducerExposesEmptyChildStores() {
+        // AuditedCounter declares no @SubState children, so its ChildStores associated type
+        // defaults to EmptyChildStores — this confirms that default is actually constructible
+        // and reachable through `.children`, not just a type-level default nobody exercises.
+        let store = AuditedCounter.Store(initialState: .init())
+        XCTAssertTrue(store.children is EmptyChildStores)
+    }
+
+    // MARK: - ReducerInjected property wrapper — direct unit tests
+
+    func testReducerInjectedProjectedValueGetterReturnsSelf() {
+        let wrapper = ReducerInjected<Int>(injectedValue: 5)
+        let projected = wrapper.projectedValue
+        XCTAssertEqual(projected.wrappedValue, 5)
+    }
+
+    func testReducerInjectedEquatable() {
+        let a = ReducerInjected<Int>(injectedValue: 1)
+        let b = ReducerInjected<Int>(injectedValue: 1)
+        let c = ReducerInjected<Int>(injectedValue: 2)
+        XCTAssertEqual(a, b)
+        XCTAssertNotEqual(a, c)
+    }
+
+    func testReducerInjectedHashable() {
+        let a = ReducerInjected<Int>(injectedValue: 1)
+        let b = ReducerInjected<Int>(injectedValue: 1)
+        XCTAssertEqual(a.hashValue, b.hashValue)
+        XCTAssertTrue(Set([a]).contains(b))
+    }
 }
