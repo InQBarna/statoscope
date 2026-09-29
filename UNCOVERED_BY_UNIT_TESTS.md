@@ -32,6 +32,30 @@ tracks two different things:
   is currently `fileprivate` to `Store.swift`; it would need to become at least `internal` (or the
   wiring call moved somewhere both files can reach) to be callable from `Subscope.swift`.
 
+### `takeSnapshot()` doesn't block re-entrant events during rendering, unlike every automatic snapshot point
+
+- **Test**: `StatoscopeTestingSnapshot.testExplicitTakeSnapshot`
+  (currently failing — `XCTFail("we don't want on Appear to be called on snapshot method")`).
+- **Root cause**: `StoreTestPlan.safeSnapshot(sut:name:)` (`StoreTestPlan.swift`) is what installs a
+  middleware on every scope in the tree that blocks forwarding of any event received while
+  `takingSnapshot == true`, and it's this flag — set immediately before calling `snapshot?(sut,
+  name)` and reset in a `defer` right after — that keeps SwiftUI side effects (like `.onAppear`
+  firing during `NSHostingView`/`UIHostingController` rendering) from reaching `update(_:)` and
+  corrupting the scope under test. Every *automatic* snapshot call (the initial "GIVEN" snapshot
+  and the one taken after each `WHEN` step, both in `StoreTestPlan.runAllSteps`) goes through
+  `safeSnapshot` and is correctly protected. `takeSnapshot()` (`TestPlan+Snapshot.swift`) instead
+  calls `self.snapshot?(sut, name)` directly from its `Step` closure, bypassing `safeSnapshot`
+  entirely — so `takingSnapshot` is never set to `true` for this call, and the very re-entrancy
+  the mechanism exists to prevent goes right through, even though `takeSnapshot()`'s whole purpose
+  (per its name and its use as a manual counterpart to the automatic snapshot points) is to behave
+  identically to them.
+- **Fix shape** (not implemented): `takeSnapshot()`'s step closure should call
+  `self.safeSnapshot(sut: sut, name: name)` instead of `self.snapshot?(sut, name)` directly — but
+  `safeSnapshot` is currently declared in an `internal extension StoreTestPlan` in `StoreTestPlan.swift`
+  and both files are already in the same module, so no visibility change should even be needed;
+  this looks like a straightforward oversight (invoking the closure directly instead of the
+  wrapper) rather than a structural blocker.
+
 ## Ambiguous — needs a human decision, not a test
 
 ### `Inject.swift` (`@Inject` property wrapper) — appears dead
@@ -73,3 +97,27 @@ triaged yet as this file is being built up incrementally during an ongoing sessi
 - `StatoscopeTesting/StoreTestPlan/Fork.swift` (33.33%), `Then.swift` (45.83%),
   `TestPlan+Snapshot.swift` (50%), `XCTAssert+Statoscope.swift` (60%),
   `StoreTestPlan+EffectsFork.swift` (0%).
+
+## Group C: Testing DSL (StatoscopeTesting)
+
+Coverage pass over `Fork.swift`, `Then.swift`, `TestPlan+Snapshot.swift`, `XCTAssert+Statoscope.swift`,
+`StoreTestPlan+EffectsFork.swift`, `Given.swift`, and `ScopeTreeRetrieval.swift`. Most gaps were
+missing scenarios in already-existing test files (extended in place: `StatoscopeTestingForkWithTests.swift`,
+`StatoscopeTestingEffectsTests.swift`, `StatoscopeTestingThenTests.swift`, `StatiscopeTestingSnapshot.swift`,
+`ScopeTreeRetrievalTests.swift`). One item below was left undone as genuinely ambiguous/dead code.
+
+### `GIVEN<Store: ScopeImplementation>(_:)` free function (`Given.swift`, lines 12-16) — appears dead
+
+This is a top-level `GIVEN { ... }` entry point, distinct from the two extension-based `.GIVEN`
+static methods (`ScopeImplementation.GIVEN` and `Store.GIVEN`) that every single test in the suite
+actually uses. `grep -rn "\bGIVEN(" Tests/ | grep -v "\.GIVEN("` across the whole `Tests/` directory
+returns zero hits — nobody calls the free function form anywhere, including in the tutorials/examples
+that exercise nearly every other public testing entry point. Its behavior is trivially identical to
+`ScopeImplementation.GIVEN` (both just build a `StoreTestPlan(given: builder)`), so this isn't
+ambiguous in the "what would the test assert" sense — it's ambiguous in the "should this API exist
+at all" sense, same shape as the `Inject.swift`/`InjectedWithDefault.swift` entries above. Options:
+(a) it's intentionally kept as an alternative call syntax for some external caller/use case not
+present in this repo — write a direct test for it, or (b) it's a leftover first-draft entry point
+superseded by the extension-based `.GIVEN` methods once those were added — delete it. Not writing a
+test blindly since which of these is true determines whether the "correct" fix is a test or a
+deletion.
