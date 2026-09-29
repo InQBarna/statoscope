@@ -89,4 +89,21 @@ final class EffectStructInjectedParamProtocolTests: XCTestCase {
 
         XCTAssertEqual(scope.greeting, "Mocked greeting for World")
     }
+
+    // MARK: - InjectedForEffect property wrapper itself (not through the @EffectStruct macro)
+
+    func testDebugDescriptionMatchesWrappedValue() {
+        let wrapper = InjectedForEffect(RealGreetingService.self)
+        XCTAssertEqual(wrapper.debugDescription, String(describing: wrapper.wrappedValue))
+    }
+
+    /// `InjectedForEffect`'s `Equatable` conformance is deliberately shallow: it only compares
+    /// the wrapper's own type, never the resolved/injected value. This is what lets
+    /// `@EffectStruct(equatable: true)`-generated effects be compared for equality without caring
+    /// which concrete dependency happens to be injected at comparison time.
+    func testEqualityComparesOnlyWrapperTypeNotResolvedValue() {
+        let defaultResolved = InjectedForEffect(RealGreetingService.self)
+        let anotherInstance = InjectedForEffect(RealGreetingService.self)
+        XCTAssertEqual(defaultResolved, anotherInstance)
+    }
 }

@@ -8,6 +8,7 @@
 import Foundation
 import XCTest
 @testable import Statoscope
+@_spi(SCT) import Statoscope
 
         // currentSnapshot = newSnapshot
 class EffectsHanlderImplementationTests: XCTestCase {
@@ -168,4 +169,92 @@ class EffectsHanlderImplementationTests: XCTestCase {
         XCTAssertNil(completedEffects.first?.1)
     }
 
+}
+
+/// Direct unit tests on the `EffectsState` struct itself (enqueue/cancelEffect/_cancelOlderEffect),
+/// as opposed to `EffectsHanlderImplementationTests` above which drives it through the actor.
+class EffectsStateDirectTests: XCTestCase {
+
+    private struct DummyEffect: Effect, Equatable {
+        let tag: String
+        func runEffect() async throws { }
+    }
+
+    /// `cancelEffect` is documented to cancel "ongoing" effects. When an effect is enqueued and
+    /// then cancelled within the *same* update (i.e. before the snapshot is ever flushed to the
+    /// handler), it must also be removed from `enquedEffects` — otherwise it would still be
+    /// triggered despite having just been cancelled.
+    func testCancelEffectRemovesNewlyEnqueuedEffectFromEnquedEffects() {
+        var state = EffectsState<Void>(snapshotEffects: [])
+        state._updating = true
+        state.enqueue(DummyEffect(tag: "a"))
+        XCTAssertEqual(state.enquedEffects.count, 1)
+
+        state.cancelEffect { ($0 as? DummyEffect)?.tag == "a" }
+
+        XCTAssertEqual(state.enquedEffects.count, 0)
+        XCTAssertEqual(state.currentRequestedEffects.count, 0)
+        XCTAssertEqual(state.cancelledEffects.count, 1)
+    }
+
+    /// `cancelEffect` should leave unrelated newly-enqueued effects alone.
+    func testCancelEffectKeepsNonMatchingNewlyEnqueuedEffectInEnquedEffects() {
+        var state = EffectsState<Void>(snapshotEffects: [])
+        state._updating = true
+        state.enqueue(DummyEffect(tag: "keep"))
+        state.enqueue(DummyEffect(tag: "cancel"))
+        XCTAssertEqual(state.enquedEffects.count, 2)
+
+        state.cancelEffect { ($0 as? DummyEffect)?.tag == "cancel" }
+
+        XCTAssertEqual(state.enquedEffects.map { ($0.1.pristine as? DummyEffect)?.tag }, ["keep"])
+        XCTAssertEqual(state.currentRequestedEffects.map { ($0.1.pristine as? DummyEffect)?.tag }, ["keep"])
+        XCTAssertEqual(state.cancelledEffects.count, 1)
+    }
+
+    // MARK: - Discovered bug: `_cancelOlderEffect` pollutes `enquedEffects`
+    //
+    // `_cancelOlderEffect()` (Sources/Statoscope/Effects/EffectsState.swift) is meant to remove
+    // just the single oldest pending effect and hand it back — used by
+    // `WHEN_OlderEffectCompletes` to simulate that one effect's completion while leaving any
+    // other pending effects untouched. Its implementation does:
+    //
+    //   currentRequestedEffects = currentRequestedEffects.filter { uuid, _ in uuid != olderUUID }
+    //   enquedEffects = currentRequestedEffects.filter { uuid, _ in uuid != olderUUID }
+    //
+    // The second line reassigns `enquedEffects` from `currentRequestedEffects` — which, by that
+    // point, is the full list of *every other still-pending effect*, not `enquedEffects` itself.
+    // Since none of those survivors equal `olderUUID`, the filter is a no-op and `enquedEffects`
+    // ends up containing every other in-flight effect, even ones that were never freshly enqueued
+    // this cycle. The line should almost certainly read
+    // `enquedEffects = enquedEffects.filter { uuid, _ in uuid != olderUUID }` instead.
+    //
+    // This is directly observable whenever 2+ effects are pending at once and one of them is
+    // "completed" via `_cancelOlderEffect` — `enquedEffects` should stay empty (nothing new was
+    // enqueued), but instead ends up containing the other pending effect. In real usage this
+    // corrupts the invariant `_unsafeSendImplementation` asserts on the next send
+    // (`assert(effectsState.enquedEffects.count == 0)`), so it isn't just cosmetic — it can crash
+    // the very next `send`/`sendUnsafe` call on a scope with 2+ pending effects when
+    // `WHEN_OlderEffectCompletes` is used. See UNCOVERED_BY_UNIT_TESTS.md, Group D, "Discovered
+    // bugs" for the writeup. Left failing deliberately, per instructions, rather than patched here.
+    func testCancelOlderEffectDoesNotPolluteEnquedEffectsWithOtherPendingEffects() throws {
+        let effect1 = DummyEffect(tag: "older")
+        let effect2 = DummyEffect(tag: "newer-but-not-freshly-enqueued")
+        var state = EffectsState<Void>(snapshotEffects: [
+            (1, AnyEffect(effect: effect1)),
+            (2, AnyEffect(effect: effect2))
+        ])
+        XCTAssertEqual(state.enquedEffects.count, 0, "Nothing was enqueued this cycle yet")
+
+        let removed = try state._cancelOlderEffect()
+
+        XCTAssertEqual(removed.pristine as? DummyEffect, effect1)
+        XCTAssertEqual(state.currentRequestedEffects.count, 1, "Only the untouched effect2 should remain")
+        XCTAssertEqual(
+            state.enquedEffects.count, 0,
+            "BUG: enquedEffects should stay empty (effect2 was never freshly enqueued this cycle), " +
+            "but _cancelOlderEffect's implementation spuriously repopulates it from " +
+            "currentRequestedEffects — see comment above this test."
+        )
+    }
 }

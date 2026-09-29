@@ -285,5 +285,55 @@ class EffectPristineCompletesOrFailsTests: XCTestCase {
         let result = try effectA._pristineFails(EffectsError.failed)
         XCTAssertEqual(result.toEquatableError(), .failure(EffectsError.failed.toEquatableError()))
     }
+
+    // MARK: - Type-mismatch safety net (AnyEffect.transformPristineResult's guard branches)
+
+    /// `eraseToAnyEffect()` uses `AnyEffect`'s `init(effect:)`. Its `transformPristineResult`
+    /// casts the value handed to `_pristineCompletes`/`_pristineFails` back to the pristine
+    /// effect's own `ResultType` before returning it — if a caller (mis)supplies a value of the
+    /// wrong type, that cast fails and `InvalidPristineResult` is thrown rather than crashing.
+    func testPristineCompletesThrowsInvalidPristineResultOnTypeMismatchForErasedEffect() async throws {
+        let erased = Effect1(param: "param1").eraseToAnyEffect() // AnyEffect<String>
+        XCTAssertThrowsError(try erased._pristineCompletes(42)) { error in
+            XCTAssert(error is InvalidPristineResult)
+        }
+    }
+
+    /// Same safety net, but for the `map`-produced `AnyEffect` (its own, separate
+    /// `transformPristineResult` implementation in `init(_:mapper:)`).
+    func testPristineCompletesThrowsInvalidPristineResultOnTypeMismatchAfterMap() async throws {
+        let mapped = Effect1(param: "param1")
+            .map { $0.count } // AnyEffect<Int>; underlying pristine Effect1.ResultType is String
+        XCTAssertThrowsError(try mapped._pristineCompletes(42)) { error in
+            XCTAssert(error is InvalidPristineResult)
+        }
+    }
+
+    /// `init(_:errorMapper:)`'s non-nested ("else") branch has two distinct failure paths: the
+    /// pristine result closure *throwing* (covered by `testPristineFails`/`testPristineFailsEquatable`
+    /// above, which map the thrown error via `errorMapper`), and the pristine result closure
+    /// *succeeding* with a value of the wrong type — which falls through the `if let` without
+    /// throwing and must still surface as `InvalidPristineResult` rather than silently continuing.
+    func testPristineCompletesThrowsInvalidPristineResultOnTypeMismatchForResultMappedEffect() async throws {
+        let effect = Effect1(param: "param1").mapToResult() // AnyEffect<Result<String, Error>>
+        XCTAssertThrowsError(try effect._pristineCompletes(42)) { error in
+            XCTAssert(error is InvalidPristineResult)
+        }
+    }
+
+    /// Chaining `.map` then `.mapToResultWithError` wraps an already-erased `AnyEffect`, so the
+    /// resulting `AnyEffect`'s `transformPristineResult` (built by `init(_:errorMapper:)`) takes
+    /// its "if let anyEffect = effect as? AnyEffect<...>" branch instead of the plain "else"
+    /// branch exercised by `testPristineFails`/`testPristineFailsEquatable` above. When the
+    /// inner, wrapped effect's own `transformPristineResult` throws (as `_pristineFails` forces
+    /// it to), this outer branch's `catch` must still map that error through `errorMapper` rather
+    /// than letting it propagate unmapped.
+    func testPristineFailsChainedMapAndErrorMapper() async throws {
+        let effectA = Effect1(param: "param1")
+            .map { "\($0)-appended" }
+            .mapToResultWithError(EquatableError.init)
+        let result = try effectA._pristineFails(EffectsError.failed)
+        XCTAssertEqual(.failure(EffectsError.failed.toEquatableError()), result)
+    }
 }
 // swiftlint:enable nesting
