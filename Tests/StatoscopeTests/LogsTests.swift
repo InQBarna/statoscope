@@ -564,6 +564,33 @@ final class LogsTests: XCTestCase {
         )
     }
 
+    /// Every other test in this file sets `logReplacement` to a non-nil closure before doing
+    /// anything, so `StatoscopeLogger.LOG`'s `else if Self.logLevel.contains(level)` fallback
+    /// (the plain `os_log`-based path, used when nobody has overwritten the logger) never runs.
+    /// This directly unit-tests the three internal `LOG` overloads with `logReplacement = nil`,
+    /// restoring both static globals afterwards so it doesn't leak into other tests.
+    func testLogFallsBackToOSLogWhenNoReplacementSet() {
+        let originalReplacement = StatoscopeLogger.logReplacement
+        let originalLevel = StatoscopeLogger.logLevel
+        defer {
+            StatoscopeLogger.logReplacement = originalReplacement
+            StatoscopeLogger.logLevel = originalLevel
+        }
+        StatoscopeLogger.logReplacement = nil
+        StatoscopeLogger.logLevel = [.errors, .when, .state]
+
+        // Enabled levels: should reach the os_log fallback in all three overloads without crashing.
+        StatoscopeLogger.LOG(.errors, "plain string overload, no replacement")
+        StatoscopeLogger.LOG(.when, prefix: "prefix", describing: "described value")
+        StatoscopeLogger.LOG(.state, prefix: "prefix", "autoclosure value")
+
+        // Disabled level: exercises the "neither replacement nor enabled level" no-op path.
+        StatoscopeLogger.logLevel = []
+        StatoscopeLogger.LOG(.errors, "should be skipped entirely")
+        StatoscopeLogger.LOG(.errors, prefix: "prefix", describing: "should be skipped")
+        StatoscopeLogger.LOG(.errors, prefix: "prefix", "should be skipped")
+    }
+
     @available(iOS 16.0, *)
     func testInfiniteLogOnPublisherAssign() throws {
 

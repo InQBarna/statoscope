@@ -7,7 +7,7 @@
 
 import Foundation
 import XCTest
-@_spi(SCT) import Statoscope
+@_spi(SCT) @testable import Statoscope
 
 // swiftlint:disable nesting
 class SubscopeSuperscodePropertyWrapperTests: XCTestCase {
@@ -129,6 +129,85 @@ class SubscopeSuperscodePropertyWrapperTests: XCTestCase {
 
     // Otras cosas a cubrir:
     //  mensaje correcto para el developer cuando no se encuentra el superscope
+
+    // MARK: - `@_spi(SCT)` tree-introspection surface (_rootNode / _childrenNodes)
+
+    func testRootNodeSPI() {
+        let sut = ParentChildGrandSon.Parent()
+        // Trigger lazy wiring by reading down to the grandson first.
+        _ = sut.child?.grandson
+        XCTAssert((sut.child?.grandson?._rootNode as AnyObject?) === sut)
+    }
+
+    func testChildrenNodesSPI() {
+        let sut = ParentChildGrandSon.Parent()
+        _ = sut.child?.grandson
+        let children = sut._childrenNodes
+        XCTAssertEqual(children.count, 1)
+        guard let firstChild = children.first as? InjectionTreeNodeBox else {
+            XCTFail("Expected exactly one child node, boxed as InjectionTreeNodeBox")
+            return
+        }
+        // Recursing into the returned box exercises InjectionTreeNodeBox's own
+        // _rootNode/_childrenNodes (delegating to anyLink), not just the top-level SPI vars.
+        XCTAssert((firstChild._rootNode as AnyObject?) === sut)
+        XCTAssertEqual(firstChild._childrenNodes.count, 1)
+    }
+
+    func testOptionalWrapperChildrenAndRootNodeSPI() {
+        let sut = ParentChildGrandSon.Parent()
+        let childOptional: ParentChildGrandSon.Child? = sut.child
+        _ = childOptional?.grandson
+        // Calling these directly on an Optional-typed variable exercises the conditional
+        // `Optional: InjectionTreeNodeProtocol where Wrapped: InjectionTreeNode` conformance's
+        // own _childrenNodes/_rootNode (`self?._childrenNodes` / `self?._rootNode`).
+        XCTAssertEqual(childOptional._childrenNodes.count, 1)
+        XCTAssert((childOptional._rootNode as AnyObject?) === sut)
+    }
+
+    func testInjectedTreeDescriptionPublicProperty() {
+        struct Foo: Equatable {}
+        let sut = SimpleParentChild.Parent()
+        XCTAssertTrue(
+            sut._injectedTreeDescription.contains("Parent"),
+            "Expected the description to mention the scope's own type name"
+        )
+        sut.injectObject(Foo())
+        XCTAssertTrue(sut._injectedTreeDescription.contains("💉 Foo"))
+    }
+
+    func testResolveAncestorReturnsNilForNonInjectionTreeNode() {
+        // `resolveAncestor` is used by @Reducer-generated code to resolve an ancestor Store
+        // from an AnyObject — when that object isn't an InjectionTreeNode at all, it must
+        // return nil rather than crash.
+        XCTAssertNil(resolveAncestor(SimpleParentChild.Parent.self, from: NSObject()))
+    }
+
+    // MARK: - Reassigning an already-parented value to an optional @Subscope slot
+
+    func testReassigningAlreadyParentedOptionalSubscopeChildIsANoOp() {
+        let sut = ParentChildGrandSon.Parent()
+        _ = sut.child
+        guard let child = sut.child else {
+            XCTFail("Expected child to be created")
+            return
+        }
+        // First read wires grandson <- child.
+        let grandson = child.grandson
+        XCTAssertNotNil(grandson)
+        // Reassigning the SAME already-parented value back onto its own optional Subscope
+        // slot exercises assignChildOnPropertyWrapperSet's isOptional-branch no-op path:
+        // the value already has a parent, so it just logs and returns rather than re-wiring.
+        child.grandson = grandson
+        XCTAssert(child.grandson === grandson)
+    }
+
+    // MARK: - Superscope.description
+
+    func testSuperscopeDescriptionReflectsValueTypeWhenNotOverridden() {
+        let wrapper = Superscope<SimpleParentChild.Parent>()
+        XCTAssertEqual(wrapper.description, "\(SimpleParentChild.Parent.self)")
+    }
 }
 
 class ForcedInjectSuperscopeTests: XCTestCase {
