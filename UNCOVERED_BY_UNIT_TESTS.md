@@ -56,14 +56,41 @@ options as above apply.
 Zero adopters anywhere in `Sources/` or `Tests/`. Likely scaffolding left over from an earlier
 design; either write a minimal conformance test or remove it.
 
+## Group E: SwiftUI (`Sources/Statoscope/SwiftUI/`) — triaged
+
+`SwiftUIBindings.swift` and `StoreView.swift`'s non-rendering surface are now fully covered
+(`SwiftUIBindingsTests.swift`, `StoreViewTests.swift`) — none of that code actually depends on
+SwiftUI's render engine, it's all plain `Binding(get:set:)` construction over closures, testable
+by reading/writing `.wrappedValue` directly. `ReducerStoreRegistry`
+(`AutoConnectedView.swift`) — a plain `ObservableObject` holding a per-type weak-reference stack,
+also render-independent — is now covered too (`ReducerStoreRegistryTests.swift`): push/current
+keyed-by-type lookup, re-push-moves-to-top, weak-deallocation skip-over, and the deferred
+`objectWillChange` scheduling.
+
+### Ambiguous — needs an infrastructure decision, not a test
+
+The remaining uncovered surface in `AutoConnectedView.swift` — `ReducerStoreView`,
+`AutoConnectedView`, `_ConnectedChildView`, `ReducerObservedView`, `_ReducerChildObservingView`,
+`ReducerRegistryCapture`, `_ReducerRegistryObservingCapture`, `_ReducerChildViewConnector`,
+`ReducerEnvironmentCapture` — is all in `body` implementations that resolve `@EnvironmentObject`
+and rely on SwiftUI's real environment-propagation behavior (including, per their own doc
+comments, specific `NavigationStack`/lazy-destination-evaluation semantics that were "confirmed
+device-tested" rather than derivable from reading the code alone). Plain XCTest can construct
+these View structs and read their stored properties (not useful here — the logic under test is
+entirely inside `body`), but actually exercising `body` needs a real SwiftUI rendering host.
+`Package.swift` has no dependency today on ViewInspector, a snapshot-testing library, or any
+other view-rendering test harness — adding one is a real infrastructure decision (which library,
+whether to add a `StatoscopeTestingUI`-style test target, CI implications for a UI-capable
+runner) rather than something to default into while writing missing unit tests. Similarly,
+`StoreView.body`/`StoreView<S,V>` itself (`StoreView.swift`) and the `body` of the
+`StoreViewProtocol`-conforming test fixtures already added are equally out of reach without the
+same infrastructure — only their non-rendering init/binding logic is covered.
+
 ## Not yet investigated
 
 Coverage gaps in the following files are real (per the `llvm-cov` numbers below) but haven't been
 triaged yet as this file is being built up incrementally during an ongoing session:
 
-- `Statoscope/SwiftUI/AutoConnectedView.swift` (19% lines), `StoreView.swift` (0%),
-  `SwiftUIBindings.swift` (0%) — SwiftUI View code; may need view-rendering test infra
-  (ViewInspector or similar) rather than plain XCTest, which is itself worth a decision.
 - `Statoscope/Injection/InjectionTreeNode.swift` (76.6%, 63 missed lines — the largest single gap
   by line count in the whole library).
 - `Statoscope/Injection/Superscope.swift` (50%), `InjectionTreeNodeBox.swift` (60%).
@@ -73,3 +100,7 @@ triaged yet as this file is being built up incrementally during an ongoing sessi
 - `StatoscopeTesting/StoreTestPlan/Fork.swift` (33.33%), `Then.swift` (45.83%),
   `TestPlan+Snapshot.swift` (50%), `XCTAssert+Statoscope.swift` (60%),
   `StoreTestPlan+EffectsFork.swift` (0%).
+
+(As of this writing, four parallel agents are investigating the InjectionTreeNode/Superscope/
+Logger group, the Reducer-internals group, the Testing-DSL group, and the Effects/misc group
+respectively, on separate worktree branches to be merged back into `test/coverage-analysis`.)
