@@ -22,6 +22,7 @@ private final class SampleScope:
     @Published var viewShowsLoadingMessage: String?
     @Published var viewShowsContent: Result<String, SampleError>?
     @Subscope var child: SampleChildScope? = SampleChildScope()
+    @Subscope var nonOptionalChild: SampleChildScope = SampleChildScope()
 
     enum When {
         case systemLoadsSampleScope
@@ -263,6 +264,59 @@ final class StatoscopeTestingForkWithTests: XCTestCase {
                 }
         }
         .POP()
+        .WHEN(.networkRespondsWithContent(.success("new content")))
+        .THEN(\.viewShowsContent, equals: .success("new content"))
+        .THEN { _ in
+            mainCalled.fulfill()
+        }
+        .runTest()
+
+        wait(for: [mainCalled, forkCalled], timeout: 1)
+    }
+
+    // FORK(keyPath: KeyPath<T, Subscope?>, ...) — forking directly off an optional child's When,
+    // without first navigating there via WITH.
+    func testForkOnOptionalChildKeyPath() throws {
+        let forkCalled = expectation(description: "forkCalled")
+        let mainCalled = expectation(description: "mainCalled")
+
+        try SampleScope.GIVEN {
+            SampleScope()
+        }
+        .WHEN(.systemLoadsSampleScope)
+        .THEN(\.viewShowsLoadingMessage, equals: "Loading...")
+        .FORK(\.child, .defaultWhen) {
+            try $0.THEN(\.child?.viewShowsLoadingMessage, equals: "Loading...")
+                .THEN { _ in
+                    forkCalled.fulfill()
+                }
+        }
+        .WHEN(.networkRespondsWithContent(.success("new content")))
+        .THEN(\.viewShowsContent, equals: .success("new content"))
+        .THEN { _ in
+            mainCalled.fulfill()
+        }
+        .runTest()
+
+        wait(for: [mainCalled, forkCalled], timeout: 1)
+    }
+
+    // FORK(keyPath: KeyPath<T, Subscope>, ...) — same as above but for a non-optional child.
+    func testForkOnNonOptionalChildKeyPath() throws {
+        let forkCalled = expectation(description: "forkCalled")
+        let mainCalled = expectation(description: "mainCalled")
+
+        try SampleScope.GIVEN {
+            SampleScope()
+        }
+        .WHEN(.systemLoadsSampleScope)
+        .THEN(\.viewShowsLoadingMessage, equals: "Loading...")
+        .FORK(\.nonOptionalChild, .defaultWhen) {
+            try $0.THEN(\.nonOptionalChild.viewShowsLoadingMessage, equals: "Loading...")
+                .THEN { _ in
+                    forkCalled.fulfill()
+                }
+        }
         .WHEN(.networkRespondsWithContent(.success("new content")))
         .THEN(\.viewShowsContent, equals: .success("new content"))
         .THEN { _ in
