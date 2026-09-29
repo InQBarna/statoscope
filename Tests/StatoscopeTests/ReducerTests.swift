@@ -614,6 +614,20 @@ final class ReducerTests: XCTestCase {
 
     // MARK: - Injectable Conformance
 
+    func testStoreDefaultValueBuildsAStoreFromStatesDefaultValue() {
+        // Store<R>: Injectable where R.State: Injectable — its own defaultValue wraps
+        // R.State.defaultValue in a fresh Store, rather than resolving anything from a tree.
+        let store = ParentChild.ParentReducer.Store.defaultValue
+        XCTAssertEqual(store.state.count, ParentChild.ParentReducer.State.defaultValue.count)
+        XCTAssertNil(store.state.child)
+    }
+
+    func testStateSetterOverwritesRawState() {
+        let store = ParentChild.ParentReducer.Store(initialState: ParentChild.ParentReducer.State())
+        store.state = ParentChild.ParentReducer.State(count: 99)
+        XCTAssertEqual(store.state.count, 99)
+    }
+
     func testInjectableConformance() {
         // Verify that State types have Injectable conformance
         let defaultCounter = Counter.Reducer.State()

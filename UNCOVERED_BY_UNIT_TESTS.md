@@ -50,6 +50,18 @@ Same situation as `Inject.swift`: zero usages anywhere outside its own file. Als
 `#if false` block (an abandoned caching mechanism) that will never compile either way. Same two
 options as above apply.
 
+### `ChainContinuationScope` (private, in `Sources/Statoscope/ScopeImplementation.swift`) — appears dead
+
+`private final class ChainContinuationScope<W>: ScopeImplementation` (a "virtual scope that
+represents a continuation in the parent chain") is entirely unreferenced anywhere outside its own
+~30-line definition — no call site constructs one. It accounts for effectively the entire
+coverage gap in `ScopeImplementation.swift` (20 of its 20 missed lines). Unlike the three `public`
+dead-code candidates above, this one is `private` and has zero external API surface, so removing
+it carries no compatibility risk — but it's still a source-code change beyond "write the missing
+test," so flagged here rather than deleted. Likely a leftover from an earlier design of the
+`HierarchialScopeMiddleWare` continuation chain, superseded by the closure-based continuation
+built directly in `callParentEnclosedHierarchialUpdate`.
+
 ### `Sources/Statoscope/Helpers/DummyScopeImplementation.swift` — appears dead
 
 `public protocol DummyScopeImplementation: ScopeImplementation` with a default no-op `update`.
