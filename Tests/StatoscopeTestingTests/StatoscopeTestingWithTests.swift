@@ -33,6 +33,19 @@ private final class SampleScope:
     }
 }
 
+private final class WithParentScope: Statostore, Injectable, ObservableObject {
+    enum When { case noop }
+    var value: Int = 0
+    static var defaultValue: WithParentScope { WithParentScope() }
+    func update(_ when: When) throws { }
+}
+
+private final class WithChildScope: Statostore, ObservableObject {
+    typealias When = Void
+    @Superscope var parent: WithParentScope
+    func update(_ when: Void) throws { }
+}
+
 final class StatoscopeTestingWithTests: XCTestCase {
 
     func testWithTestSyntax() throws {
@@ -65,6 +78,51 @@ final class StatoscopeTestingWithTests: XCTestCase {
         .POP()
         .WITH(\.atChild?.atChild)
         .THEN(\.childDepth, equals: 2)
+        .runTest()
+    }
+
+    // MARK: - WITH() on a non-optional keyPath (WithStoreTestPlan, distinct from the
+    // optional-keyPath WithOptStoreTestPlan every test above exercises)
+
+    private static let parentKeyPath: KeyPath<WithChildScope, WithParentScope> = \.parent
+
+    func testWithNonOptionalKeyPathNavigatesToSuperscope() throws {
+        try WithChildScope.GIVEN {
+            WithChildScope()
+        }
+        .WITH(Self.parentKeyPath)
+        .THEN(\.value, equals: 0)
+        // No .POP() here — WithStoreTestPlan.POP() (unlike WithOptStoreTestPlan.POP()) is
+        // missing `public`, so it's inaccessible from outside the module. See
+        // UNCOVERED_BY_UNIT_TESTS.md.
+        .runTest()
+    }
+
+    func testWithNonOptionalKeyPathSupportsLinkedFork() throws {
+        // buildLinkedFork on WithStoreTestPlan delegates to the parent plan's own
+        // buildLinkedFork, then re-applies the same non-optional keyPath — exercised here via
+        // plain FORK(), which calls buildLinkedFork() internally.
+        try WithChildScope.GIVEN {
+            WithChildScope()
+        }
+        .WITH(Self.parentKeyPath)
+        .FORK(.noop) { plan in
+            try plan.THEN(\.value, equals: 0)
+        }
+        .THEN(\.value, equals: 0)
+        .runTest()
+    }
+
+    // MARK: - WITH() on an optional keyPath that's nil when the step actually runs
+
+    func testWithOptionalKeyPathFailsWhenChildIsNilAtStepTime() throws {
+        XCTExpectFailure("WITH() is expected to XCTFail when the optional child is nil")
+        try SampleScope.GIVEN {
+            SampleScope(childDepth: 0)
+        }
+        // No .navigateChild sent — atChild is nil when this step runs.
+        .WITH(\.atChild)
+        .THEN(\.childDepth, equals: 999)
         .runTest()
     }
 }

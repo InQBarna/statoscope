@@ -174,16 +174,55 @@ in `ReducerDependencies.resolve()` (`guard let node = node else { throw
 InjectionError.noInjectionTree }`) — excluded per this file's own header. No genuinely ambiguous
 or dead code was found in this group.
 
-## Not yet investigated
+## Group F: `StoreTestPlan.swift` `WITH()` API, `GrabEffects.swift`, `StoreTestPlan+Effects.swift` — done
 
-- `StatoscopeTesting/StoreTestPlan/StoreTestPlan.swift` (87.91%, 27 missed lines — notably the
-  entire `WITH(keyPath)` child-scope-navigation API, `WithStoreTestPlan.addStep`/`buildLinkedFork`),
-  `GrabEffects.swift` (small gap), `StoreTestPlan+Effects.swift` (small gap) — adjacent to the
-  Testing-DSL group but not covered by it (see Group C below — it covered `Fork.swift`,
-  `Then.swift`, `TestPlan+Snapshot.swift`, `XCTAssert+Statoscope.swift`,
-  `StoreTestPlan+EffectsFork.swift`, `Given.swift`, `ScopeTreeRetrieval.swift`, but not these
-  three). Still unassigned — the only remaining known gap as of this writing (all of Groups
-  A–E below are done).
+The last remaining gap after Groups A–E: `StoreTestPlan.swift`'s entire `WITH(keyPath)`
+non-optional overload (`WithStoreTestPlan.addStep`/`buildLinkedFork`) had zero coverage — every
+existing `.WITH()` test used the *optional*-keyPath overload (`WithOptStoreTestPlan`). New tests
+added directly to `StatoscopeTestingWithTests.swift`:
+
+- `testWithNonOptionalKeyPathNavigatesToSuperscope` — `.WITH(nonOptionalKeyPath)` on a
+  `@Superscope` reference (always non-optional), exercising `WithStoreTestPlan.addStep`.
+- `testWithNonOptionalKeyPathSupportsLinkedFork` — `.WITH(nonOptionalKeyPath).FORK(...)`,
+  exercising `WithStoreTestPlan.buildLinkedFork`.
+- `testWithOptionalKeyPathFailsWhenChildIsNilAtStepTime` — the `WithOptStoreTestPlan.addStep`
+  unwrap-failure `XCTFail`/`throw` branch, previously uncovered (every existing `.WITH()` test
+  only ever ran once the optional child was already known non-nil).
+
+`GrabEffects.swift`'s `getSingleEffect` "found effects of the matching type, but none equal the
+expected value" branch — distinct from the already-covered "no effect of that type exists at
+all" branch — is now covered by `StatoscopeTestingThenTests.testXCTAssertEffectsIncludeFailsIfWrongValue`.
+`StoreTestPlan+Effects.swift`'s `WHEN_OlderEffectCompletes` "no pending effect to cancel"
+`XCTFail` branch is now covered by
+`StatoscopeTestingEffectsTests.testWhenOlderEffectCompletesFailsIfNoEffectPending`.
+
+### Discovered: `WithStoreTestPlan.POP()` is missing `public` (compile-time API gap, not a runtime bug)
+
+`WithStoreTestPlan.POP()` (`StoreTestPlan.swift`, the non-optional-keyPath `.WITH()` variant) has
+no access modifier (`internal`), while its sibling `WithOptStoreTestPlan.POP()` (the
+optional-keyPath variant) is `public`. This isn't a runtime behavior bug — it's a compile-time
+accessibility gap that makes `.WITH(nonOptionalKeyPath)` chains unable to ever call `.POP()` to
+navigate back to the parent plan from outside the module, unlike every optional-keyPath `.WITH()`
+chain. Likely why nobody had written a test for the non-optional overload before: any natural
+`.WITH(...).THEN(...).POP()...` chain modeled on the existing optional-keyPath tests simply
+wouldn't compile for it. Not fixed here (a one-line `public` addition to `Sources/`, left for a
+deliberate change) — the two new tests above work around it by never calling `.POP()`.
+
+### Ambiguous — structurally very hard to trigger without a contrived cross-type effect fixture
+
+`WHEN_EffectCompletes`/`WHEN_EffectFails` (`StoreTestPlan+Effects.swift`) each have a
+`guard ... as? T.When else { throw InvalidPristineResult() }` after a successful
+`_pristineCompletes`/`_pristineFails` call. Working through when this could actually fail: an
+enqueued effect's `ResultType` is tied to the store's own `When` by construction once it's been
+through `.map(When.someCase)` (the standard, and only observed, way effects are enqueued anywhere
+in this codebase or its tests) — `_pristineCompletes`/`_pristineFails` then produce exactly that
+`ResultType`, which trivially satisfies the outer `as? T.When`. Reaching the `else` branch seems
+to require an effect enqueued without going through `.map(...)` at all (an effect whose
+`ResultType` never became the store's `When` in the first place) — but `EffectsState.enqueue`'s
+own signature ties its parameter to `AnyEffect<When>`, so a genuinely unmapped effect doesn't
+appear constructible for a given store through public API at all. Not confident this is reachable
+without deliberately bypassing the type system (e.g. via `Any`-erasure tricks), so not writing a
+test that might just be exercising an artificial setup rather than real behavior.
 
 ## Group C: Testing DSL (StatoscopeTesting) — done
 

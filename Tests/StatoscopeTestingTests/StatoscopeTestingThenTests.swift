@@ -257,6 +257,22 @@ final class StatoscopeTestingThenTests: XCTestCase {
         .runTest()
     }
 
+    func testXCTAssertEffectsIncludeFailsIfWrongValue() throws {
+        // Distinct from testXCTAssertEffectsIncludeFailsIfNotFound: here an effect of the exact
+        // same type IS enqueued, just with a different associated value — exercises
+        // getSingleEffect's "found matching-type effects, none equal" branch (GrabEffects.swift),
+        // not grabEffects' own type-not-found branch.
+        XCTExpectFailure("XCTAssertEffectsInclude should fail if the enqueued effect has a different value")
+        try MyScope.GIVEN {
+            MyScope()
+        }
+        .WHEN(.systemLoadsSampleScope)
+        .THEN { sut in
+            XCTAssertEffectsInclude(sut, MyEffect(milliseconds: 1000, result: "A different result"))
+        }
+        .runTest()
+    }
+
     func testXCTAssertEffectsIncludeFailsIfThrows() throws {
         struct DummyError: Error {}
         XCTExpectFailure("XCTAssertEffectsInclude should fail if evaluating the scope expression throws")

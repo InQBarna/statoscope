@@ -537,4 +537,14 @@ final class StatoscopeTestingEffectsTests: XCTestCase {
 
         wait(for: [mainCalled, forkCalled], timeout: 1)
     }
+
+    func testWhenOlderEffectCompletesFailsIfNoEffectPending() throws {
+        XCTExpectFailure("WHEN_OlderEffectCompletes should fail if there is no pending effect to cancel")
+        try MyScope.GIVEN {
+            MyScope()
+        }
+        // No .WHEN(.systemLoadsSampleScope) sent — nothing is pending.
+        .WHEN_OlderEffectCompletes(with: .networkRespondsWithContent(.success("unused")))
+        .runTest()
+    }
 }
