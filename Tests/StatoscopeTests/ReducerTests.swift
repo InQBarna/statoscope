@@ -176,6 +176,49 @@ enum ProtocolTypedCounter {
     }
 }
 
+// MARK: - ReducerDependencies.inject(_:) fixture
+//
+// `dependencies.inject(_:)` registers an object directly into the store's own injection-tree
+// node, mid-update — the same underlying mechanism `injectObject(_:)` uses from outside the
+// store. A later `update()` call resolving the same type should see it.
+struct RuntimeStamp: Injectable, Equatable {
+    static var defaultValue: RuntimeStamp { RuntimeStamp(label: "default") }
+    var label: String
+}
+
+enum RuntimeInjectingCounter {
+    @Reducer
+    struct Reducer {
+        struct State {
+            var label: String = ""
+        }
+        enum When {
+            case injectStamp(String)
+            case readStamp
+        }
+        static func update(
+            _ when: When,
+            state: inout State,
+            effectsState: inout EffectsState<When>,
+            dependencies: ReducerDependencies
+        ) throws {
+            switch when {
+            case .injectStamp(let label):
+                dependencies.inject(RuntimeStamp(label: label))
+            case .readStamp:
+                let stamp: RuntimeStamp = try dependencies.resolve()
+                state.label = stamp.label
+            }
+        }
+    }
+}
+
+// MARK: - SuperState direct property-wrapper fixture (Hashable/Equatable value)
+struct SuperStateFixtureValue: Injectable, Hashable {
+    static var defaultValue: SuperStateFixtureValue { SuperStateFixtureValue(count: 0) }
+    var count: Int
+}
+
 enum ParentChild {
     // Parent-Child examples now use @Reducer macro with automatic child Store creation!
     @Reducer
@@ -733,5 +776,82 @@ final class ReducerTests: XCTestCase {
         XCTAssertEqual(child.state.parent.counter, 1, "child's @SuperState snapshot reflects the new ancestor value")
 
         cancellable.cancel()
+    }
+
+    // MARK: - ReducerDependencies.inject(_:) / InjectionError
+
+    func testDependenciesInjectRegistersDependencyForLaterResolve() throws {
+        try RuntimeInjectingCounter.Reducer.Store.GIVEN {
+            RuntimeInjectingCounter.Reducer.Store(initialState: .init())
+        }
+        .THEN(\.state.label, equals: "")
+        .WHEN(.injectStamp("hello"))
+        .WHEN(.readStamp)
+        .THEN(\.state.label, equals: "hello")
+        .runTest()
+    }
+
+    func testInjectionErrorDescription() {
+        XCTAssertEqual(InjectionError.noInjectionTree.description, "No injection tree available")
+    }
+
+    // MARK: - SubState property wrapper — direct unit tests
+
+    // `init(wrappedValue:)` is what the compiler calls for `@SubState var child: T? = someValue`
+    // (an inline default assigned at declaration) — distinct from a later assignment through the
+    // `wrappedValue` setter. Per its own doc comment, this is "initialization, not a user
+    // assignment", so it must NOT mark the slot dirty (which would otherwise make the framework
+    // think the reducer itself just created/replaced this child).
+    func testSubStateWrappedValueInitializerIsNotDirty() {
+        let sub = SubState<Int>(wrappedValue: 5)
+        XCTAssertEqual(sub.wrappedValue, 5)
+        XCTAssertFalse(sub.isDirty, "an inline default value is framework-provided, not a user assignment")
+    }
+
+    func testSubStateEquatable() {
+        let a = SubState<Int>(injectedValue: 5)
+        let b = SubState<Int>(injectedValue: 5)
+        let c = SubState<Int>(injectedValue: 6)
+        XCTAssertEqual(a, b)
+        XCTAssertNotEqual(a, c)
+
+        var dirty = a
+        dirty.wrappedValue = 5 // same wrapped value, but now isDirty = true
+        XCTAssertNotEqual(a, dirty, "Equatable also compares isDirty, not just the wrapped value")
+    }
+
+    func testSubStateHashable() {
+        let a = SubState<Int>(injectedValue: 5)
+        let b = SubState<Int>(injectedValue: 5)
+        XCTAssertEqual(a.hashValue, b.hashValue)
+        XCTAssertTrue(Set([a]).contains(b))
+    }
+
+    // MARK: - SuperState property wrapper — direct unit tests
+
+    func testSuperStateDefaultInitializerUsesInjectableDefaultValue() {
+        let sub = SuperState<SuperStateFixtureValue>()
+        XCTAssertEqual(sub.wrappedValue, SuperStateFixtureValue.defaultValue)
+    }
+
+    func testSuperStateProjectedValueGetterReturnsSelf() {
+        let sub = SuperState<SuperStateFixtureValue>(injectedValue: SuperStateFixtureValue(count: 7))
+        let projected = sub.projectedValue
+        XCTAssertEqual(projected.wrappedValue.count, 7)
+    }
+
+    func testSuperStateEquatable() {
+        let a = SuperState<SuperStateFixtureValue>(injectedValue: SuperStateFixtureValue(count: 1))
+        let b = SuperState<SuperStateFixtureValue>(injectedValue: SuperStateFixtureValue(count: 1))
+        let c = SuperState<SuperStateFixtureValue>(injectedValue: SuperStateFixtureValue(count: 2))
+        XCTAssertEqual(a, b)
+        XCTAssertNotEqual(a, c)
+    }
+
+    func testSuperStateHashable() {
+        let a = SuperState<SuperStateFixtureValue>(injectedValue: SuperStateFixtureValue(count: 1))
+        let b = SuperState<SuperStateFixtureValue>(injectedValue: SuperStateFixtureValue(count: 1))
+        XCTAssertEqual(a.hashValue, b.hashValue)
+        XCTAssertTrue(Set([a]).contains(b))
     }
 }

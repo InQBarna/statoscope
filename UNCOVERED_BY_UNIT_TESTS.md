@@ -98,7 +98,44 @@ runner) rather than something to default into while writing missing unit tests. 
 `StoreViewProtocol`-conforming test fixtures already added are equally out of reach without the
 same infrastructure — only their non-rendering init/binding logic is covered.
 
-## Not yet investigated
+## Group B: Reducer internals — done
+
+Scope: `Sources/Statoscope/Reducer/ReducerDependencies.swift`, `SubState.swift`,
+`SuperState.swift`, `ChildStoreSlots.swift`, `ReducerInjected.swift`.
+
+New tests were added to close essentially all real gaps in these five files:
+
+- `ReducerDependencies.swift`: `inject<T>(_:)` (previously never called by any test) is now
+  exercised by `ReducerTests.testDependenciesInjectRegistersDependencyForLaterResolve` — a
+  reducer injects a dependency mid-`update()`, and a later `update()` call resolves it.
+  `InjectionError.description` is covered by `ReducerTests.testInjectionErrorDescription`.
+- `SubState.swift`: `init(wrappedValue:)` (the initializer the compiler calls for `@SubState var
+  child: T? = someValue`, i.e. an inline default at declaration, as distinct from a later
+  assignment through the `wrappedValue` setter) is covered by
+  `ReducerTests.testSubStateWrappedValueInitializerIsNotDirty`, confirming it does not mark the
+  slot dirty per its own doc comment. `Equatable`/`Hashable` conformances are covered by
+  `ReducerTests.testSubStateEquatable` / `testSubStateHashable`.
+- `SuperState.swift`: the `projectedValue` getter, and `Equatable`/`Hashable` conformances, are
+  covered by direct property-wrapper tests in `ReducerTests.swift`
+  (`testSuperStateProjectedValueGetterReturnsSelf`, `testSuperStateEquatable`,
+  `testSuperStateHashable`), using a small dedicated `Injectable & Hashable` fixture value.
+- `ChildStoreSlots.swift`: `EmptyChildStores.init(cache:)` (the default `ChildStores` for a
+  Reducer with no `@SubState` children) was never reached because no existing test accessed
+  `.children` on such a reducer. Covered by
+  `ReducerInjectedProtocolTests.testChildlessReducerExposesEmptyChildStores`, reusing the
+  already-childless `AuditedCounter` fixture.
+- `ReducerInjected.swift`: the `projectedValue` getter and `Equatable`/`Hashable` conformances are
+  covered by direct property-wrapper tests added to `ReducerInjectedProtocolTests.swift`
+  (`testReducerInjectedProjectedValueGetterReturnsSelf`, `testReducerInjectedEquatable`,
+  `testReducerInjectedHashable`).
+
+No bugs were discovered while writing these tests — all new assertions pass against the existing
+implementation. The only line left uncovered across these five files is the trivial guard branch
+in `ReducerDependencies.resolve()` (`guard let node = node else { throw
+InjectionError.noInjectionTree }`) — excluded per this file's own header. No genuinely ambiguous
+or dead code was found in this group.
+
+## Not yet investigated / in progress
 
 Coverage gaps in the following files are real (per the `llvm-cov` numbers below) but haven't been
 triaged yet as this file is being built up incrementally during an ongoing session:
@@ -107,12 +144,15 @@ triaged yet as this file is being built up incrementally during an ongoing sessi
   by line count in the whole library).
 - `Statoscope/Injection/Superscope.swift` (50%), `InjectionTreeNodeBox.swift` (60%).
 - `Statoscope/Logging/StatoscopeLogger.swift` (62.5%).
-- `Statoscope/Reducer/ReducerDependencies.swift` (37.5%), `SubState.swift` (63.64%),
-  `SuperState.swift` (54.55%).
 - `StatoscopeTesting/StoreTestPlan/Fork.swift` (33.33%), `Then.swift` (45.83%),
   `TestPlan+Snapshot.swift` (50%), `XCTAssert+Statoscope.swift` (60%),
   `StoreTestPlan+EffectsFork.swift` (0%).
+- `StatoscopeTesting/StoreTestPlan/StoreTestPlan.swift` (87.91%, 27 missed lines — notably the
+  entire `WITH(keyPath)` child-scope-navigation API, `WithStoreTestPlan.addStep`/`buildLinkedFork`),
+  `GrabEffects.swift` (small gap), `StoreTestPlan+Effects.swift` (small gap) — adjacent to the
+  Testing-DSL group above but not yet explicitly assigned to it.
 
-(As of this writing, four parallel agents are investigating the InjectionTreeNode/Superscope/
-Logger group, the Reducer-internals group, the Testing-DSL group, and the Effects/misc group
-respectively, on separate worktree branches to be merged back into `test/coverage-analysis`.)
+(As of this writing, three parallel agents are investigating the InjectionTreeNode/Superscope/
+Logger group, the Testing-DSL group, and the Effects/misc group respectively, on separate
+worktree branches to be merged back into `test/coverage-analysis`. Group B — Reducer internals —
+already completed and merged, see above.)
