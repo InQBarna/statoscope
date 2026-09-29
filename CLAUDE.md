@@ -8,45 +8,36 @@ Statoscope is a Swift state management library for iOS focused on simplicity, te
 
 ## Build and Test Commands
 
+**Always pipe `swift build`/`xcodebuild`/`xcrun xctest` output through `xcsift`** (installed at
+`/opt/homebrew/bin/xcsift`), never `tail`. `tail` only shows the last N lines *after* the command
+exits, so on a long build or test run it silently drops the actual error/failure text — the thing
+you actually needed — while giving no indication anything was cut. `xcsift` parses the raw stream
+into a structured pass/fail/warning summary built for agents (`xcsift -w` includes warning detail,
+`xcsift --coverage` includes coverage data).
+
 ### Building
 ```bash
-swift build
+swift build 2>&1 | xcsift
 ```
 
 For Xcode builds (iOS simulator):
 ```bash
-xcodebuild -skipPackagePluginValidation -scheme Statoscope -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 16' build
+xcodebuild -skipPackagePluginValidation -scheme Statoscope -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 16' build 2>&1 | xcsift
 ```
 
 ### Testing
 
-`swift test` (the CLI subcommand) is unreliable in this sandbox — it has been observed to
-silently rerun a stale cached test bundle instead of a freshly built one. Always build the test
-bundle explicitly and invoke it directly instead:
-
+`swift test` has been unreliable in this sandbox — it can silently rerun a stale cached test
+bundle instead of one just rebuilt. Build the test bundle explicitly, then invoke it directly:
 ```bash
-swift build --build-tests
-xcrun xctest .build/arm64-apple-macosx/debug/StatoscopePackageTests.xctest
-```
-
-**Always pipe build/test output through `xcsift`** (installed at `/opt/homebrew/bin/xcsift`),
-never through `tail`. `xcsift` parses `xcodebuild`/`swift build`/`swift test`/`xcrun xctest`
-output into a structured summary (pass/fail counts, exact failure messages, warnings); `tail` has
-repeatedly been shown to truncate or delay output in ways that lose the actual failure cause.
-
-```bash
-swift build 2>&1 | xcsift
 swift build --build-tests 2>&1 | xcsift
 xcrun xctest .build/arm64-apple-macosx/debug/StatoscopePackageTests.xctest 2>&1 | xcsift
-xcsift -w                 # show full warning detail
-xcsift -E                 # exit non-zero on failure
-xcsift --coverage         # process code coverage output
 ```
+(`xcsift` parses this direct `xcrun xctest` invocation's output just as well as `xcodebuild`'s.)
 
-For Xcode-based test runs:
-```bash
-xcodebuild test -scheme Statoscope -testPlan Statoscope-Package 2>&1 | xcsift
-```
+To run a single target's tests, pass that bundle's own path if `swift build --build-tests` (older
+toolchains) produced separate bundles per target instead of one combined `StatoscopePackageTests.xctest`
+— check `find .build -iname "*.xctest"` first if unsure which layout is current.
 
 ### Documentation
 Documentation is built using Swift-DocC. The library includes comprehensive documentation in `Sources/Statoscope/Documentation.docc/`.
