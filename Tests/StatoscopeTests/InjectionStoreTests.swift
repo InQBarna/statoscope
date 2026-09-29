@@ -107,6 +107,27 @@ final class InjectionStoreTests: XCTestCase {
         )
     }
 
+    func testTreeDescriptionSkipsDeallocatedWeakDependency() throws {
+        class InjectableObject {
+            let param: String
+            init(param: String) {
+                self.param = param
+            }
+        }
+        let sut = InjectionStore()
+        try autoreleasepool {
+            let injected = InjectableObject(param: "Injected")
+            sut.register(injected)
+            XCTAssertEqual(sut.treeDescription.count, 1)
+            // Keep `injected` alive through this assertion.
+            let resolved: InjectableObject = try sut.resolve()
+            XCTAssert(resolved === injected)
+        }
+        // `injected` is deallocated now — the weak dependency is nil, so treeDescription's
+        // compactMap must skip it rather than describe a dangling reference.
+        XCTAssertEqual(sut.treeDescription, [])
+    }
+
     func testRegisterResolveValue() throws {
         struct InjectableStruct: Equatable {
             let param: String

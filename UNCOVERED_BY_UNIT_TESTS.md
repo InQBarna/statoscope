@@ -73,3 +73,59 @@ triaged yet as this file is being built up incrementally during an ongoing sessi
 - `StatoscopeTesting/StoreTestPlan/Fork.swift` (33.33%), `Then.swift` (45.83%),
   `TestPlan+Snapshot.swift` (50%), `XCTAssert+Statoscope.swift` (60%),
   `StoreTestPlan+EffectsFork.swift` (0%).
+
+## Group A: Injection internals
+
+Coverage pass over `InjectionTreeNode.swift`, `Superscope.swift`, `InjectionTreeNodeBox.swift`,
+`StatoscopeLogger.swift`, and `InjectionStore.swift` (the "not yet investigated" bullets above for
+these five files). Most of the real gaps turned out to have clear, testable intended behavior and
+got new tests (`InjectTests.swift`, `Tutorial05_Scopes.swift`'s `Favorites.MiddlewareTests`,
+`LogsTests.swift`, `InjectionStoreTests.swift`) rather than being ambiguous. The following specific
+lines were left uncovered on purpose:
+
+### `InjectionTreeNodeProtocol`'s fatalError default implementations — untestable, not ambiguous
+
+`Sources/Statoscope/Injection/InjectionTreeNode.swift`, the `extension InjectionTreeNodeProtocol`
+block providing default `_parentNode`/`_keyPathToSelfOnParent` get/set (both call `fatalError`).
+These exist purely so a type that forgets to conform via the real `InjectionTreeNode` (or the
+`Optional` conditional conformance) gets a crash with an explanatory message instead of silently
+wrong behavior — see the comment "Don't try implementing ChainLinkProtocol...". Calling either
+accessor would crash the test process itself; there's no way to assert "this fatalErrors" in plain
+XCTest here. Not a behavior question — just not exercisable safely.
+
+### `Superscope.swift`'s subscript setter fatalError branch — untestable in-process
+
+The `else { fatalError("Don't assign values to an injected property wrapper") }` branch (setter,
+non-XCTest/non-preview path) can never be reached from inside this test target: the guard is
+`NSClassFromString("XCTest") != nil || …`, and that's true for the entire duration of any XCTest
+run in this repo. Exercising the `fatalError` branch would require running outside XCTest
+altogether, which isn't practical here.
+
+### `InjectionTreeNodeBox.map(expr:)` — the "Optional type" branch (`expr as? InjectionTreeNode?`)
+
+The middle branch of `map`'s three-way cast (`Class type` / `Optional type` / final `else`) never
+fires in the `llvm-cov` run. Working through the generic instantiation by hand: for a property
+declared `@Subscope var x: X? = ...`, the wrapper's `Value` is `X?` itself, so a nil assignment to
+an *already-non-nil* `x` should, by this reasoning, box a `X?.none` as `InjectionTreeNodeProtocol?`
+inside `assignChild`, and `expr as? InjectionTreeNode` should fail on that (nil can't produce a
+non-optional instance) while `expr as? InjectionTreeNode?` should succeed, landing exactly in this
+branch. But this is exactly the shape of "set an optional Subscope back to nil" that several
+existing tests already do (e.g. `LogsTests.swift`'s `.childAppeared(false)` case, `child = nil`),
+and none of them hit it either — so either the reasoning above is wrong somewhere in how Swift's
+dynamic casting actually bridges nested optionals through an existential box (plausible — this is
+deep, undocumented runtime cast behavior, not something to assert from static reading alone), or
+the real trigger is a different, narrower shape than "any nil assignment". Not confident enough in
+either direction to write a test that would actually prove which — a test that "passes" by
+accident here would be worse than no test. Leaving for a deliberate follow-up with a debugger/print
+in `map` itself to observe the real dynamic types involved.
+
+### `StatoscopeLogger`'s three `print(...)` fallback branches
+
+Each of the three `LOG` overloads has an inner
+`if #available(iOS 14.0, *), let logger = loggers[level] { os_log(...) } else { print(...) }`.
+The new `testLogFallsBackToOSLogWhenNoReplacementSet` (`LogsTests.swift`) exercises the
+`os_log` side of all three overloads directly, but the `print(...)` fallback itself is only
+reachable pre-iOS 14 or if `loggers[level]` were somehow missing a key — neither happens on any
+OS version this test suite runs on (the dictionary is built from `LogLevel.allCases` up front, so
+it can't be missing a key either). Not writing a test for a branch that's structurally unreachable
+in this environment.

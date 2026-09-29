@@ -5,6 +5,7 @@
 //  Examples from Tutorial 05: Hierarchical Scopes
 //
 
+import Combine
 import Foundation
 import StatoscopeTesting
 import Statoscope
@@ -466,6 +467,34 @@ extension Tutorial05 {
                 .runTest()
             }
             // @extract:end Scopes-Tests-03
+
+            /// `@Superscope(observed: true)` — unlike the classic-`Statostore`-parent-of-a-
+            /// Reducer-`Store` shape documented as broken in UNCOVERED_BY_UNIT_TESTS.md, this is
+            /// the plain classic-`Statostore`-to-classic-`Statostore` shape (both `NewsFeedList`
+            /// and `NewsFeedArticle` above declare `@Superscope(observed: true) var newsFeed`),
+            /// which is the relay's original, documented use case. Verifies a child observing
+            /// its ancestor's `objectWillChange` actually re-publishes it as its own.
+            func testObservedSuperscopeRelaysAncestorObjectWillChange() {
+                let root = NewsFeed()
+                    .injectObject(DateProvider { Date(timeIntervalSince1970: 1000) })
+                    .injectObject(PersistenceProvider(get: { [] }, set: { _ in }))
+                root.atList = NewsFeedList(favoritesEnabled: true)
+                guard let list = root.atList else {
+                    XCTFail("Expected atList to be created")
+                    return
+                }
+                // Reading the observed Superscope at least once installs the relay subscription.
+                _ = list.newsFeed
+                var willChangeCount = 0
+                let cancellable = list.objectWillChange.sink { _ in willChangeCount += 1 }
+                root.favorites.append(Favorite(id: "1", dateAdded: Date(timeIntervalSince1970: 1000)))
+                XCTAssertEqual(
+                    willChangeCount,
+                    1,
+                    "Expected @Superscope(observed: true) to relay the ancestor's objectWillChange"
+                )
+                withExtendedLifetime(cancellable) {}
+            }
         }
     }
 }
