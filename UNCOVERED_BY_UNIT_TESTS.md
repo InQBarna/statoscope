@@ -56,6 +56,21 @@ tracks two different things:
   this looks like a straightforward oversight (invoking the closure directly instead of the
   wrapper) rather than a structural blocker.
 
+### `EffectsState._cancelOlderEffect()` corrupts `enquedEffects` whenever 2+ effects are pending
+
+- **Test**: `EffectsStateDirectTests.testCancelOlderEffectDoesNotPolluteEnquedEffectsWithOtherPendingEffects`
+  (currently failing).
+- **Root cause**: `EffectsState._cancelOlderEffect()` (`Sources/Statoscope/Effects/EffectsState.swift`)
+  reassigns `enquedEffects` from `currentRequestedEffects` instead of filtering `enquedEffects`
+  itself, so it spuriously repopulates `enquedEffects` with every other still-pending effect
+  whenever two or more effects are pending at once. This corrupts the invariant
+  `_unsafeSendImplementation`'s `assert(effectsState.enquedEffects.count == 0)` relies on — a real
+  crash risk whenever `WHEN_OlderEffectCompletes` is used with multiple pending effects. Every
+  existing usage in the suite happened to only ever have one pending effect at a time, which is
+  why this was never caught before.
+- **Fix shape** (not implemented): filter `enquedEffects` itself (removing the completed/cancelled
+  entry), not `currentRequestedEffects`.
+
 ## Ambiguous — needs a human decision, not a test
 
 ### `Inject.swift` (`@Inject` property wrapper) — appears dead
@@ -250,3 +265,90 @@ reachable pre-iOS 14 or if `loggers[level]` were somehow missing a key — neith
 OS version this test suite runs on (the dictionary is built from `LogLevel.allCases` up front, so
 it can't be missing a key either). Not writing a test for a branch that's structurally unreachable
 in this environment.
+
+## Group D: Effects and misc — done
+
+Scope: `Sources/Statoscope/Effects/EffectsState.swift`, `EffectsHandlerImplementation.swift`,
+`AnyEffect.swift`, `InjectedForEffect.swift`, `EffectfullImplementation.swift`,
+`Sources/Statoscope/Logging/Scope+DebugDescription.swift`, `Sources/Statoscope/Statostore.swift`,
+`Sources/Statoscope/StoreProtocol.swift`, `Sources/Statoscope/Helpers/Statoscope+ObjcRuntime.swift`,
+and `Sources/Statoscope/Helpers/String+removeOptionalDescription.swift`.
+
+`Scope+DebugDescription.swift` and `EffectfullImplementation.swift` turned out to already be
+effectively fully covered once trivial guard/early-return lines are excluded (`EffectfullImplementation.swift`'s
+one remaining gap — the `effectsState` property's setter re-running its own associated-object
+initializer branch, for the edge case where a scope's `effectsState` is assigned before it's ever
+read — is now covered directly, see `EffectsStateSetterBeforeGetterTests` below).
+
+New/extended tests:
+
+- `Tests/StatoscopeTests/EffectsHanlderImplementationTests.swift` — added a new
+  `EffectsStateDirectTests` class that exercises `EffectsState.cancelEffect` (removing an effect
+  that was enqueued in the *same* update cycle, before it's ever flushed to the handler) and
+  `EffectsState._cancelOlderEffect()` directly (see "Discovered bugs" below).
+- `Tests/StatoscopeTests/EffectsTests.swift` — extended `EffectPristineCompletesOrFailsTests` with
+  `AnyEffect`'s type-mismatch safety net: the `guard let result = try $0() as? E.ResultType else {
+  throw InvalidPristineResult() }` branches in both `init(effect:)` (used by `eraseToAnyEffect()`)
+  and `init(_:mapper:)` (used by `.map`), plus the equivalent fall-through-without-throwing case in
+  `init(_:errorMapper:)`'s non-nested branch, and the `catch` in that same init's nested
+  ("already an `AnyEffect`") branch when chaining `.map` then `.mapToResultWithError`.
+- `Tests/StatoscopeTests/EffectStructInjectedParamProtocolTests.swift` — added direct tests for
+  `InjectedForEffect.debugDescription` and its (deliberately type-only) `Equatable` conformance.
+- `Tests/StatoscopeTests/StoreProtocolTests.swift` (new file) — `Statostore.set(_:_:)`,
+  `StoreProtocol.sendUnsafe(_:)` (both success and error-propagation), and the `effectsState`
+  setter's lazy-init branch mentioned above.
+- `Tests/StatoscopeTests/RemoveOptionalDescriptionTests.swift` (new file) — the "Optional<...>"
+  (describing-a-*type*) branch of `removeOptionalDescription`, which no existing test exercised;
+  only the "Optional(...)" (describing-a-*value*) branch was previously covered.
+
+One new bug was discovered while writing these tests (documented above, under "Discovered bugs"):
+`EffectsState._cancelOlderEffect()` corrupts `enquedEffects` whenever 2+ effects are pending.
+
+### Ambiguous — needs a human decision, not a test
+
+#### `associateObject(base:key:value:)` (`Sources/Statoscope/Helpers/Statoscope+ObjcRuntime.swift`) — appears dead
+
+Zero call sites anywhere in `Sources/` or `Tests/` — only its sibling
+`associateOptionalObject(base:key:value:)` is ever called. Same shape of question as the other
+dead-code entries already in this file: it's `internal` (not public API, so no external
+compatibility risk either way), and either (a) it's meant to back some future non-optional
+associated-storage use case and should get a test treating it as supported, or (b) it's leftover
+from before `associateOptionalObject` existed and should be deleted. Not testing it blindly since
+which is true isn't answerable from reading the file alone.
+
+#### `Effect._injectNode`'s superclass-mirror walk (`Sources/Statoscope/Effects/InjectedForEffect.swift`) — appears unreachable for how `Effect` is actually used
+
+```swift
+var mirror = Mirror(reflecting: self)
+while let current = mirror.superclassMirror {
+    mirror = current
+}
+```
+walks up a class hierarchy to reach the ultimate superclass's mirror before scanning its children
+for `@InjectedForEffect`-wrapped properties. Every `Effect` conformer in this codebase — and every
+one the `@EffectStruct` macro generates — is a `struct`, which has no `superclassMirror`, so the
+loop body never executes. This would only matter if `Effect` were ever adopted by a `class` with
+its own superclass chain, which isn't a documented or exercised use case anywhere. Options: (a) a
+class-based `Effect` fixture with a superclass should be written to exercise this as deliberate
+forward-compatibility, or (b) it's speculative code that should be removed since `Effect`
+conformers are conventionally structs. Not testing it blindly since which is true isn't answerable
+from reading `Effect`/`AnyEffect`/`InjectedForEffect` alone.
+
+#### `EffectsHandlerImplementation`'s "Can we ever get here?" branch (`Sources/Statoscope/Effects/EffectsHandlerImplementation.swift`)
+
+```swift
+case .success(let when):
+    guard !Task.isCancelled else {
+        assertionFailure("Can we ever get here ? I don't think so. Delete if never fails?")
+        StatoscopeLogger.LOG(...)
+        throw CancellationError()
+    }
+```
+The comment is the original author's own doubt about whether this branch is reachable at all: by
+the time `.success` is matched here, `buildEffectTask` has already checked `Task.isCancelled`
+itself and mapped a cancelled task to `nil`/`.failure`, not `.success`. Constructing a scenario
+where the task is *reported* cancelled at this later checkpoint without having gone through that
+earlier check would mean deliberately racing cooperative cancellation against the task's own
+completion — not something a deterministic unit test can force. Left for a human to decide whether
+to delete this branch (per the comment's own suggestion) rather than writing a test around a race
+condition.
