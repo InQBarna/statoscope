@@ -214,24 +214,16 @@ Coverage pass over `Fork.swift`, `Then.swift`, `TestPlan+Snapshot.swift`, `XCTAs
 `StoreTestPlan+EffectsFork.swift`, `Given.swift`, and `ScopeTreeRetrieval.swift`. Most gaps were
 missing scenarios in already-existing test files (extended in place: `StatoscopeTestingForkWithTests.swift`,
 `StatoscopeTestingEffectsTests.swift`, `StatoscopeTestingThenTests.swift`, `StatiscopeTestingSnapshot.swift`,
-`ScopeTreeRetrievalTests.swift`). One item below was left undone as genuinely ambiguous/dead code,
-and one new bug was discovered (documented above, under "Discovered bugs").
+`ScopeTreeRetrievalTests.swift`). One new bug was discovered (documented above, under "Discovered
+bugs").
 
-### `GIVEN<Store: ScopeImplementation>(_:)` free function (`Given.swift`, lines 12-16) — appears dead
+### `GIVEN<Store: ScopeImplementation>(_:)` free function — REMOVED
 
-This is a top-level `GIVEN { ... }` entry point, distinct from the two extension-based `.GIVEN`
-static methods (`ScopeImplementation.GIVEN` and `Store.GIVEN`) that every single test in the suite
-actually uses. `grep -rn "\bGIVEN(" Tests/ | grep -v "\.GIVEN("` across the whole `Tests/` directory
-returns zero hits — nobody calls the free function form anywhere, including in the tutorials/examples
-that exercise nearly every other public testing entry point. Its behavior is trivially identical to
-`ScopeImplementation.GIVEN` (both just build a `StoreTestPlan(given: builder)`), so this isn't
-ambiguous in the "what would the test assert" sense — it's ambiguous in the "should this API exist
-at all" sense, same shape as the `Inject.swift`/`InjectedWithDefault.swift` entries above. Options:
-(a) it's intentionally kept as an alternative call syntax for some external caller/use case not
-present in this repo — write a direct test for it, or (b) it's a leftover first-draft entry point
-superseded by the extension-based `.GIVEN` methods once those were added — delete it. Not writing a
-test blindly since which of these is true determines whether the "correct" fix is a test or a
-deletion.
+Was a top-level `GIVEN { ... }` entry point, distinct from the two extension-based `.GIVEN` static
+methods (`ScopeImplementation.GIVEN` and `Store.GIVEN`) that every single test in the suite
+actually used. Confirmed zero call sites anywhere (including tutorials/examples), trivially
+identical behavior to `ScopeImplementation.GIVEN`. Removed from `Given.swift`; recoverable from
+git history if a real use case ever turns up.
 
 ## Group A: Injection internals — done
 
@@ -328,19 +320,17 @@ One new bug was discovered while writing these tests, since fixed (documented ab
 "Discovered bugs"): `EffectsState._cancelOlderEffect()` used to corrupt `enquedEffects` whenever
 2+ effects were pending.
 
-### Ambiguous — needs a human decision, not a test
+### Decisions made
 
-#### `associateObject(base:key:value:)` (`Sources/Statoscope/Helpers/Statoscope+ObjcRuntime.swift`) — appears dead
+#### `associateObject(base:key:value:)` — kept intentionally
 
-Zero call sites anywhere in `Sources/` or `Tests/` — only its sibling
-`associateOptionalObject(base:key:value:)` is ever called. Same shape of question as the other
-dead-code entries already in this file: it's `internal` (not public API, so no external
-compatibility risk either way), and either (a) it's meant to back some future non-optional
-associated-storage use case and should get a test treating it as supported, or (b) it's leftover
-from before `associateOptionalObject` existed and should be deleted. Not testing it blindly since
-which is true isn't answerable from reading the file alone.
+Zero call sites anywhere in `Sources/` or `Tests/` today — only its sibling
+`associateOptionalObject(base:key:value:)` is ever called. **Decision: keep.** It's a small
+library on top of the Objective-C associated-object runtime that may get a non-optional use case
+later; not worth deleting just because nothing currently calls it. Left uncovered/untested since
+there's no real usage to test against yet.
 
-#### `Effect._injectNode`'s superclass-mirror walk (`Sources/Statoscope/Effects/InjectedForEffect.swift`) — appears unreachable for how `Effect` is actually used
+#### `Effect._injectNode`'s superclass-mirror walk — proven real and working, not dead
 
 ```swift
 var mirror = Mirror(reflecting: self)
@@ -349,16 +339,18 @@ while let current = mirror.superclassMirror {
 }
 ```
 walks up a class hierarchy to reach the ultimate superclass's mirror before scanning its children
-for `@InjectedForEffect`-wrapped properties. Every `Effect` conformer in this codebase — and every
-one the `@EffectStruct` macro generates — is a `struct`, which has no `superclassMirror`, so the
-loop body never executes. This would only matter if `Effect` were ever adopted by a `class` with
-its own superclass chain, which isn't a documented or exercised use case anywhere. Options: (a) a
-class-based `Effect` fixture with a superclass should be written to exercise this as deliberate
-forward-compatibility, or (b) it's speculative code that should be removed since `Effect`
-conformers are conventionally structs. Not testing it blindly since which is true isn't answerable
-from reading `Effect`/`AnyEffect`/`InjectedForEffect` alone.
+for `@InjectedForEffect`-wrapped properties. Every `Effect` conformer generated by `@EffectStruct`
+is a struct (which has no `superclassMirror`), so this was never exercised by any existing test —
+but a hand-written **class**-conforming `Effect` is entirely valid, supported API (`Effect` itself
+has no struct-only constraint). `Tests/StatoscopeTests/EffectClassConformanceTests.swift` proves
+it end to end with `ClassBasedStampEffect: Effect` (a plain class, `@InjectedForEffect`-wrapped
+property): both the default-value path (nothing injected) and the tree-injected-override path
+resolve correctly through a real `effectsState.enqueue(...)` → async completion cycle. The `while`
+loop's own body (climbing an *actual* multi-level subclass chain) still isn't separately
+exercised — the simple, non-subclassed case already proves the mechanism works; a genuine
+subclass scenario would be the next incremental addition if ever needed.
 
-#### `EffectsHandlerImplementation`'s "Can we ever get here?" branch (`Sources/Statoscope/Effects/EffectsHandlerImplementation.swift`)
+#### `EffectsHandlerImplementation`'s "Can we ever get here?" branch — kept intentionally
 
 ```swift
 case .success(let when):
@@ -370,9 +362,8 @@ case .success(let when):
 ```
 The comment is the original author's own doubt about whether this branch is reachable at all: by
 the time `.success` is matched here, `buildEffectTask` has already checked `Task.isCancelled`
-itself and mapped a cancelled task to `nil`/`.failure`, not `.success`. Constructing a scenario
-where the task is *reported* cancelled at this later checkpoint without having gone through that
-earlier check would mean deliberately racing cooperative cancellation against the task's own
-completion — not something a deterministic unit test can force. Left for a human to decide whether
-to delete this branch (per the comment's own suggestion) rather than writing a test around a race
-condition.
+itself and mapped a cancelled task to `nil`/`.failure`, not `.success`. **Decision: keep.**
+Constructing the race deterministically isn't practical for a unit test, but real-world SDK usage
+"in the wild" surfaces timing/cancellation edge cases that never show up in a controlled test
+environment — this stays as a defensive backstop (log + throw rather than silently proceeding)
+rather than being deleted on the assumption it's unreachable.
