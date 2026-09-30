@@ -92,9 +92,7 @@ final class StatoscopeTestingWithTests: XCTestCase {
         }
         .WITH(Self.parentKeyPath)
         .THEN(\.value, equals: 0)
-        // No .POP() here — WithStoreTestPlan.POP() (unlike WithOptStoreTestPlan.POP()) is
-        // missing `public`, so it's inaccessible from outside the module. See
-        // UNCOVERED_BY_UNIT_TESTS.md.
+        .POP()
         .runTest()
     }
 
@@ -110,6 +108,7 @@ final class StatoscopeTestingWithTests: XCTestCase {
             try plan.THEN(\.value, equals: 0)
         }
         .THEN(\.value, equals: 0)
+        .POP()
         .runTest()
     }
 

@@ -239,7 +239,7 @@ public class WithStoreTestPlan<W: ScopeImplementation, S: ScopeImplementation>: 
         return forkedPlan.WITH(self.keyPath)
     }
 
-    func POP() -> StoreTestPlan<S> {
+    public func POP() -> StoreTestPlan<S> {
         return parentPlan
     }
 

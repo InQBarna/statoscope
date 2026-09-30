@@ -45,29 +45,19 @@ notification count per mutation, specifically to catch a naive fix that wires co
 already-working `@SuperState(observed: true)` path isn't affected and still wires exactly once
 even when its child is destroyed and recreated.
 
-### `takeSnapshot()` doesn't block re-entrant events during rendering, unlike every automatic snapshot point
+### `takeSnapshot()` didn't block re-entrant events during rendering, unlike every automatic snapshot point — FIXED
 
-- **Test**: `StatoscopeTestingSnapshot.testExplicitTakeSnapshot`
-  (currently failing — `XCTFail("we don't want on Appear to be called on snapshot method")`).
-- **Root cause**: `StoreTestPlan.safeSnapshot(sut:name:)` (`StoreTestPlan.swift`) is what installs a
-  middleware on every scope in the tree that blocks forwarding of any event received while
-  `takingSnapshot == true`, and it's this flag — set immediately before calling `snapshot?(sut,
-  name)` and reset in a `defer` right after — that keeps SwiftUI side effects (like `.onAppear`
-  firing during `NSHostingView`/`UIHostingController` rendering) from reaching `update(_:)` and
-  corrupting the scope under test. Every *automatic* snapshot call (the initial "GIVEN" snapshot
-  and the one taken after each `WHEN` step, both in `StoreTestPlan.runAllSteps`) goes through
-  `safeSnapshot` and is correctly protected. `takeSnapshot()` (`TestPlan+Snapshot.swift`) instead
-  calls `self.snapshot?(sut, name)` directly from its `Step` closure, bypassing `safeSnapshot`
-  entirely — so `takingSnapshot` is never set to `true` for this call, and the very re-entrancy
-  the mechanism exists to prevent goes right through, even though `takeSnapshot()`'s whole purpose
-  (per its name and its use as a manual counterpart to the automatic snapshot points) is to behave
-  identically to them.
-- **Fix shape** (not implemented): `takeSnapshot()`'s step closure should call
-  `self.safeSnapshot(sut: sut, name: name)` instead of `self.snapshot?(sut, name)` directly — but
-  `safeSnapshot` is currently declared in an `internal extension StoreTestPlan` in `StoreTestPlan.swift`
-  and both files are already in the same module, so no visibility change should even be needed;
-  this looks like a straightforward oversight (invoking the closure directly instead of the
-  wrapper) rather than a structural blocker.
+Was: `StoreTestPlan.safeSnapshot(sut:name:)` (`StoreTestPlan.swift`) is what installs a middleware
+on every scope in the tree that blocks forwarding of any event received while `takingSnapshot ==
+true`, keeping SwiftUI side effects (like `.onAppear` firing during
+`NSHostingView`/`UIHostingController` rendering) from reaching `update(_:)` and corrupting the
+scope under test. Every *automatic* snapshot call (the initial "GIVEN" snapshot and the one taken
+after each `WHEN` step) went through `safeSnapshot` and was correctly protected;
+`takeSnapshot()` (`TestPlan+Snapshot.swift`) instead called `self.snapshot?(sut, name)` directly,
+bypassing `safeSnapshot` entirely. Fixed by calling `self.safeSnapshot(sut: sut, name: name)`
+instead — a straightforward oversight, not a structural blocker; `safeSnapshot` was already
+reachable (same module).
+`StatoscopeTestingSnapshot.testExplicitTakeSnapshot` now passes.
 
 ### `EffectsState._cancelOlderEffect()` corrupted `enquedEffects` whenever 2+ effects are pending — FIXED
 
@@ -114,12 +104,22 @@ device-tested" rather than derivable from reading the code alone). Plain XCTest 
 these View structs and read their stored properties (not useful here — the logic under test is
 entirely inside `body`), but actually exercising `body` needs a real SwiftUI rendering host.
 `Package.swift` has no dependency today on ViewInspector, a snapshot-testing library, or any
-other view-rendering test harness — adding one is a real infrastructure decision (which library,
-whether to add a `StatoscopeTestingUI`-style test target, CI implications for a UI-capable
-runner) rather than something to default into while writing missing unit tests. Similarly,
-`StoreView.body`/`StoreView<S,V>` itself (`StoreView.swift`) and the `body` of the
-`StoreViewProtocol`-conforming test fixtures already added are equally out of reach without the
-same infrastructure — only their non-rendering init/binding logic is covered.
+other view-rendering test harness — adding one directly to this package is a real infrastructure
+decision (which library, whether to add a `StatoscopeTestingUI`-style test target, CI
+implications for a UI-capable runner) rather than something to default into while writing missing
+unit tests. Similarly, `StoreView.body`/`StoreView<S,V>` itself (`StoreView.swift`) and the `body`
+of the `StoreViewProtocol`-conforming test fixtures already added are equally out of reach without
+the same infrastructure — only their non-rendering init/binding logic is covered.
+
+**Follow-up plan**: rather than adding a view-rendering test dependency to this package, this
+gap can likely be closed from the separate iOS Examples project (a real, runnable app already
+exercising these connectors through actual navigation) via **XCUITest**. An XCUITest suite there
+would drive the app through real `NavigationStack` push/pop, `.sheet`/`.fullScreenCover`
+presentation, and nested destinations — exercising `ReducerStoreView`, `AutoConnectedView`,
+`ReducerObservedView`, `ReducerRegistryCapture`, `ReducerEnvironmentCapture`, and the
+`ReducerStoreRegistry` multi-level-push scenario their own doc comments describe as "confirmed
+device-tested" — without needing ViewInspector/snapshot-testing or any new dependency in
+`Statoscope` itself. Not yet started; noted here as the planned next step for this gap.
 
 ## Group B: Reducer internals — done
 
@@ -180,17 +180,17 @@ all" branch — is now covered by `StatoscopeTestingThenTests.testXCTAssertEffec
 `XCTFail` branch is now covered by
 `StatoscopeTestingEffectsTests.testWhenOlderEffectCompletesFailsIfNoEffectPending`.
 
-### Discovered: `WithStoreTestPlan.POP()` is missing `public` (compile-time API gap, not a runtime bug)
+### `WithStoreTestPlan.POP()` was missing `public` (compile-time API gap, not a runtime bug) — FIXED
 
-`WithStoreTestPlan.POP()` (`StoreTestPlan.swift`, the non-optional-keyPath `.WITH()` variant) has
-no access modifier (`internal`), while its sibling `WithOptStoreTestPlan.POP()` (the
-optional-keyPath variant) is `public`. This isn't a runtime behavior bug — it's a compile-time
-accessibility gap that makes `.WITH(nonOptionalKeyPath)` chains unable to ever call `.POP()` to
-navigate back to the parent plan from outside the module, unlike every optional-keyPath `.WITH()`
-chain. Likely why nobody had written a test for the non-optional overload before: any natural
+Was: `WithStoreTestPlan.POP()` (`StoreTestPlan.swift`, the non-optional-keyPath `.WITH()` variant)
+had no access modifier (`internal`), while its sibling `WithOptStoreTestPlan.POP()` (the
+optional-keyPath variant) is `public` — a compile-time accessibility gap that made
+`.WITH(nonOptionalKeyPath)` chains unable to ever call `.POP()` to navigate back to the parent
+plan from outside the module, unlike every optional-keyPath `.WITH()` chain. Likely why nobody
+had written a test for the non-optional overload before: any natural
 `.WITH(...).THEN(...).POP()...` chain modeled on the existing optional-keyPath tests simply
-wouldn't compile for it. Not fixed here (a one-line `public` addition to `Sources/`, left for a
-deliberate change) — the two new tests above work around it by never calling `.POP()`.
+wouldn't have compiled for it. Fixed by adding `public`; the two tests above (previously working
+around it by never calling `.POP()`) now call it like every other `.WITH()` chain does.
 
 ### Ambiguous — structurally very hard to trigger without a contrived cross-type effect fixture
 

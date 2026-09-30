@@ -58,7 +58,7 @@ extension StoreTestPlan {
                         "Taking snapshot without configured snapshot block", file: file, line: line
                     )
                 }
-                self.snapshot?(sut, name)
+                self.safeSnapshot(sut: sut, name: name)
             }
         )
     }

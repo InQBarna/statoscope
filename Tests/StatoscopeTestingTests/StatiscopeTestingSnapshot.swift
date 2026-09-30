@@ -95,15 +95,13 @@ final class StatoscopeTestingSnapshot: XCTestCase {
         wait(for: [snapshotCalled], timeout: 2)
     }
 
-    // KNOWN FAILING — discovered bug, intentionally not fixed here (TDD later, see
-    // UNCOVERED_BY_UNIT_TESTS.md). `takeSnapshot()` (TestPlan+Snapshot.swift) calls
+    // Regression test for a fixed bug: `takeSnapshot()` (TestPlan+Snapshot.swift) used to call
     // `self.snapshot?(sut, name)` directly instead of going through `StoreTestPlan.safeSnapshot`,
-    // so it never sets the `takingSnapshot` flag that the middleware installed by `safeSnapshot`
+    // so it never set the `takingSnapshot` flag that the middleware installed by `safeSnapshot`
     // relies on to block re-entrant events (like SwiftUI's `.onAppear`) during rendering. Every
-    // *automatic* snapshot point (GIVEN, after each WHEN) goes through `safeSnapshot` and is
-    // correctly protected; this explicit, manually-triggered snapshot step is not, even though
-    // its whole purpose (per its doc/naming) is to behave the same way. SampleScope.update
-    // deliberately XCTFails on `.onAppear` to catch exactly this.
+    // *automatic* snapshot point (GIVEN, after each WHEN) already went through `safeSnapshot` and
+    // was correctly protected; this explicit, manually-triggered snapshot step now is too.
+    // SampleScope.update deliberately XCTFails on `.onAppear` to catch any regression.
     func testExplicitTakeSnapshot() throws {
         let snapshotCalled = expectation(description: "snapshot called")
         snapshotCalled.assertForOverFulfill = false
