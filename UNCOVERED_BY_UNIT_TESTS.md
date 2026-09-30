@@ -84,39 +84,12 @@ now passes.
 
 ## Ambiguous — needs a human decision, not a test
 
-### `Inject.swift` (`@Inject` property wrapper) — appears dead
-
-`grep` across `Sources/`, `Tests/`, and `Documentation.docc/` found zero usages of `@Inject`
-outside its own definition. It's a different property wrapper from `@Injected` (takes
-`wrappedValue:` directly, no `Injectable` conformance required, falls back to that literal value)
-and looks superseded by `@Injected`/`Injectable`. Options: (a) it's intentionally kept as public
-API for a use case not yet exercised in this repo — write tests treating it as supported API, or
-(b) it's leftover dead code from before `Injectable` existed — delete it. Not testing it blindly
-since which of these is true changes what a "correct" test would even assert.
-
-### `InjectedWithDefault.swift` — appears dead
-
-Same situation as `Inject.swift`: zero usages anywhere outside its own file. Also contains a
-`#if false` block (an abandoned caching mechanism) that will never compile either way. Same two
-options as above apply.
-
-### `ChainContinuationScope` (private, in `Sources/Statoscope/ScopeImplementation.swift`) — appears dead
-
-`private final class ChainContinuationScope<W>: ScopeImplementation` (a "virtual scope that
-represents a continuation in the parent chain") is entirely unreferenced anywhere outside its own
-~30-line definition — no call site constructs one. It accounts for effectively the entire
-coverage gap in `ScopeImplementation.swift` (20 of its 20 missed lines). Unlike the three `public`
-dead-code candidates above, this one is `private` and has zero external API surface, so removing
-it carries no compatibility risk — but it's still a source-code change beyond "write the missing
-test," so flagged here rather than deleted. Likely a leftover from an earlier design of the
-`HierarchialScopeMiddleWare` continuation chain, superseded by the closure-based continuation
-built directly in `callParentEnclosedHierarchialUpdate`.
-
-### `Sources/Statoscope/Helpers/DummyScopeImplementation.swift` — appears dead
-
-`public protocol DummyScopeImplementation: ScopeImplementation` with a default no-op `update`.
-Zero adopters anywhere in `Sources/` or `Tests/`. Likely scaffolding left over from an earlier
-design; either write a minimal conformance test or remove it.
+(None remaining — the four dead-code candidates previously listed here — `Inject.swift`,
+`InjectedWithDefault.swift`, the private `ChainContinuationScope`, and
+`DummyScopeImplementation.swift` — were confirmed to have zero usages anywhere outside their own
+definitions and were removed in a single commit, "Removed dead code: Inject, InjectedWithDefault,
+ChainContinuationScope, DummyScopeImplementation", so they're recoverable from git history if a
+real use case ever turns up.)
 
 ## Group E: SwiftUI (`Sources/Statoscope/SwiftUI/`) — triaged
 

@@ -315,36 +315,3 @@ extension ScopeImplementation {
         try callParentEnclosedHierarchialUpdate(when)
     }
 }
-
-/// Virtual scope that represents a continuation in the parent chain
-/// When update() is called, it executes the next level in the chain
-private final class ChainContinuationScope<W>: ScopeImplementation {
-    typealias When = W
-
-    let continuation: () throws -> Void
-    var effectsState: EffectsState<W>
-    var effectsHandler: EffectsHandlerImplementation<W>
-
-    init(continuation: @escaping () throws -> Void) {
-        self.continuation = continuation
-        self.effectsState = EffectsState(snapshotEffects: [])
-        self.effectsHandler = EffectsHandlerImplementation(
-            logPrefix: "ChainContinuationScope:",
-            effectCompleted: { _, _, _ in }
-        )
-    }
-
-    func update(_ when: W) throws {
-        // Continue the chain by executing the next level
-        try continuation()
-    }
-
-    func _unsafeSendImplementation(_ when: W) throws {
-        // Also support _unsafeSendImplementation for compatibility
-        try continuation()
-    }
-
-    func addMiddleWare(_ update: @escaping (ChainContinuationScope<W>, W, (W) throws -> Void) throws -> Void) -> Self {
-        return self
-    }
-}
