@@ -778,6 +778,31 @@ final class ReducerTests: XCTestCase {
         cancellable.cancel()
     }
 
+    func testObservedSuperStateDoesNotDoubleWireWhenChildIsRecreated() {
+        // Reassigning an already-non-nil @SubState discards the old child Store outright and
+        // creates a brand-new one (see Store.applyChildSlots doc comment) — this guards against
+        // the new child ever ending up wired more than once (e.g. a lingering subscription from
+        // the discarded instance somehow being carried over), which would multiply the relay's
+        // fan-out for a single ancestor mutation.
+        let parent = ObservedSuperState.ParentReducer.Store(initialState: ObservedSuperState.ParentReducer.State())
+        parent.send(.createChild)
+        parent.send(.createChild)
+
+        guard let child = parent.children.child else {
+            XCTFail("child store missing after createChild")
+            return
+        }
+
+        var notificationCount = 0
+        let cancellable = child.objectWillChange.sink { _ in notificationCount += 1 }
+
+        parent.send(.increment)
+
+        XCTAssertEqual(notificationCount, 1, "the recreated child's objectWillChange should still fire exactly once")
+
+        cancellable.cancel()
+    }
+
     // MARK: - ReducerDependencies.inject(_:) / InjectionError
 
     func testDependenciesInjectRegistersDependencyForLaterResolve() throws {

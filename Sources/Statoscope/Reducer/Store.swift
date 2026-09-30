@@ -169,18 +169,24 @@ fileprivate protocol _ChildCacheable: AnyObject {
 
 extension Store: _ChildCacheable {}
 
-// MARK: - _SuperSlotWireable (fileprivate — @SuperState(observed: true) relay support)
+// MARK: - _SuperSlotWireable (@SuperState/@SuperScope(observed: true) relay support)
 
-fileprivate protocol _SuperSlotWireable: AnyObject {
+/// Internal (not fileprivate) so `Subscope.swift` can also wire this relay for a Reducer's
+/// `Store` hosted as a classic Statostore's `@Subscope` child — the only way to host a Reducer
+/// under a legacy, not-yet-migrated parent, which is what `@SuperScope` exists for. Only
+/// `Store<R>.applyChildSlots` (below) and `Subscope`'s setter call `_wireSuperSlots()`, and both
+/// call it at most once per child instance, so `_wireSuperSlots()` itself doesn't need its own
+/// idempotency guard.
+internal protocol _SuperSlotWireable: AnyObject {
     func _wireSuperSlots()
 }
 
 extension Store: _SuperSlotWireable {
-    /// Subscribes to each `@SuperState(observed: true)` slot's ancestor exactly once, so this
-    /// store's `objectWillChange` fires whenever the referenced ancestor's state changes —
-    /// even though nothing about this store's own `_rawState` changed. Slots without
+    /// Subscribes to each `@SuperState`/`@SuperScope(observed: true)` slot's ancestor exactly
+    /// once, so this store's `objectWillChange` fires whenever the referenced ancestor's state
+    /// changes — even though nothing about this store's own `_rawState` changed. Slots without
     /// `observed: true` have `subscribe == nil` and are skipped.
-    fileprivate func _wireSuperSlots() {
+    func _wireSuperSlots() {
         for slot in R._superSlots {
             guard let subscribe = slot.subscribe, let cancellable = subscribe(self) else { continue }
             _superObservers.append(cancellable)

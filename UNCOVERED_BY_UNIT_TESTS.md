@@ -12,25 +12,38 @@ tracks two different things:
 
 ## Discovered bugs (new failing tests — do not fix without a deliberate TDD pass)
 
-### `@SuperScope(observed: true)` relay never fires for its own documented use case
+### `@SuperScope(observed: true)` relay never fired for its own documented use case — FIXED
 
-- **Test**: `ParentStoreBindingTests.testSuperScopeObservedRelaysParentObjectWillChange`
-  (currently failing — times out waiting for `objectWillChange`).
-- **Root cause**: `Store<R>._wireSuperSlots()` (`Sources/Statoscope/Reducer/Store.swift`) is only
-  ever invoked from `Store<R>.applyChildSlots`, i.e. only when a Reducer child is created via
-  `@SubState` on a parent **Reducer's** `State`. `@SuperScope` (`Sources/Statoscope/Reducer/ParentStoreBinding.swift`,
-  `Sources/StatoscopeMacros/SuperScopeMacro.swift`) exists specifically so a Reducer's `State` can
-  reference a **legacy, not-yet-migrated Statostore parent** — and the only way to host that
-  Reducer's `Store` under such a parent is the classic `@Subscope` property wrapper
-  (`Sources/Statoscope/Injection/Subscope.swift`), since a plain `Statostore` has no `@SubState`
-  slot mechanism at all. `@Subscope` never calls `_wireSuperSlots()`. So `@SuperScope(observed:
-  true)`'s relay is wired for a composition shape (Reducer-parent + `@SubState`) that
-  `@SuperScope` itself is never used for, and unwired for the one shape it exists for.
-- **Fix shape** (not implemented): `Subscope.swift`'s child-assignment path needs to also call
-  `(child as? any _SuperSlotWireable)?._wireSuperSlots()` when the assigned child conforms to it
-  — mirroring what `Store<R>.applyChildSlots` already does for `@SubState` children. `_SuperSlotWireable`
-  is currently `fileprivate` to `Store.swift`; it would need to become at least `internal` (or the
-  wiring call moved somewhere both files can reach) to be callable from `Subscope.swift`.
+Was: `Store<R>._wireSuperSlots()` was only ever invoked from `Store<R>.applyChildSlots` (the
+`@SubState`-on-a-Reducer-parent path), never from `@Subscope` (the classic-pattern property
+wrapper that's the *only* way to host a Reducer `Store` under a legacy, not-yet-migrated
+Statostore parent — `@SuperScope`'s whole reason to exist). Investigating the fix turned up a
+**second, independent bug**: the `@Reducer` macro's own codegen for `@SuperScope` properties
+(`Sources/StatoscopeMacros/ReducerMacro.swift`) never emitted a `subscribe:` closure at all,
+regardless of the `observed:` argument's value — unlike the parallel `@SuperState` codegen, which
+does. Both had to be fixed together:
+
+1. **Macro codegen** (`ReducerMacro.swift`): the `parentStoreProperties` loop now emits the same
+   conditional `subscribe:` closure shape as `superStateProperties`, resolving the *classic*
+   parent type directly (`resolveAncestor(\(parentType).self, from: store)`) rather than a
+   `Store<SomeReducer>`.
+2. **Runtime wiring** (`Subscope.swift`): the setter now calls
+   `(newValue as? any _SuperSlotWireable)?._wireSuperSlots()` after `_parentNode` is established,
+   guarded by whether the child was already parented *before* this assignment — so reassigning
+   the same already-wired child instance never adds a second, duplicate Combine subscription.
+   `_SuperSlotWireable` (`Store.swift`) was bumped from `fileprivate` to `internal` so
+   `Subscope.swift` (same module) can see it.
+
+Verified with three new tests in `ParentStoreBindingTests.swift`
+(`testSuperScopeObservedRelaysParentObjectWillChangeExactlyOnce`,
+`testSuperScopeObservedDoesNotDoubleWireOnRedundantReassignment`,
+`testSuperScopeObservedRelaysMultipleMutationsOneNotificationEach`) asserting an *exact*
+notification count per mutation, specifically to catch a naive fix that wires correctly but fires
+2+ times per single ancestor mutation (a distinct, easy-to-introduce performance bug that an
+"at least once" check wouldn't catch). A symmetric regression guard
+(`ReducerTests.testObservedSuperStateDoesNotDoubleWireWhenChildIsRecreated`) confirms the
+already-working `@SuperState(observed: true)` path isn't affected and still wires exactly once
+even when its child is destroyed and recreated.
 
 ### `takeSnapshot()` doesn't block re-entrant events during rendering, unlike every automatic snapshot point
 

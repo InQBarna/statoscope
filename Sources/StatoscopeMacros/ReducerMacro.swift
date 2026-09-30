@@ -405,6 +405,16 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
 
         for prop in parentStoreProperties {
             let parentType = prop.type
+            let subscribeArg = prop.observed ? """
+            ,
+                subscribe: { store in
+                    guard let parentStore = resolveAncestor(\(parentType).self, from: store),
+                          let childStore = store as? Store else { return nil }
+                    return parentStore.objectWillChange.sink { [weak childStore] _ in
+                        childStore?.objectWillChange.send()
+                    }
+                }
+            """ : ""
             superSlotEntries.append("""
             AnySuperSlot(inject: { store, state in
                     if let parentStore = resolveAncestor(\(parentType).self, from: store) {
@@ -412,7 +422,7 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
                             parentStore ?? \(parentType).defaultValue
                         }
                     }
-                })
+                }\(subscribeArg))
             """)
         }
 

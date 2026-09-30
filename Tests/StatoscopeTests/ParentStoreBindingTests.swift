@@ -92,25 +92,56 @@ final class ParentStoreBindingTests: XCTestCase {
         XCTAssertEqual(orphan.state.parent.count, 0)
     }
 
-    // KNOWN FAILING — discovered bug, intentionally not fixed here (TDD later, see
-    // UNCOVERED_BY_UNIT_TESTS.md). _wireSuperSlots() (Store.swift) — which sets up the
-    // "observed" relay's subscription — is only ever called from Store<R>.applyChildSlots,
-    // the Reducer pattern's own @SubState child-creation path. @Subscope (the classic-pattern
-    // property wrapper used to host a Reducer child under a legacy Statostore parent, which is
-    // @SuperScope's whole reason to exist) never calls it, so the relay this test asserts is
-    // never actually wired for @SuperScope(observed: true)'s own documented use case.
-    func testSuperScopeObservedRelaysParentObjectWillChange() {
+    func testSuperScopeObservedRelaysParentObjectWillChangeExactlyOnce() {
         let parent = ObservedParentStore()
         parent.child = ObservingChildReducer.Store(initialState: .init())
 
-        let expectation = expectation(description: "child objectWillChange fires from parent mutation")
-        let cancellable = parent.child?.objectWillChange.sink { _ in
-            expectation.fulfill()
-        }
+        var notificationCount = 0
+        let cancellable = parent.child?.objectWillChange.sink { _ in notificationCount += 1 }
 
         parent.count = 99
 
-        wait(for: [expectation], timeout: 1.0)
+        // Not just "did it fire" — a naive wiring fix (e.g. re-subscribing on every
+        // reassignment) could easily fire the child's objectWillChange 2+ times for a single
+        // parent mutation, which is its own performance bug even though it wouldn't fail an
+        // "at least once" check.
+        XCTAssertEqual(notificationCount, 1, "child's objectWillChange should fire exactly once per parent mutation")
+
+        cancellable?.cancel()
+    }
+
+    func testSuperScopeObservedDoesNotDoubleWireOnRedundantReassignment() {
+        let parent = ObservedParentStore()
+        let child = ObservingChildReducer.Store(initialState: .init())
+        parent.child = child
+        // Reassigning the same already-parented child instance again must not add a second,
+        // duplicate subscription to the parent's objectWillChange — otherwise a single parent
+        // mutation would relay as 2+ notifications to the child.
+        parent.child = child
+
+        var notificationCount = 0
+        let cancellable = parent.child?.objectWillChange.sink { _ in notificationCount += 1 }
+
+        parent.count = 42
+
+        XCTAssertEqual(notificationCount, 1, "reassigning the same child must not multiply the relay's fan-out")
+
+        cancellable?.cancel()
+    }
+
+    func testSuperScopeObservedRelaysMultipleMutationsOneNotificationEach() {
+        let parent = ObservedParentStore()
+        parent.child = ObservingChildReducer.Store(initialState: .init())
+
+        var notificationCount = 0
+        let cancellable = parent.child?.objectWillChange.sink { _ in notificationCount += 1 }
+
+        parent.count = 1
+        parent.count = 2
+        parent.count = 3
+
+        XCTAssertEqual(notificationCount, 3, "each parent mutation should relay exactly one notification, not more")
+
         cancellable?.cancel()
     }
 

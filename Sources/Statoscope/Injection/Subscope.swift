@@ -63,6 +63,14 @@ public struct Subscope<Value: InjectionTreeNodeProtocol>: CustomStringConvertibl
                 (publisher as! ObservableObjectPublisher).send()
             }
 
+            // Was this child already parented before this assignment? Read before
+            // assignChildOnPropertyWrapperSet below (which sets _parentNode) so that
+            // @SuperScope(observed: true)'s relay — wired further down — only ever gets wired
+            // once per child instance. Re-wiring an already-wired child on a redundant
+            // reassignment would add a duplicate Combine subscription, firing the child's
+            // objectWillChange more than once for a single ancestor mutation.
+            let wasAlreadyParented = newValue._parentNode != nil
+
             // Storage assignment
             enclosingInstance[keyPath: storageKeyPath].storage = newValue
 
@@ -80,6 +88,14 @@ public struct Subscope<Value: InjectionTreeNodeProtocol>: CustomStringConvertibl
                     keyPath: wrappedKeyPath,
                     isOptional: false
                 )
+            }
+
+            // Wire any @SuperScope(observed: true) relay now that _parentNode is established
+            // (resolveAncestor needs it to find this child's ancestors) — a Reducer's Store
+            // hosted as a classic Statostore's @Subscope child never goes through
+            // Store<R>.applyChildSlots, which is what wires this relay for @SubState children.
+            if !wasAlreadyParented {
+                (newValue as? any _SuperSlotWireable)?._wireSuperSlots()
             }
         }
     }
