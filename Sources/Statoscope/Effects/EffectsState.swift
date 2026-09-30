@@ -154,7 +154,7 @@ public struct EffectsState<When: Sendable>: Sendable {
         currentRequestedEffects = currentRequestedEffects.filter { uuid, _ in
             uuid != olderUUID
         }
-        enquedEffects = currentRequestedEffects.filter { uuid, _ in
+        enquedEffects = enquedEffects.filter { uuid, _ in
             uuid != olderUUID
         }
         // TODO: revisar este removeAll?

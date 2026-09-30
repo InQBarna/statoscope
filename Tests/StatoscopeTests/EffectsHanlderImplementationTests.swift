@@ -212,31 +212,20 @@ class EffectsStateDirectTests: XCTestCase {
         XCTAssertEqual(state.cancelledEffects.count, 1)
     }
 
-    // MARK: - Discovered bug: `_cancelOlderEffect` pollutes `enquedEffects`
+    // MARK: - Fixed bug: `_cancelOlderEffect` used to pollute `enquedEffects`
     //
     // `_cancelOlderEffect()` (Sources/Statoscope/Effects/EffectsState.swift) is meant to remove
     // just the single oldest pending effect and hand it back — used by
     // `WHEN_OlderEffectCompletes` to simulate that one effect's completion while leaving any
-    // other pending effects untouched. Its implementation does:
-    //
-    //   currentRequestedEffects = currentRequestedEffects.filter { uuid, _ in uuid != olderUUID }
-    //   enquedEffects = currentRequestedEffects.filter { uuid, _ in uuid != olderUUID }
-    //
-    // The second line reassigns `enquedEffects` from `currentRequestedEffects` — which, by that
-    // point, is the full list of *every other still-pending effect*, not `enquedEffects` itself.
-    // Since none of those survivors equal `olderUUID`, the filter is a no-op and `enquedEffects`
-    // ends up containing every other in-flight effect, even ones that were never freshly enqueued
-    // this cycle. The line should almost certainly read
-    // `enquedEffects = enquedEffects.filter { uuid, _ in uuid != olderUUID }` instead.
-    //
-    // This is directly observable whenever 2+ effects are pending at once and one of them is
-    // "completed" via `_cancelOlderEffect` — `enquedEffects` should stay empty (nothing new was
-    // enqueued), but instead ends up containing the other pending effect. In real usage this
-    // corrupts the invariant `_unsafeSendImplementation` asserts on the next send
-    // (`assert(effectsState.enquedEffects.count == 0)`), so it isn't just cosmetic — it can crash
-    // the very next `send`/`sendUnsafe` call on a scope with 2+ pending effects when
-    // `WHEN_OlderEffectCompletes` is used. See UNCOVERED_BY_UNIT_TESTS.md, Group D, "Discovered
-    // bugs" for the writeup. Left failing deliberately, per instructions, rather than patched here.
+    // other pending effects untouched. It used to reassign `enquedEffects` from
+    // `currentRequestedEffects` (by that point already filtered down to every other
+    // still-pending effect) instead of filtering `enquedEffects` itself — a no-op filter that
+    // left `enquedEffects` containing every other in-flight effect, even ones never freshly
+    // enqueued this cycle. That corrupted the invariant `_unsafeSendImplementation` asserts on
+    // the next send (`assert(effectsState.enquedEffects.count == 0)`), so it wasn't just
+    // cosmetic — it could crash the very next `send`/`sendUnsafe` call on a scope with 2+ pending
+    // effects when `WHEN_OlderEffectCompletes` is used. See UNCOVERED_BY_UNIT_TESTS.md, Group D,
+    // for the original writeup.
     func testCancelOlderEffectDoesNotPolluteEnquedEffectsWithOtherPendingEffects() throws {
         let effect1 = DummyEffect(tag: "older")
         let effect2 = DummyEffect(tag: "newer-but-not-freshly-enqueued")
@@ -252,9 +241,7 @@ class EffectsStateDirectTests: XCTestCase {
         XCTAssertEqual(state.currentRequestedEffects.count, 1, "Only the untouched effect2 should remain")
         XCTAssertEqual(
             state.enquedEffects.count, 0,
-            "BUG: enquedEffects should stay empty (effect2 was never freshly enqueued this cycle), " +
-            "but _cancelOlderEffect's implementation spuriously repopulates it from " +
-            "currentRequestedEffects — see comment above this test."
+            "enquedEffects should stay empty — effect2 was never freshly enqueued this cycle."
         )
     }
 }

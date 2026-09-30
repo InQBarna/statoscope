@@ -69,20 +69,18 @@ even when its child is destroyed and recreated.
   this looks like a straightforward oversight (invoking the closure directly instead of the
   wrapper) rather than a structural blocker.
 
-### `EffectsState._cancelOlderEffect()` corrupts `enquedEffects` whenever 2+ effects are pending
+### `EffectsState._cancelOlderEffect()` corrupted `enquedEffects` whenever 2+ effects are pending — FIXED
 
-- **Test**: `EffectsStateDirectTests.testCancelOlderEffectDoesNotPolluteEnquedEffectsWithOtherPendingEffects`
-  (currently failing).
-- **Root cause**: `EffectsState._cancelOlderEffect()` (`Sources/Statoscope/Effects/EffectsState.swift`)
-  reassigns `enquedEffects` from `currentRequestedEffects` instead of filtering `enquedEffects`
-  itself, so it spuriously repopulates `enquedEffects` with every other still-pending effect
-  whenever two or more effects are pending at once. This corrupts the invariant
-  `_unsafeSendImplementation`'s `assert(effectsState.enquedEffects.count == 0)` relies on — a real
-  crash risk whenever `WHEN_OlderEffectCompletes` is used with multiple pending effects. Every
-  existing usage in the suite happened to only ever have one pending effect at a time, which is
-  why this was never caught before.
-- **Fix shape** (not implemented): filter `enquedEffects` itself (removing the completed/cancelled
-  entry), not `currentRequestedEffects`.
+Was: `EffectsState._cancelOlderEffect()` (`Sources/Statoscope/Effects/EffectsState.swift`)
+reassigned `enquedEffects` from `currentRequestedEffects` instead of filtering `enquedEffects`
+itself, so it spuriously repopulated `enquedEffects` with every other still-pending effect
+whenever two or more effects were pending at once. This corrupted the invariant
+`_unsafeSendImplementation`'s `assert(effectsState.enquedEffects.count == 0)` relies on — a real
+crash risk whenever `WHEN_OlderEffectCompletes` was used with multiple pending effects. Every
+existing usage in the suite happened to only ever have one pending effect at a time, which is why
+this was never caught before. Fixed by filtering `enquedEffects` itself instead of
+`currentRequestedEffects`; `EffectsStateDirectTests.testCancelOlderEffectDoesNotPolluteEnquedEffectsWithOtherPendingEffects`
+now passes.
 
 ## Ambiguous — needs a human decision, not a test
 
@@ -353,8 +351,9 @@ New/extended tests:
   (describing-a-*type*) branch of `removeOptionalDescription`, which no existing test exercised;
   only the "Optional(...)" (describing-a-*value*) branch was previously covered.
 
-One new bug was discovered while writing these tests (documented above, under "Discovered bugs"):
-`EffectsState._cancelOlderEffect()` corrupts `enquedEffects` whenever 2+ effects are pending.
+One new bug was discovered while writing these tests, since fixed (documented above, under
+"Discovered bugs"): `EffectsState._cancelOlderEffect()` used to corrupt `enquedEffects` whenever
+2+ effects were pending.
 
 ### Ambiguous — needs a human decision, not a test
 
