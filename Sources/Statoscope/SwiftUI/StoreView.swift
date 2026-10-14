@@ -8,11 +8,17 @@
 import Foundation
 import SwiftUI
 
-public protocol StoreViewProtocol: View {
+/// Exposes `model`/`send` for the `bind`/`weakBind`/`bindIsPresented` helpers below — split out
+/// from `StoreViewProtocol` so a view that can't satisfy `init(model:send:)` (e.g. one that also
+/// carries an `ownPath: ReducerKeyPath<...>` as a third constructor parameter) still gets them.
+public protocol StoreBindingProvider {
     associatedtype State
     associatedtype When
     var model: State { get }
     var send: (When) -> Void { get }
+}
+
+public protocol StoreViewProtocol: View, StoreBindingProvider {
     init(model: State, send: @escaping (When) -> Void)
 }
 
@@ -30,9 +36,9 @@ struct StoreView<S: StoreProtocol, V: View>: View where S.ScopeImpl: ObservableO
     }
 }
 
-// MARK: - Binding helpers for StoreViewProtocol
+// MARK: - Binding helpers for StoreBindingProvider
 
-public extension StoreViewProtocol {
+public extension StoreBindingProvider {
 
     func bind<T>(
         constant: T,
