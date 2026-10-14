@@ -95,6 +95,14 @@ public final class Store<R: Reducer>: Statostore, ObservableObject {
 
     public init(initialState: R.State) {
         self._rawState = initialState
+        // Forces _SubStateHopRegistry registration (a side effect of accessing `_childSlots`,
+        // generated per @SubState property) unconditionally, for every Store — not just the
+        // ones created as someone's child via `applyChildSlots`/`_applyChildSlotsRecursively`.
+        // Without this, a Store constructed directly as a root (every real app's top-level
+        // Store, and any Store built standalone in a test) would leave its own children
+        // unregistered until the first `.state` access or `update()` call — a ReducerKeyPath
+        // resolved any earlier would hit the registry's fatalError fallback.
+        _ = R._childSlots
     }
 
     // MARK: - ScopeImplementation

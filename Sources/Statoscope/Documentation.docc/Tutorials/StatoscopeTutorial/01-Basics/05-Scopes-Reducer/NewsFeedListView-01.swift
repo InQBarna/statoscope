@@ -1,9 +1,12 @@
 import SwiftUI
 import Statoscope
 
-struct NewsFeedListView: StoreViewProtocol {
-    var model: NewsFeedListReducer.State
-    var send: (NewsFeedListReducer.When) -> Void
+struct NewsFeedListView: View {
+    let model: NewsFeedListReducer.State
+    let send: (NewsFeedListReducer.When) -> Void
+    // Carried in from the root (see NewsFeedRootView) — this view navigates further, so it needs
+    // its own position in the tree, not just `model`/`send`.
+    let ownPath: ReducerKeyPath<NewsFeedReducer, NewsFeedListReducer>
 
     var body: some View {
         List(model.loadedDTO?.articles ?? [], id: \.id) { article in
@@ -20,7 +23,9 @@ struct NewsFeedListView: StoreViewProtocol {
                 set: { isPresented in if !isPresented { /* send(.userDismissedArticle) */ } }
             )
         ) {
-            AutoConnectedView<NewsFeedListReducer.Store, NewsFeedArticleReducer.Store, NewsFeedArticleView>(\.children.readingArticle)
+            ConnectedChild(ownPath.append(\.readingArticle, as: NewsFeedArticleReducer.self)) { state, send, _ in
+                NewsFeedArticleView(model: state, send: send)
+            }
         }
     }
 }

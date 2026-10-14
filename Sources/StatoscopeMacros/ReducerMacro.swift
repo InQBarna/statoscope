@@ -123,6 +123,7 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
             || !parentStoreProperties.isEmpty || !injectedProperties.isEmpty
         if hasSlots {
             let slotMembers = try generateSlotMembers(
+                reducerName: reducerName,
                 subStateProperties: subStateProperties,
                 superStateProperties: superStateProperties,
                 parentStoreProperties: parentStoreProperties,
@@ -130,13 +131,6 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
             )
             members += slotMembers
         }
-
-        // 4. build<Name>View helpers (when @SubState exists)
-        let buildChildViewMethods = generateBuildChildViewMethods(
-            reducerName: reducerName,
-            subStateProperties: subStateProperties
-        )
-        members += buildChildViewMethods
 
         return members
     }
@@ -329,6 +323,7 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
     /// Because these are MemberMacro-generated (inside the struct body), sibling types
     /// in the same enclosing namespace are accessible without qualification.
     private static func generateSlotMembers(
+        reducerName: String,
         subStateProperties: [(name: String, type: String)],
         superStateProperties: [(name: String, type: String, observed: Bool)],
         parentStoreProperties: [(name: String, type: String, observed: Bool)],
@@ -376,6 +371,23 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
         let childSlotsBody = childSlotEntries.isEmpty
             ? "[]"
             : "[\n        " + childSlotEntries.joined(separator: ",\n        ") + "\n    ]"
+
+        // Registers each @SubState property's State-relative hop (\.child) against its
+        // Store-relative equivalent (\.children.child) with _SubStateHopRegistry, so
+        // ReducerKeyPath.append(_:) can resolve it later without ever decomposing a composed
+        // KeyPath. Registration runs every time _childSlots is evaluated — which Store<R>.init
+        // already does unconditionally — so it's always done before any navigation could
+        // possibly reach this reducer's children. Idempotent (plain dictionary overwrite), so
+        // re-running it on every access is harmless.
+        let hopRegistrations = subStateProperties.map { prop -> String in
+            let reducerType = inferReducerType(from: prop.type)
+            return """
+            _SubStateHopRegistry.register(
+                    parent: \(reducerName).self, child: \(reducerType).self,
+                    state: \\\(reducerName).State.\(prop.name), store: \\\(reducerName).Store.children.\(prop.name)
+                )
+            """
+        }.joined(separator: "\n        ")
 
         // _superSlots
         var superSlotEntries: [String] = []
@@ -440,43 +452,20 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
             ? "[]"
             : "[\n        " + superSlotEntries.joined(separator: ",\n        ") + "\n    ]"
 
-        let childSlotsDecl: DeclSyntax = DeclSyntax("""
-        public static var _childSlots: [AnyChildSlot<State>] { \(raw: childSlotsBody) }
-        """)
+        let childSlotsDecl: DeclSyntax = subStateProperties.isEmpty
+            ? DeclSyntax("""
+              public static var _childSlots: [AnyChildSlot<State>] { \(raw: childSlotsBody) }
+              """)
+            : DeclSyntax("""
+              public static var _childSlots: [AnyChildSlot<State>] {
+                  \(raw: hopRegistrations)
+                  return \(raw: childSlotsBody)
+              }
+              """)
         let superSlotsDecl: DeclSyntax = DeclSyntax("""
         public static var _superSlots: [AnySuperSlot<State>] { \(raw: superSlotsBody) }
         """)
 
         return [childSlotsDecl, superSlotsDecl]
-    }
-
-    private static func generateBuildChildViewMethods(
-        reducerName: String,
-        subStateProperties: [(name: String, type: String)]
-    ) -> [DeclSyntax] {
-        guard !subStateProperties.isEmpty else { return [] }
-        return subStateProperties.map { prop -> DeclSyntax in
-            let reducerType = inferReducerType(from: prop.type)
-            let method = "build\(prop.name.capitalized)View"
-            return DeclSyntax("""
-            public static func \(raw: method)<V: _StatoscopeView>(
-                content: @escaping (\(raw: prop.type), @escaping (\(raw: reducerType).When) -> Void) -> V
-            ) -> some _StatoscopeView {
-                _ReducerChildViewConnector<Store, Statoscope.Store<\(raw: reducerType)>, V>(
-                    storeKeyPath: \\.children.\(raw: prop.name),
-                    content: content
-                )
-            }
-            """)
-        }
-    }
-}
-
-// MARK: - String Extensions
-
-extension String {
-    var capitalized: String {
-        guard let first = first else { return self }
-        return first.uppercased() + dropFirst()
     }
 }

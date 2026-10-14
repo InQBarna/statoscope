@@ -87,7 +87,7 @@ Documentation is built using Swift-DocC. The library includes comprehensive docu
   - `Reducer/`: The Reducer pattern — `Reducer`/`MiddlewareReducer` protocols, `Store<R>`, `SubState`/`SuperState`, `ReducerDependencies`, `ReducerInjected`, child-slot machinery
   - `Effects/`: Effect protocol, type erasure (AnyEffect), and effects handler (shared by both patterns)
   - `Injection/`: Dependency injection system (Injectable, @Injected, @Superscope, @Subscope — Statostore-side; Reducer's equivalents live in `Reducer/`)
-  - `SwiftUI/`: SwiftUI integration helpers (StoreView, bindings, AutoConnectedView for Reducer navigation)
+  - `SwiftUI/`: SwiftUI integration helpers (StoreView, bindings, ConnectedChild + ReducerKeyPath for Reducer navigation)
   - `Helpers/`: Utility code and runtime helpers
   - `Logging/`: Debug description and logging support
 

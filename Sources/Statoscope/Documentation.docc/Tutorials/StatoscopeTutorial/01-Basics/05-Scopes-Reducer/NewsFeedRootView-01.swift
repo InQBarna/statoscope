@@ -11,8 +11,11 @@ struct NewsFeedRootView: StoreViewProtocol {
                 ProgressView("Loading…")
             } else {
                 // `atList` is only reachable once the parent has created the child —
-                // AutoConnectedView reads it from the environment and renders nothing until then.
-                AutoConnectedView<NewsFeedReducer.Store, NewsFeedListReducer.Store, NewsFeedListView>(\.children.atList)
+                // ConnectedChild resolves it via an explicit path from the root and renders
+                // nothing until then.
+                ConnectedChild(ReducerKeyPath<NewsFeedReducer, NewsFeedReducer>.root.append(\.atList, as: NewsFeedListReducer.self)) { state, send, path in
+                    NewsFeedListView(model: state, send: send, ownPath: path)
+                }
             }
         }
     }

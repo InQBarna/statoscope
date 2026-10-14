@@ -82,33 +82,39 @@
 
     @Section(title: "Views and Scopes") {
         @ContentAndMedia {
-            Each scope in the tree gets its own `StoreViewProtocol` view. Statoscope resolves
-            the parent `Store` from the SwiftUI environment and connects each child automatically.
+            Each leaf scope in the tree gets its own `StoreViewProtocol` view. A scope that
+            navigates further also carries an explicit `ownPath` — a `ReducerKeyPath` back to the
+            root — so `ConnectedChild` can resolve its own child's live `Store` regardless of how
+            many levels of push/presentation deep it's reached.
         }
         @Steps {
             @Step {
                 The root view switches on `loadingFeatureToggles`, then hands off to
-                `AutoConnectedView` once the `atList` child exists — it reads the child `Store`
-                from the environment `NewsFeedReducer.Store` injected, and renders nothing until
-                the child is actually there.
+                `ConnectedChild` once the `atList` child exists — it resolves the live child
+                `Store` via an explicit `ReducerKeyPath` from the root (injected into the
+                environment exactly once, by `ReducerStoreView`), and renders nothing until the
+                child is actually there.
 
                 @Code(name: "NewsFeedRootView.swift", file: NewsFeedRootView-01.swift)
             }
             @Step {
-                For the list-to-detail push, a hand-built `Binding` derived from
-                `readingArticle != nil` works for the read side — but clearing it back to `nil`
-                needs a dismiss `When` case wired up by hand.
+                `NewsFeedListView` now carries its own `ownPath: ReducerKeyPath<NewsFeedReducer,
+                NewsFeedListReducer>`, passed down by the root view, so it can resolve its own
+                child the same way. For the list-to-detail push, a hand-built `Binding` derived
+                from `readingArticle != nil` works for the read side — but clearing it back to
+                `nil` needs a dismiss `When` case wired up by hand.
 
                 @Code(name: "NewsFeedListView.swift", file: NewsFeedListView-01.swift)
             }
             @Step {
                 `NewsFeedListReducer.bind(_:in:dismissWhen:send:)` replaces the hand-built
-                `Binding`, and the macro-generated `buildReadingArticleView(content:)` —
-                generated from the `@SubState var readingArticle` declared a few steps ago —
-                replaces the manual environment lookup for the child store. Pair it with
-                whichever presentation modifier fits — `.navigationDestination` here, or
-                `.sheet`/`.fullScreenCover`/`NavigationLink` elsewhere — it's safe as content
-                for any of them, at any nesting depth.
+                `Binding`. The child content itself is unchanged from the previous step —
+                `ConnectedChild` resolving `ownPath.append(\.readingArticle, as:
+                NewsFeedArticleReducer.self)` — pair it with whichever presentation modifier
+                fits — `.navigationDestination` here, or `.sheet`/`.fullScreenCover`/
+                `NavigationLink` elsewhere — it's safe as content for any of them, at any nesting
+                depth, because resolution never depends on where this view happens to be nested,
+                only on the root `Store` and the path carried in explicitly.
 
                 @Code(name: "NewsFeedListView.swift", file: NewsFeedListView-02.swift)
             }

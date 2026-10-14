@@ -134,64 +134,59 @@ final class ReducerMacroTests: XCTestCase {
                 }
 
                 public static var _childSlots: [AnyChildSlot<State>] {
-                    [
-                            AnyChildSlot(
-                            key: ChildStores._CK.child,
-                            isDirty: {
-                                $0.$child.isDirty
-                            },
-                            isPresent: {
-                                $0.child != nil
-                            },
-                            create: { parentState in
-                                Statoscope.Store<Child>(initialState: parentState.child!)
-                            },
-                            triggerDefault: { store in
-                                guard let s = store as? Statoscope.Store<Child> else {
-                                    fatalError("Statoscope internal error: child slot 'child' triggerDefault " +
-                                               "received an unexpected store type \(Swift.type(of: store)); " +
-                                               "expected Statoscope.Store<Child>. " +
-                                               "This indicates a bug in the @Reducer macro, not user code.")
-                                }
-                                guard let t = Child.defaultTrigger else {
-                                    return
-                                }
-                                s.send(t)
-                            },
-                            resetDirty: {
-                                $0.$child = SubState()
-                            },
-                            injectIntoParent: { store, state in
-                                guard let store else {
-                                    state.$child = SubState(injectedValue: nil)
-                                    return
-                                }
-                                guard let s = store as? Statoscope.Store<Child> else {
-                                    fatalError("Statoscope internal error: child slot 'child' injectIntoParent " +
-                                               "received an unexpected store type \(Swift.type(of: store)); " +
-                                               "expected Statoscope.Store<Child>. " +
-                                               "This indicates a bug in the @Reducer macro, not user code.")
-                                }
-                                state.$child = SubState(injectedValue: s._rawState)
-                            },
-                            extractChildState: { parentState in
-                                parentState.child!
+                    _SubStateHopRegistry.register(
+                        parent: Parent.self, child: Child.self,
+                        state: \Parent.State.child, store: \Parent.Store.children.child
+                    )
+                    return [
+                        AnyChildSlot(
+                        key: ChildStores._CK.child,
+                        isDirty: {
+                            $0.$child.isDirty
+                        },
+                        isPresent: {
+                            $0.child != nil
+                        },
+                        create: { parentState in
+                            Statoscope.Store<Child>(initialState: parentState.child!)
+                        },
+                        triggerDefault: { store in
+                            guard let s = store as? Statoscope.Store<Child> else {
+                                fatalError("Statoscope internal error: child slot 'child' triggerDefault " +
+                                           "received an unexpected store type \(Swift.type(of: store)); " +
+                                           "expected Statoscope.Store<Child>. " +
+                                           "This indicates a bug in the @Reducer macro, not user code.")
                             }
-                        )
-                        ]
+                            guard let t = Child.defaultTrigger else {
+                                return
+                            }
+                            s.send(t)
+                        },
+                        resetDirty: {
+                            $0.$child = SubState()
+                        },
+                        injectIntoParent: { store, state in
+                            guard let store else {
+                                state.$child = SubState(injectedValue: nil)
+                                return
+                            }
+                            guard let s = store as? Statoscope.Store<Child> else {
+                                fatalError("Statoscope internal error: child slot 'child' injectIntoParent " +
+                                           "received an unexpected store type \(Swift.type(of: store)); " +
+                                           "expected Statoscope.Store<Child>. " +
+                                           "This indicates a bug in the @Reducer macro, not user code.")
+                            }
+                            state.$child = SubState(injectedValue: s._rawState)
+                        },
+                        extractChildState: { parentState in
+                            parentState.child!
+                        }
+                    )
+                    ]
                 }
 
                 public static var _superSlots: [AnySuperSlot<State>] {
                     []
-                }
-
-                public static func buildChildView<V: _StatoscopeView>(
-                    content: @escaping (Child.State, @escaping (Child.When) -> Void) -> V
-                ) -> some _StatoscopeView {
-                    _ReducerChildViewConnector<Store, Statoscope.Store<Child>, V>(
-                        storeKeyPath: \.children.child,
-                        content: content
-                    )
                 }
             }
 
