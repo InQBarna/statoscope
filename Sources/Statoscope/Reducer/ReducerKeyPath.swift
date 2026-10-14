@@ -90,6 +90,24 @@ extension ReducerKeyPath where RootReducer == CurrentReducer {
     }
 }
 
+extension ReducerKeyPath {
+    /// A placeholder path that always resolves to `nil`, without touching
+    /// `_SubStateHopRegistry` or requiring any Store to exist.
+    ///
+    /// A view that navigates further needs a real `ownPath` value to pass to its own
+    /// `ConnectedChild` calls — including in a SwiftUI `#Preview`, which usually renders that
+    /// view directly from a mock `State`, with no root Store ever created and no
+    /// `ReducerStoreView` in the hierarchy. Building a real path there with `.root.append(...)`
+    /// would call into `_SubStateHopRegistry` before any `Store.init` has registered the hop it
+    /// needs, hitting its `fatalError` fallback — even though the path is never actually
+    /// resolved, since the mock `State` driving the preview has nothing further to navigate to.
+    /// Use `.preview` instead wherever a `ReducerKeyPath` value is needed only to satisfy a
+    /// type, never to resolve a live Store.
+    public static var preview: ReducerKeyPath<RootReducer, CurrentReducer> {
+        ReducerKeyPath(resolveStore: { _ in nil })
+    }
+}
+
 /// Internal — populated automatically by `@Reducer`'s generated `_childSlots`, once per
 /// `@SubState` property, the first time any Store of that reducer type is created (well before
 /// any navigation can reach it, since a `@SubState` child can't be presented before it exists).

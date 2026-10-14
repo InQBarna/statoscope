@@ -88,12 +88,45 @@ private struct RKPParentWithTwoSameTypeChildrenReducer {
     }
 }
 
+// Exclusively for testPreviewPathResolvesNilWithoutTouchingTheRegistry — never otherwise
+// constructed anywhere in this file, so no Store of either type ever gets created, and no
+// _SubStateHopRegistry entry for this pair can exist from some other test's side effects.
+@Reducer
+private struct RKPNeverInstantiatedChildReducer {
+    struct State { var label: String = "never instantiated" }
+    enum When {}
+    static func update(
+        _ when: When, state: inout State,
+        effectsState: inout EffectsState<When>, dependencies: ReducerDependencies
+    ) throws {}
+}
+
+@Reducer
+private struct RKPNeverInstantiatedParentReducer {
+    struct State { @SubState var child: RKPNeverInstantiatedChildReducer.State? }
+    enum When {}
+    static func update(
+        _ when: When, state: inout State,
+        effectsState: inout EffectsState<When>, dependencies: ReducerDependencies
+    ) throws {}
+}
+
 final class ReducerKeyPathTests: XCTestCase {
 
     func testRootResolvesToTheRootStoreItself() {
         let store = RKPParentReducer.Store(initialState: RKPParentReducer.State())
         let path = ReducerKeyPath<RKPParentReducer, RKPParentReducer>.root
         XCTAssertTrue(path.resolve(from: store) === store)
+    }
+
+    func testPreviewPathResolvesNilWithoutTouchingTheRegistry() {
+        // Built before any Store of this pair exists anywhere in the process (these two
+        // reducers are scoped exclusively to this test) — if `.preview` touched
+        // _SubStateHopRegistry the way `.root.append(_:as:)` does, this line itself would hit
+        // its fatalError fallback instead of constructing successfully.
+        let path = ReducerKeyPath<RKPNeverInstantiatedParentReducer, RKPNeverInstantiatedChildReducer>.preview
+        let store = RKPNeverInstantiatedParentReducer.Store(initialState: RKPNeverInstantiatedParentReducer.State())
+        XCTAssertNil(path.resolve(from: store))
     }
 
     func testOneHopResolvesNilWhenChildAbsent() {
