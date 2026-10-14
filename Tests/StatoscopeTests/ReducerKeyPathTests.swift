@@ -182,6 +182,27 @@ final class ReducerKeyPathTests: XCTestCase {
         XCTAssertNil(grandchildPath.resolve(from: store), "a torn-down ancestor must not resolve a stale descendant")
     }
 
+    func testDetachedPathResolvesToTheGivenStoreIgnoringTheRoot() {
+        let detachedStore = RKPChildReducer.Store(initialState: RKPChildReducer.State())
+        // An unrelated root instance — proves `.detached` never consults it.
+        let unrelatedRoot = RKPParentReducer.Store(initialState: RKPParentReducer.State())
+
+        let path = ReducerKeyPath<RKPParentReducer, RKPChildReducer>.detached(detachedStore)
+
+        XCTAssertTrue(path.resolve(from: unrelatedRoot) === detachedStore)
+    }
+
+    func testDetachedPathStillSupportsAppendingFurtherHops() {
+        let detachedStore = RKPChildReducer.Store(initialState: RKPChildReducer.State())
+        detachedStore.send(.showGrandchild)
+        let unrelatedRoot = RKPParentReducer.Store(initialState: RKPParentReducer.State())
+
+        let grandchildPath = ReducerKeyPath<RKPParentReducer, RKPChildReducer>.detached(detachedStore)
+            .append(\.grandchild, as: RKPGrandchildReducer.self)
+
+        XCTAssertTrue(grandchildPath.resolve(from: unrelatedRoot) === detachedStore.children.grandchild)
+    }
+
     func testSiblingSlotsOfTheSameChildReducerTypeResolveIndependently() {
         let store = RKPParentWithTwoSameTypeChildrenReducer.Store(
             initialState: RKPParentWithTwoSameTypeChildrenReducer.State()

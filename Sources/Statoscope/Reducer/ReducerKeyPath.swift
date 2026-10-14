@@ -106,6 +106,19 @@ extension ReducerKeyPath {
     public static var preview: ReducerKeyPath<RootReducer, CurrentReducer> {
         ReducerKeyPath(resolveStore: { _ in nil })
     }
+
+    /// A path that always resolves to `store`, ignoring the environment root entirely.
+    ///
+    /// For a Store built standalone — outside the real root hierarchy — but typed against the
+    /// app's real `RootReducer` for API consistency with every other `ownPath` (e.g. an isolated
+    /// QA/test-double screen, seeded directly with a descendant's state). `append` still works
+    /// normally on the result: it only needs a live Store at this position, never how it got here.
+    /// Rendering a `ConnectedChild` anywhere in `store`'s own subtree still requires *some*
+    /// `RootReducer.OwnStore` present in the environment to satisfy `@EnvironmentObject` — one
+    /// that's never actually read, since this path never consults it.
+    public static func detached(_ store: CurrentReducer.OwnStore) -> ReducerKeyPath<RootReducer, CurrentReducer> {
+        ReducerKeyPath(resolveStore: { _ in store })
+    }
 }
 
 /// Internal — populated automatically by `@Reducer`'s generated `_childSlots`, once per
