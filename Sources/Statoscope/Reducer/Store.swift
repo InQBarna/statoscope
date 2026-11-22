@@ -52,9 +52,9 @@ public final class Store<R: Reducer>: Statostore, ObservableObject {
     // Recursively applies child slots using `initialState` (passed by the caller) rather
     // than reading _rawState, so the caller controls which state drives the recursion.
     // Critical: must run before the `state` computed getter resets dirty flags via injectIntoParent.
-    fileprivate func _applyChildSlotsRecursively(state initialState: Any, triggerDefaults: Bool) {
-        guard var typedState = initialState as? R.State else { return }
-        applyChildSlots(&typedState, triggerDefaults: triggerDefaults)
+    fileprivate func _applyChildSlotsRecursively(state initialState: Any) -> [() -> Void] {
+        guard var typedState = initialState as? R.State else { return [] }
+        return applyChildSlots(&typedState)
     }
 
     // MARK: - Public API
@@ -127,7 +127,7 @@ public final class Store<R: Reducer>: Statostore, ObservableObject {
         var mutableState = state  // uses getter: injects child/super states
         let dependencies = ReducerDependenciesImpl(node: self, parentStore: self)
         try R.update(when, state: &mutableState, effectsState: &effectsState, dependencies: dependencies)
-        applyChildSlots(&mutableState, triggerDefaults: true)
+        for fire in applyChildSlots(&mutableState) { fire() }
     }
 
     // Applies dirty child-slot transitions: creates/destroys child stores, resets dirty
@@ -143,8 +143,14 @@ public final class Store<R: Reducer>: Statostore, ObservableObject {
     // would for a genuinely new child. If a reducer wants to preserve something across being
     // recreated, that's its own responsibility to restore in its own defaultWhen (e.g. re-fetch
     // from a dependency), not something the framework carries over silently on its behalf.
-    private func applyChildSlots(_ mutableState: inout R.State, triggerDefaults: Bool) {
+    //
+    // Returns the defaultTrigger firings still to run — this level's new children first, then the
+    // descendants that arrived pre-populated inside their state — so the outermost caller fires them
+    // only after every level's state is committed (parity with statoscope-kotlin, which fires every
+    // activation).
+    private func applyChildSlots(_ mutableState: inout R.State) -> [() -> Void] {
         var newChildren: [(AnyObject, AnyChildSlot<R.State>)] = []
+        var nested: [() -> Void] = []
         for slot in R._childSlots {
             guard slot.isDirty(mutableState) else { continue }
             if slot.isPresent(mutableState) {
@@ -158,10 +164,9 @@ public final class Store<R: Reducer>: Statostore, ObservableObject {
                 // Recursively initialize any @SubState descendants already present in the
                 // initial state (dirty flags are read here, before the state getter would
                 // reset them via injectIntoParent), then schedule triggerDefault.
-                (child as? any _ChildCacheable)?._applyChildSlotsRecursively(
-                    state: slot.extractChildState(mutableState),
-                    triggerDefaults: false
-                )
+                nested += (child as? any _ChildCacheable)?._applyChildSlotsRecursively(
+                    state: slot.extractChildState(mutableState)
+                ) ?? []
                 newChildren.append((child, slot))
                 _childCache[slot.key] = child
             } else {
@@ -170,11 +175,7 @@ public final class Store<R: Reducer>: Statostore, ObservableObject {
             slot.resetDirty(&mutableState)
         }
         _rawState = mutableState
-        if triggerDefaults {
-            for (child, slot) in newChildren {
-                slot.triggerDefault(child)
-            }
-        }
+        return newChildren.map { child, slot in { slot.triggerDefault(child) } } + nested
     }
 
     // MARK: - CustomDebugStringConvertible
@@ -187,7 +188,7 @@ public final class Store<R: Reducer>: Statostore, ObservableObject {
 // MARK: - _ChildCacheable (fileprivate — recursive descendant initialization support)
 
 fileprivate protocol _ChildCacheable: AnyObject {
-    func _applyChildSlotsRecursively(state: Any, triggerDefaults: Bool)
+    func _applyChildSlotsRecursively(state: Any) -> [() -> Void]
 }
 
 extension Store: _ChildCacheable {}
