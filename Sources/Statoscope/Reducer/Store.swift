@@ -59,21 +59,36 @@ public final class Store<R: Reducer>: Statostore, ObservableObject {
 
     // MARK: - Public API
 
-    /// Computed state: injects live child states and parent state snapshots before returning.
+    /// The state of this store and of everything live below it, with no injection from above.
     ///
-    /// Reads `_rawState`, then applies each `_childSlots` `injectIntoParent` closure
-    /// (so `state.child` always reflects the current child store's data) and each
-    /// `_superSlots` `inject` closure (so `state.parent` always reflects the current
-    /// parent store's data). The raw storage is unmodified.
+    /// Applies each `_childSlots` `injectIntoParent` closure, which embeds the child's own `_treeState`
+    /// (so a grandchild is visible from the grandparent: `state.child?.grandchild`). It never reads
+    /// `_superSlots`, so it never calls up the tree: this is the cut that keeps `@SuperState`
+    /// (child → parent's `state`) and child embedding (parent → child's `_treeState`) from recursing
+    /// into each other. The raw storage is unmodified.
+    ///
+    /// Public so macro-generated `injectIntoParent` closures can reach it without `@_spi` imports.
+    public var _treeState: R.State {
+        let childSlots = R._childSlots
+        guard !childSlots.isEmpty else { return _rawState }
+        var s = _rawState
+        for slot in childSlots {
+            slot.injectIntoParent(_childCache[slot.key], &s)
+        }
+        return s
+    }
+
+    /// Computed state: `_treeState` (own state plus every live descendant) plus the snapshots injected
+    /// from above (`_superSlots`: `@SuperState`, `@SuperScope`, `@ReducerInjected`), so `state.parent`
+    /// always reflects the current parent store's data. The raw storage is unmodified.
+    ///
+    /// What a parent embeds of this store is `_treeState`, not `state`: the snapshots injected from above
+    /// stay out of it (see `_treeState`).
     public var state: R.State {
         get {
-            let childSlots = R._childSlots
             let superSlots = R._superSlots
-            guard !childSlots.isEmpty || !superSlots.isEmpty else { return _rawState }
-            var s = _rawState
-            for slot in childSlots {
-                slot.injectIntoParent(_childCache[slot.key], &s)
-            }
+            guard !superSlots.isEmpty else { return _treeState }
+            var s = _treeState
             for slot in superSlots {
                 slot.inject(self, &s)
             }
