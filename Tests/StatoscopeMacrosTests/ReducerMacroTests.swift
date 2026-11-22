@@ -176,7 +176,7 @@ final class ReducerMacroTests: XCTestCase {
                                            "expected Statoscope.Store<Child>. " +
                                            "This indicates a bug in the @Reducer macro, not user code.")
                             }
-                            state.$child = SubState(injectedValue: s._rawState)
+                            state.$child = SubState(injectedValue: s._treeState)
                         },
                         extractChildState: { parentState in
                             parentState.child!

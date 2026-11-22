@@ -361,7 +361,7 @@ public struct ReducerMacro: MemberMacro, ExtensionMacro {
                                        "expected Statoscope.Store<\(reducerType)>. " +
                                        "This indicates a bug in the @Reducer macro, not user code.")
                         }
-                        state.$\(prop.name) = SubState(injectedValue: s._rawState)
+                        state.$\(prop.name) = SubState(injectedValue: s._treeState)
                     },
                     extractChildState: { parentState in parentState.\(prop.name)! }
                 )
